@@ -440,7 +440,7 @@ def get_recommendations():
         return jsonify({'error': str(e)}), 500
 
 @app.route("/transcribe-audio", methods=["POST"])
-@login_required
+@jwt_required()
 def transcribe_audio():
     try:
         if 'audio' not in request.files:

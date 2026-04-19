@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
 import '../widgets/dashboard/aurora_painter.dart';
 import 'recipe_detail_screen.dart';
+import 'package:cross_file/cross_file.dart';
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -190,15 +191,24 @@ class _RecommendScreenState extends State<RecommendScreen>
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
 
+      final bytes = await XFile(path).readAsBytes();
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/transcribe-audio'),
       );
       request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(await http.MultipartFile.fromPath('audio', path));
+      request.files.add(http.MultipartFile.fromBytes(
+        'audio',
+        bytes,
+        filename: 'recording.webm',
+      ));
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+      print('STATUS: ${response.statusCode}');
+      print('BODY: ${response.body}');
+
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
