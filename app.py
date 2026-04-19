@@ -464,8 +464,9 @@ def transcribe_audio():
         return jsonify({'transcript': transcript})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 @app.route("/analyze-image", methods=["POST"])
-@login_required
+@jwt_required()
 def analyze_image():
     try:
         if 'image' not in request.files:
