@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Recipe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
+</head>
+<body>
+{% extends "base.html" %}
+
+{% block title %}Add Recipe{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <h2>Add New Recipe</h2>
+
+    <form method="POST">
+        <label>Recipe Name</label>
+        <input type="text" name="recipe_name" required>
+
+        <label>Ingredients</label>
+        <textarea name="ingredients" class="auto-expand" required></textarea>
+
+        <label>Cuisine</label>
+        <input type="text" name="cuisine">
+
+        <label>Calories</label>
+        <input type="number" name="calories">
+
+        <label>Rating</label>
+        <input type="number" step="0.1" name="rating">
+
+        <label>Difficulty</label>
+        <select name="difficulty">
+            <option>Easy</option>
+            <option>Medium</option>
+            <option>Hard</option>
+        </select>
+
+        <label>Instructions</label>
+        <textarea name="instructions" class="auto-expand" placeholder="Step 1: ...
+Step 2: ...
+Step 3: ..." required></textarea>
+
+        <button type="submit" class="btn save">Add Recipe</button>
+        <a href="{{ url_for('manage_recipes') }}" class="btn cancel">Cancel</a>
+    </form>
+</div>
+
+<script>
+    // auto expand textarea height based on content
+    document.querySelectorAll('.auto-expand').forEach(textarea => {
+        textarea.style.height = '80px'; // initial height
+        textarea.addEventListener('input', e => {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        });
+    });
+</script>
+{% endblock %}
+</body>
+</html>

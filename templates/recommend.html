@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Recommendations - ChefGPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/recommend.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <h1>🍳 ChefGPT</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Home</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="search-box">
+            <h2>  <img src="https://img.icons8.com/fluency/36/search.png" style="vertical-align:middle; margin-right:10px;">
+            Get Recipe Recommendations</h2>
+            <p style="color: #666; margin-bottom: 20px;">Choose how you want to enter your ingredients</p>
+
+            <!-- 3 Tab Buttons -->
+            <div class="input-tabs">
+                <button class="tab-btn active" id="tab-text" onclick="switchTab('text')">⌨️ Type</button>
+                <button class="tab-btn" id="tab-voice" onclick="switchTab('voice')">🎤 Voice</button>
+                <button class="tab-btn" id="tab-image" onclick="switchTab('image')">📸 Image</button>
+            </div>
+
+            <!-- Tab 1: Text -->
+            <div class="tab-content" id="content-text">
+                <p style="color: #666; margin-bottom: 12px;">Enter your available ingredients (comma-separated)</p>
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="ingredients-input"
+                        placeholder="e.g., chicken, rice, egg, tomato"
+                        autocomplete="off"
+                    >
+                    <button class="btn-search" onclick="getRecommendations()">Get Recipes</button>
+                </div>
+            </div>
+
+            <!-- Tab 2: Voice (Whisper) -->
+            <div class="tab-content" id="content-voice" style="display: none;">
+                <p style="color: #666; margin-bottom: 12px;">Click the mic, say your ingredients, then click stop 🎙️</p>
+                <div class="voice-section">
+                    <button class="btn-mic" id="micBtn" onclick="toggleRecording()">🎤 Start Recording</button>
+                    <p class="voice-status" id="voiceStatus"></p>
+                </div>
+                <div class="input-group" id="voice-result-group" style="display: none;">
+                    <input
+                        type="text"
+                        id="ingredients-input-voice"
+                        placeholder="Detected ingredients will appear here..."
+                        autocomplete="off"
+                    >
+                    <button class="btn-search" id="voice-search-btn" onclick="getRecommendationsFromVoice()">Get Recipes</button>
+                </div>
+            </div>
+
+            <!-- Tab 3: Image (BLIP) -->
+            <div class="tab-content" id="content-image" style="display: none;">
+                <p style="color: #666; margin-bottom: 12px;">Upload one or more photos of your ingredients and let AI detect them 📸</p>
+                <div class="image-section">
+                    <label class="image-upload-label" id="imageUploadLabel" for="imageInput">
+                        <span id="uploadPrompt">📂 Click to upload one or more images</span>
+                        <input type="file" id="imageInput" accept="image/*" multiple onchange="handleImageUpload(event)" style="display: none;">
+                    </label>
+                    <p class="voice-status" id="imageStatus"></p>
+                </div>
+                <div class="input-group" id="image-result-group" style="display: none;">
+                    <input
+                        type="text"
+                        id="ingredients-input-image"
+                        placeholder="Detected ingredients will appear here..."
+                        autocomplete="off"
+                    >
+                    <button class="btn-search" onclick="getRecommendationsFromImage()">Get Recipes</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+
+        <div class="loading" id="loading">
+            <h3>🤖 AI is analyzing your ingredients...</h3>
+            <p>Please wait...</p>
+        </div>
+
+        <div class="results" id="results">
+            <h2 style="color: #667eea; margin-bottom: 20px;">Recommended Recipes for You</h2>
+            <div id="recipe-list"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/recommend.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ── Body ── */
+body {
+  background: #FFFAF7;
+  min-height: 100vh;
+  color: #1A1A1A;
+}
+
+/* ── Navbar ── */
+.navbar {
+  background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+  padding: 18px 40px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 24px rgba(255, 107, 53, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.navbar a {
+  color: white;
+  text-decoration: none;
+  padding: 10px 22px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 25px;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+}
+
+.navbar a:hover {
+  background: rgba(255,255,255,0.35);
+  transform: translateY(-2px);
+}
+
+/* ── Container ── */
+.container {
+  max-width: 860px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+
+/* ── Cooking Header ── */
+.cooking-header {
+  background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+  padding: 36px 40px;
+  border-radius: 24px;
+  margin-bottom: 28px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(255, 107, 53, 0.3);
+}
+
+.cooking-header::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 200px; height: 200px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+}
+
+.cooking-header::after {
+  content: '';
+  position: absolute;
+  bottom: -40px; left: 10%;
+  width: 150px; height: 150px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 50%;
+}
+
+.cooking-header h1 {
+  color: white;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.2;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ── Cooking Mode Badge ── */
+.cooking-mode-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 25px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Success Message ── */
+.success-message {
+  background: #F0FFF4;
+  color: #276749;
+  padding: 16px 22px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  display: none;
+  text-align: center;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid #9AE6B4;
+  border-left: 4px solid #38A169;
+  animation: slideInDown 0.4s ease;
+}
+
+.success-message.show {
+  display: block;
+}
+
+@keyframes slideInDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Instructions Box ── */
+.instructions-box {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(255, 107, 53, 0.08);
+  border: 1px solid rgba(255, 107, 53, 0.08);
+  margin-bottom: 24px;
+}
+
+.instructions-box h2 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1A1A1A;
+  margin-bottom: 28px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #FFF3EE;
+  position: relative;
+}
+
+.instructions-box h2::after {
+  content: '';
+  position: absolute;
+  bottom: -2px; left: 0;
+  width: 48px; height: 2px;
+  background: linear-gradient(90deg, #FF6B35, #F7931E);
+  border-radius: 2px;
+}
+
+/* ── Steps ── */
+.step {
+  background: #FFFAF7;
+  padding: 20px 22px;
+  border-radius: 16px;
+  margin-bottom: 14px;
+  border-left: 4px solid #FFB899;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.step:hover {
+  background: #FFF3EE;
+  border-left-color: #FF6B35;
+  transform: translateX(6px);
+  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.1);
+}
+
+.step.completed {
+  background: #F0FFF4;
+  border-left-color: #38A169;
+}
+
+.step.completed .step-text {
+  text-decoration: line-through;
+  color: #999;
+}
+
+/* ── Step Number ── */
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FF6B35, #F7931E);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+  transition: all 0.3s ease;
+}
+
+.step.completed .step-number {
+  background: linear-gradient(135deg, #38A169, #48BB78);
+  box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3);
+}
+
+/* ── Step Text ── */
+.step-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #444;
+  flex: 1;
+  padding-top: 6px;
+  transition: all 0.3s ease;
+}
+
+/* ── Action Buttons ── */
+.action-buttons {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.3s ease;
+  letter-spacing: 0.3px;
+}
+
+.btn-complete {
+  background: linear-gradient(135deg, #38A169 0%, #48BB78 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(56, 161, 105, 0.35);
+}
+
+.btn-complete:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(56, 161, 105, 0.45);
+}
+
+.btn-complete:active {
+  transform: translateY(-1px);
+}
+
+.btn-back {
+  background: transparent;
+  color: #FF6B35;
+  border: 2px solid #FF6B35;
+  box-shadow: none;
+}
+
+.btn-back:hover {
+  background: #FF6B35;
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+}
+
+/* ── Progress indicator ── */
+#steps-container {
+  counter-reset: step-counter;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 14px 20px;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .navbar h1 { font-size: 18px; }
+
+  .navbar a { width: 100%; text-align: center; }
+
+  .container { padding: 0 16px; margin: 24px auto; }
+
+  .cooking-header { padding: 28px 22px; }
+
+  .cooking-header h1 { font-size: 22px; }
+
+  .instructions-box { padding: 24px 18px; }
+
+  .step { padding: 16px; }
+
+  .action-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn { text-align: center; }
+}

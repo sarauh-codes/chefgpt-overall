@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Cooked Recipes - ChefGPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <h1>🍳 ChefGPT</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Home</a>
+            <a href="{{ url_for('recommend_page') }}">Get Recipes</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="page-header">
+            <h2>📖 My Cooked Recipes History</h2>
+            <p>Track all the delicious meals you've prepared!</p>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">{{ recipes|length }}</div>
+                    <div class="stat-label">Recipes Cooked</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ recipes|map(attribute='recipe_id')|unique|list|length }}</div>
+                    <div class="stat-label">Unique Dishes</div>
+                </div>
+            </div>
+        </div>
+        
+        {% if recipes|length == 0 %}
+            <div class="empty-state">
+                <h3>🍽️ No Recipes Cooked Yet</h3>
+                <p>Start your cooking journey by finding recipes and marking them as cooked!</p>
+                <a href="{{ url_for('recommend_page') }}">Find Recipes to Cook</a>
+            </div>
+        {% else %}
+            {% for cooked in recipes %}
+                <div class="recipe-card">
+                    <div class="recipe-info">
+                        <h3>{{ cooked.recipe_name }}</h3>
+                        <div class="recipe-meta">
+                            Recipe ID: #{{ cooked.recipe_id }}
+                        </div>
+                        <div class="cooked-date">
+                            🕒 Cooked on: {{ cooked.cooked_at.strftime('%B %d, %Y at %I:%M %p') }}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('recipe_detail', recipe_id=cooked.recipe_id) }}" class="view-btn">
+                        View Recipe
+                    </a>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</body>
+</html>

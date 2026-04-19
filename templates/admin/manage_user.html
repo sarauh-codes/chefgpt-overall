@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Users</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/manage.css') }}">
+</head>
+<body>
+
+<div class="wrapper">
+
+    <aside class="sidebar">
+        <h2>🍳 ChefGPT Admin</h2>
+        <nav>
+            <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('manage_user') }}" class="active">👤 Users</a>
+            <a href="{{ url_for('manage_feedback') }}">⭐ Feedbacks</a>
+            <a href="{{ url_for('manage_recipes') }}">🍳 Recipes</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+
+        <div class="section">
+            <h2>👤 Registered Users</h2>
+
+            <a href="{{ url_for('add_user') }}">➕ Add New User</a>
+
+            <table>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <span class="badge {{ user.role }}">{{ user.role }}</span>
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn edit">Edit</a>
+                        <form method="POST"
+                              action="{{ url_for('delete_user', user_id=user.id) }}"
+                              style="display:inline"
+                              onsubmit="return confirm('Delete user?');">
+                            <button class="btn delete">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+    </main>
+</div>
+
+</body>
+</html>

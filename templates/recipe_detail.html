@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ recipe.recipe_name }} - ChefGPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/recipe.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <input type="hidden" id="recipe-id" value="{{ recipe.recipe_id }}">
+    
+    <div class="navbar">
+        <h1>🍳 ChefGPT</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Home</a>
+            <a href="{{ url_for('recommend_page') }}">Get Recipes</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="recipe-detail">
+            <h1 class="recipe-title">{{ recipe.recipe_name }}</h1>
+            
+            <div class="recipe-meta">
+                <span class="meta-tag">🍽️ {{ recipe.cuisine }}</span>
+                <span class="meta-tag">🔥 {{ recipe.calories }} calories</span>
+                <span class="meta-tag">⭐ {{ recipe.rating }}/5</span>
+                 <span class="meta-tag difficulty-{{ recipe.difficulty }}">
+                    {% if recipe.difficulty == 'easy' %}
+                         Easy
+                    {% elif recipe.difficulty == 'medium' %}
+                         Medium
+                    {% elif recipe.difficulty == 'hard' %}
+                         Hard
+                    {% endif %}
+                </span>
+            </div>
+            
+            <div class="section">
+                <h3>📝 Ingredients</h3>
+                <div class="ingredients-list">
+                    <ul>
+                        {% set ingredients_array = recipe.ingredients.split() %}
+                        {% for ingredient in ingredients_array %}
+                            <li>{{ ingredient }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="section">
+            <h3>👨‍🍳 Instructions</h3>
+            <div class="instructions-list">
+                <ol>
+                    {% set instructions_array = recipe.instructions.split(' | ') %}
+                    {% for instruction in instructions_array %}
+                        <li>{{ instruction }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+            </div>
+
+            
+            <div class="section no-print">
+                <h3>⭐ Rate This Recipe</h3>
+                <div class="rating-box">
+                    <div class="star-rating">
+                        <span class="star" onclick="setRating(1)">☆</span>
+                        <span class="star" onclick="setRating(2)">☆</span>
+                        <span class="star" onclick="setRating(3)">☆</span>
+                        <span class="star" onclick="setRating(4)">☆</span>
+                        <span class="star" onclick="setRating(5)">☆</span>
+                    </div>
+                    <textarea id="comment-input" placeholder="Share your thoughts about this recipe... (optional)" rows="3"></textarea>
+                    <button class="btn-submit-feedback" onclick="submitFeedback()">Submit Feedback</button>
+                </div>
+            </div>
+            
+            <div class="section no-print">
+                <h3>💬 User Reviews</h3>
+                <div id="feedbacks-container">
+                    <p style="color: #999; text-align: center;">Loading reviews...</p>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="window.location.href='{{ url_for('start_cooking', recipe_id=recipe.recipe_id) }}'">🍳 Start Cooking</button>
+               <button class="btn btn-secondary" id="save-btn" onclick="toggleSave()">💾 Save Recipe</button>
+               <button onclick="openShareModal()" class="share-btn">🔗 Share Recipe</button>
+                <button onclick="printRecipe()" class="print-btn">🖨️ Print Recipe</button>
+                <button onclick="downloadPDF()" class="pdf-btn">📄 Download PDF</button> 
+            </div>
+            
+    </div>
+    
+    <!-- Share Modal Overlay -->
+<div id="share-overlay" onclick="closeShareModal()"
+  style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:500;"></div>
+
+<!-- Share Modal -->
+<div id="share-modal"
+  style="display:none; position:fixed; top:50%; left:50%;
+         transform:translate(-50%, -50%);
+         background:white; border-radius:20px; padding:30px;
+         width:340px; z-index:600;
+         box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <h5 style="margin:0; font-weight:700;">🔗 Share Recipe</h5>
+    <button onclick="closeShareModal()"
+      style="background:#f0f0f0; border:none; border-radius:50%;
+             width:32px; height:32px; cursor:pointer; font-size:16px;">✕</button>
+  </div>
+  <p style="color:#888; font-size:13px; margin-bottom:24px;">
+    Share <strong>{{ recipe.recipe_name }}</strong> with your friends!
+  </p>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+    <button onclick="shareWhatsApp()"
+      style="display:flex; align-items:center; gap:10px; padding:14px 16px;
+             background:#25D366; color:white; border:none; border-radius:14px;
+             font-size:14px; font-weight:600; cursor:pointer;"
+      onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <span style="font-size:20px;">💬</span> WhatsApp
+    </button>
+
+    <button onclick="shareFacebook()"
+      style="display:flex; align-items:center; gap:10px; padding:14px 16px;
+             background:#1877F2; color:white; border:none; border-radius:14px;
+             font-size:14px; font-weight:600; cursor:pointer;"
+      onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <span style="font-size:20px;">📘</span> Facebook
+    </button>
+
+    <button onclick="shareTwitter()"
+      style="display:flex; align-items:center; gap:10px; padding:14px 16px;
+             background:#000000; color:white; border:none; border-radius:14px;
+             font-size:14px; font-weight:600; cursor:pointer;"
+      onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <span style="font-size:20px;">🐦</span> Twitter/X
+    </button>
+
+    <button onclick="shareTelegram()"
+      style="display:flex; align-items:center; gap:10px; padding:14px 16px;
+             background:#0088cc; color:white; border:none; border-radius:14px;
+             font-size:14px; font-weight:600; cursor:pointer;"
+      onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <span style="font-size:20px;">✈️</span> Telegram
+    </button>
+  </div>
+
+  <div style="display:flex; gap:8px;">
+    <input id="share-link-input" type="text" readonly
+      value="{{ request.url }}"
+      style="flex:1; padding:10px 14px; border:2px solid #e0e0e0;
+             border-radius:12px; font-size:13px; color:#555; outline:none;">
+    <button onclick="copyLink()" id="copy-btn"
+      style="padding:10px 16px; background:linear-gradient(135deg,#667eea,#764ba2);
+             color:white; border:none; border-radius:12px;
+             font-size:13px; font-weight:600; cursor:pointer;">
+      📋 Copy
+    </button>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/recipe.js') }}"></script>
+</body>
+</html>
+

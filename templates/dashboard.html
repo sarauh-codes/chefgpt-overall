@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ChefGPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+<!-- Overlay background -->
+<div id="diet-overlay" onclick="closeDietDrawer()"
+  style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:200;"></div>
+
+<!--Slide Drawer -->
+<div id="diet-drawer"
+  style="position:fixed; top:0; right:-480px; width:440px; height:100vh;
+         background:#fff; z-index:300; overflow-y:auto; padding:30px 24px;
+         box-shadow:-4px 0 20px rgba(0,0,0,0.2);
+         transition: right 0.35s ease;">
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <h5 style="font-weight:700; margin:0;">🥗 Dietary Settings</h5>
+    <button onclick="closeDietDrawer()"
+      style="background:#f0f0f0; border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:16px;">✕</button>
+  </div>
+  <p style="color:#666; font-size:14px; margin-bottom:20px;">Your settings affect which recipes we recommend to you.</p>
+
+  <!-- Success/Error Alert -->
+  <div id="drawer-alert" style="display:none; padding:12px 16px; border-radius:10px; margin-bottom:16px; font-size:14px;"></div>
+
+  <form id="diet-form">
+
+    <!-- Diet Type -->
+    <div style="margin-bottom:20px;">
+      <label style="font-weight:600; display:block; margin-bottom:6px;">🍽️ Diet Type</label>
+      <p style="color:#888; font-size:13px; margin-bottom:12px;">Choose the diet that best describes you.</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        {% set diet_options = [
+        ('omnivore', '🍽️ No Restrictions', 'Eats everything'),
+        ('vegetarian', '🥦 Vegetarian', 'No meat, dairy & eggs ok'),
+        ('vegan', '🌱 Vegan', 'No animal products'),
+        ('halal', '☪️ Halal', 'No pork & alcohol'),
+        ] %}
+        {% for value, label, desc in diet_options %}
+        <label for="diet_{{ value }}" style="border:2px solid #e0e0e0; border-radius:12px; padding:10px 12px; cursor:pointer; transition:all 0.2s;" 
+               onmouseover="this.style.borderColor='#667eea'" onmouseout="updateBorderColors()">
+          <input type="radio" name="diet_type" id="diet_{{ value }}" value="{{ value }}"
+            style="display:none;"
+            {% if profile and profile.diet_type == value %}checked
+            {% elif not profile and value == 'omnivore' %}checked{% endif %}>
+          <strong style="font-size:13px;">{{ label }}</strong><br>
+          <small style="color:#888;">{{ desc }}</small>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <hr style="margin:20px 0;">
+
+    <!-- Allergies -->
+    <div style="margin-bottom:20px;">
+      <label style="font-weight:600; display:block; margin-bottom:6px;">⚠️ Allergies</label>
+      <p style="color:#888; font-size:13px; margin-bottom:8px;">Will be filtered out from recommendations.</p>
+      <input type="text" id="allergies" name="allergies"
+        placeholder="e.g. peanuts, shellfish, gluten"
+        value="{{ profile.allergies if profile and profile.allergies else '' }}"
+        style="width:100%; padding:12px 16px; border:2px solid #e0e0e0; border-radius:12px;
+               font-size:14px; outline:none; transition:border 0.2s; box-sizing:border-box;"
+        onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e0e0e0'"
+        oninput="renderTags('allergies','allergy-tags','#ff6b6b','white')">
+      <div id="allergy-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+    </div>
+
+    <hr style="margin:20px 0;">
+
+    <!-- Forbidden Ingredients -->
+    <div style="margin-bottom:24px;">
+      <label style="font-weight:600; display:block; margin-bottom:6px;">🚫 Forbidden Ingredients</label>
+      <p style="color:#888; font-size:13px; margin-bottom:8px;">Personal dislikes — not allergies.</p>
+      <input type="text" id="forbidden_ingredients" name="forbidden_ingredients"
+        placeholder="e.g. coriander, anchovies"
+        value="{{ profile.forbidden_ingredients if profile and profile.forbidden_ingredients else '' }}"
+        style="width:100%; padding:12px 16px; border:2px solid #e0e0e0; border-radius:12px;
+               font-size:14px; outline:none; transition:border 0.2s; box-sizing:border-box;"
+        onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e0e0e0'"
+        oninput="renderTags('forbidden_ingredients','forbidden-tags','#fdcb6e','#333')">
+      <div id="forbidden-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+    </div>
+
+    {% if profile and profile.updated_at %}
+    <p style="color:#aaa; font-size:12px; margin-bottom:16px;">
+      🕐 Last saved: {{ profile.updated_at.strftime('%d %b %Y, %I:%M %p') }}
+    </p>
+    {% endif %}
+
+    <!-- Buttons -->
+    <div style="display:flex; gap:10px;">
+      <button type="submit"
+        style="flex:1; padding:13px; background:linear-gradient(135deg,#667eea,#764ba2);
+               color:white; border:none; border-radius:25px; font-size:15px;
+               font-weight:600; cursor:pointer; transition:all 0.3s;
+               box-shadow:0 4px 15px rgba(102,126,234,0.3);">
+        💾 Save & Apply
+      </button>
+      <button type="button" onclick="closeDietDrawer()"
+        style="padding:13px 20px; background:#f0f0f0; border:none;
+               border-radius:25px; font-size:15px; cursor:pointer;">
+        Cancel
+      </button>
+    </div>
+
+  </form>
+</div>
+<div class="navbar">
+    <h1>🍳 ChefGPT</h1>
+    <div class="nav-right">
+        <div class="profile-dropdown">
+            <button class="profile-btn">👤 {{ username }} ▾</button>
+            <div class="dropdown-menu">
+                <a href="javascript:void(0)" onclick="openDietDrawer()">🥦 Dietary Settings</a> 
+                <a href="{{ url_for('logout') }}">🚪 Logout</a>
+            </div>
+        </div>
+    </div>
+</div>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="welcome">
+            <div class="welcome-text">
+            <h2>Welcome, {{ username }}! 👋</h2> 
+            <p>Ready to discover amazing recipes based on your ingredients?</p>
+            </div>
+            <img src="https://img.icons8.com/fluency/120/chef-hat.png" class="welcome-img" alt="">
+        </div>
+        
+        <div class="dashboard-grid">
+            <div class="card">
+                <h3>🔍 Get Recipe Suggestions</h3>
+                <p>Enter your available ingredients and get personalized recipe recommendations</p>
+                <button onclick="window.location.href='{{ url_for('recommend_page') }}'">Start Cooking</button>
+            </div>
+            
+            <div class="card">
+                <h3>📖 My Cooked Recipes</h3>
+                <p>View all the recipes you've already cooked</p>
+                <button onclick="window.location.href='{{ url_for('cooked_history') }}'">View History</button>
+            </div>
+            
+            <div class="card">
+                <h3>⭐ Saved Recipes</h3>
+                <p>Access your favorite saved recipes anytime</p>
+                <button onclick="window.location.href='{{ url_for('saved_recipes') }}'">View Saved</button>
+            </div>
+            <div class="card">
+                <h3>🥕 What's in My Fridge?</h3>
+                <p>Enter ingredients you have and find recipes you can cook right now</p>
+                <button onclick="window.location.href='{{ url_for('fridge_search_page') }}'">Search by Fridge</button>
+            </div>
+    </div>
+        <div class="browse-section">
+            <h2>🍴 Browse All Recipes</h2>
+            <p>Explore our collection of delicious recipes</p>
+             <div class="search-container">
+                <input type="text" 
+                    id="recipe-search" 
+                    placeholder="🔍 Search by recipe name, cuisine, or ingredients..." 
+                    oninput="searchRecipes()">
+                </div>
+        
+            <div class="recipe-catalog" id="recipe-catalog">
+                {% for recipe in recipes %}
+                    <div class="recipe-card">
+                        <div class="recipe-header">
+                            <h3>{{ recipe.recipe_name }}</h3>
+                        </div>
+                        
+                        <div class="recipe-info">
+                            <span class="info-tag">🍽️ {{ recipe.cuisine }}</span>
+                            <span class="info-tag">🔥 {{ recipe.calories }} cal</span>
+                            <span class="info-tag">⭐ {{ recipe.rating }}/5</span>
+                        </div>
+                        
+                        <div class="ingredients-list">
+                            <strong>Ingredients:</strong> {{ recipe.ingredients }}
+                        </div>
+                        
+                        <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="view-recipe-btn">View Full Recipe</a>
+                    </div>
+                {% endfor %}
+            </div>
+            <div id="no-results" style="display: none;">
+                <h3>No recipes found</h3>
+                <p>Try a different search term or load more recipes</p>
+            </div>
+            
+            {% if total_recipes > 12 %}
+                <div class="load-more-container">
+                    <button class="btn-load-more" id="load-more-btn" onclick="loadMoreRecipes()">
+                        Load More Recipes
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

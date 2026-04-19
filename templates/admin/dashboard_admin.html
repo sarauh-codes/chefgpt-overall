@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
+<div class="wrapper">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <h2>🍳 ChefGPT Admin</h2>
+        <nav>
+            <a href="{{ url_for('admin_dashboard') }}" class="active">Dashboard</a>
+            <a href="{{ url_for('manage_user') }}">👤 Users</a>
+            <a href="{{ url_for('manage_feedback') }}">⭐ Feedbacks</a>
+            <a href="{{ url_for('manage_recipes') }}">🍳 Recipes</a>
+            <a href="{{ url_for('logout') }}">🚪 Logout</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <!-- Welcome -->
+        <div class="welcome">
+            <h1>Welcome, Admin {{ current_user.username }} 👋</h1>
+            <p>System overview and quick actions</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats">
+            <div class="stat-card">
+                <h3>👤 Total Users</h3>
+                <p>{{ users|length }}</p>
+            </div>
+            <div class="stat-card">
+                <h3>⭐ Total Feedbacks</h3>
+                <p>{{ feedbacks|length }}</p>
+            </div>
+        </div>
+
+        <!-- Quick Action Cards -->
+        <div class="admin-cards">
+            <div class="admin-card">
+                <div class="card-header">
+                    <h3>👤 User Management</h3>
+                    <span>{{ users|length }} users</span>
+                </div>
+                <p>Manage users: edit, delete, or add new accounts.</p>
+                <button onclick="location.href='{{ url_for('manage_user') }}'">Open</button>
+            </div>
+
+            <div class="admin-card">
+                <div class="card-header">
+                    <h3>⭐ Feedback Moderation</h3>
+                    <span>{{ feedbacks|length }} feedbacks</span>
+                </div>
+                <p>Review user feedback and moderate comments.</p>
+                <button onclick="location.href='{{ url_for('manage_feedback') }}'">Open</button>
+            </div>
+
+            <div class="admin-card">
+                <div class="card-header">
+                    <h3>🍳 Recipe Control</h3>
+                    <span>{{ recipes|length }} recipes</span>
+                </div>
+                <p>Maintain recipe quality: add, update, or delete recipes.</p>
+                <button onclick="location.href='{{ url_for('manage_recipes') }}'">Open</button>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="section">
+            <h2>📝 Recent Activity</h2>
+            <ul class="recent-activity">
+                {% for user in users[-5:] %}
+                <li>New user registered: {{ user.username }}</li>
+                {% endfor %}
+                {% for fb in feedbacks[-5:] %}
+                <li>New feedback on "{{ fb.recipe_name }}" - {{ fb.rating }}⭐</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </main>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooking: {{ recipe.recipe_name }} - ChefGPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cooking.css') }}">
+</head>
+<body>
+    <input type="hidden" id="recipe-id" value="{{ recipe.recipe_id }}">
+    
+    <div class="navbar">
+        <h1>🍳 ChefGPT - Cooking Mode</h1>
+        <a href="{{ url_for('dashboard') }}">Exit Cooking</a>
+    </div>
+    
+    <div class="container">
+        <div class="cooking-header">
+            <span class="cooking-mode-badge">👨‍🍳 COOKING MODE</span>
+            <h1>{{ recipe.recipe_name }}</h1>
+        </div>
+        
+        <div class="success-message" id="success-message">
+            ✅ Great job! Recipe marked as cooked!
+        </div>
+        
+        <div class="instructions-box">
+            <h2>📝 Step-by-Step Instructions</h2>
+            
+            <div id="steps-container">
+                {% set steps = recipe.instructions.split(' | ') %}
+                {% for step in steps %}
+                    <div class="step" onclick="toggleStep(this)">
+                        <span class="step-number">{{ loop.index }}</span>
+                        <span class="step-text">{{ step }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-complete" onclick="markAsCooked()">
+                    ✅ I've Finished Cooking!
+                </button>
+                <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="btn btn-back">
+                    ← Back to Recipe
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/cooking.js') }}"></script>
+</body>
+</html>

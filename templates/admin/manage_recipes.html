@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/manage.css') }}">
+    <div class="wrapper">
+
+    <aside class="sidebar">
+        <h2>🍳 ChefGPT Admin</h2>
+        <nav>
+            <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('manage_user') }}">👤 Users</a>
+            <a href="{{ url_for('manage_feedback') }}">⭐ Feedbacks</a>
+            <a href="{{ url_for('manage_recipes') }}" class="active">🍳 Recipes</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </nav>
+    </aside>
+    <main class="main-content">
+
+        <div class="section">
+
+        <h2>Manage Recipes</h2>
+
+        <a href="{{ url_for('add_recipe') }}">➕ Add New Recipe</a>
+        <br><br>
+
+        <form method="GET" action="{{ url_for('manage_recipes') }}" class="search-form">
+            <input type="text" name="q"
+                placeholder="Search recipe name / ingredient / cuisine"
+                value="{{ request.args.get('q','') }}">
+            <button type="submit">Search</button>
+        </form>
+
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Cuisine</th>
+                <th>Calories</th>
+                <th>Rating</th>
+                <th>Actions</th>
+            </tr>
+
+            {% for r in recipes %}
+            <tr>
+                <td>{{ r.recipe_id }}</td>
+                <td>{{ r.recipe_name }}</td>
+                <td>{{ r.cuisine }}</td>
+                <td>{{ r.calories }}</td>
+                <td>{{ r.rating }}</td>
+                <td>
+                    <a href="{{ url_for('edit_recipe', recipe_id=r['recipe_id']) }}" class="btn edit">Edit</a>
+
+
+                    <form action="{{ url_for('delete_recipe', recipe_id=r['recipe_id']) }}"
+                        method="POST" style="display:inline;">
+                        <button class="btn delete" type="submit"
+                                onclick="return confirm('Delete this recipe?')">
+                            Delete
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        </div>
+        </main>
+
+{% endblock %}

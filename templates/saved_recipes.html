@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Recipes - ChefGPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <h1>🍳 ChefGPT</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Home</a>
+            <a href="{{ url_for('recommend_page') }}">Get Recipes</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>⭐ My Saved Recipes</h2>
+            <p>All your favourite recipes in one place!</p>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">{{ recipes|length }}</div>
+                    <div class="stat-label">Saved Recipes</div>
+                </div>
+            </div>
+        </div>
+
+        {% if recipes|length == 0 %}
+            <div class="empty-state">
+                <h3>💾 No Saved Recipes Yet</h3>
+                <p>Browse recipes and hit Save to bookmark your favourites!</p>
+                <a href="{{ url_for('dashboard') }}">Browse Recipes</a>
+            </div>
+        {% else %}
+            {% for saved in recipes %}
+                 <div class="recipe-card">
+        <div class="recipe-info">
+            <h3>{{ saved.recipe_name }}</h3>
+            <div class="cooked-date">
+                🕒 Saved on: {{ saved.saved_at.strftime('%B %d, %Y at %I:%M %p') }}
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <a href="{{ url_for('recipe_detail', recipe_id=saved.recipe_id) }}" class="view-btn">
+                View Recipe
+            </a>
+            <button class="view-btn" style="background:#e74c3c;" onclick="unsave({{ saved.recipe_id }}, this)">
+                🗑️ Remove
+            </button>
+        </div>
+    </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <script>
+async function unsave(recipeId, btn) {
+    const res = await fetch(`/unsave-recipe/${recipeId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        btn.closest('.recipe-card').remove();
+    } else {
+        alert(data.message);
+    }
+}
+</script>
+</body>
+</html>

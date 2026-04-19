@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit User</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
+</head>
+<body>
+{% extends "base.html" %}
+
+{% block title %}Edit User{% endblock %}
+
+{% block content %}
+<div class="section">
+    <h2>Edit User</h2>
+
+    <form method="POST">
+        <label>Username</label>
+        <input type="text" name="username" value="{{ user.username }}" required>
+
+        <label>Email</label>
+        <input type="email" name="email" value="{{ user.email }}" required>
+
+        <label>Role</label>
+        <select name="role">
+            <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
+            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+        </select>
+
+        <button class="btn save">Save Changes</button>
+        <a href="{{ url_for('manage_user') }}" class="btn cancel">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+</body>
+</html>

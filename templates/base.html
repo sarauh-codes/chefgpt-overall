@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}ChefGPT{% endblock %}</title>
+</head>
+
+<body>
+
+<!-- FLASH MESSAGES -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-messages">
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- PAGE CONTENT -->
+{% block content %}{% endblock %}
+
+<!-- AUTO HIDE FLASH -->
+<script>
+  setTimeout(() => {
+    document.querySelectorAll('.flash').forEach(flash => {
+      flash.classList.add('hide');
+      setTimeout(() => flash.remove(), 500);
+    });
+  }, 3000);
+</script>
+
+</body>
+</html>

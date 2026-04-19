@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add User</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
+</head>
+<body>
+{% extends "base.html" %}
+
+{% block title %}Add User{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Add New User</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <label>Username</label>
+        <input type="text" name="username" required>
+
+        <label>Email</label>
+        <input type="email" name="email" required>
+
+        <label>Password</label>
+        <input type="password" name="password" required>
+
+        <label>Role</label>
+        <select name="role" required>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+        </select>
+
+        <button type="submit" class="btn save">Add User</button>
+        <a href="{{ url_for('manage_user') }}" class="btn cancel">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+</body>
+</html>
