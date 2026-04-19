@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:record/record.dart';
+import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
 import '../widgets/dashboard/aurora_painter.dart';
 import 'recipe_detail_screen.dart';
@@ -16,12 +19,30 @@ class RecommendScreen extends StatefulWidget {
 class _RecommendScreenState extends State<RecommendScreen>
     with SingleTickerProviderStateMixin {
   final _ingredientsController = TextEditingController();
+  final _voiceIngredientsController = TextEditingController();
+  final _imageIngredientsController = TextEditingController();
+
   List _recommendations = [];
   bool _isLoading = false;
   String _errorMessage = '';
   final Map<String, String> _substituteResults = {};
   final Map<String, bool> _substituteLoading = {};
   late AnimationController _auroraController;
+
+  // Tab state
+  int _activeTab = 0; // 0 = text, 1 = voice, 2 = image
+
+  // Voice state
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+  bool _isTranscribing = false;
+  String _voiceStatus = '';
+  bool _voiceResultVisible = false;
+
+  // Image state
+  bool _isAnalyzingImage = false;
+  String _imageStatus = '';
+  bool _imageResultVisible = false;
 
   @override
   void initState() {
@@ -36,6 +57,9 @@ class _RecommendScreenState extends State<RecommendScreen>
   void dispose() {
     _auroraController.dispose();
     _ingredientsController.dispose();
+    _voiceIngredientsController.dispose();
+    _imageIngredientsController.dispose();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
@@ -121,6 +145,165 @@ class _RecommendScreenState extends State<RecommendScreen>
     } finally {
       setState(() => _substituteLoading.remove(key));
     }
+  }
+
+  // ===== VOICE =====
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      await _stopRecording();
+    } else {
+      await _startRecording();
+    }
+  }
+
+  Future<void> _startRecording() async {
+    final hasPermission = await _audioRecorder.hasPermission();
+    if (!hasPermission) {
+      setState(() => _voiceStatus = '❌ Microphone permission denied.');
+      return;
+    }
+
+    await _audioRecorder.start(
+      const RecordConfig(encoder: AudioEncoder.opus),
+      path: 'recording.webm',
+    );
+
+    setState(() {
+      _isRecording = true;
+      _voiceStatus = '🎙️ Recording... speak your ingredients now!';
+      _voiceResultVisible = false;
+      _voiceIngredientsController.clear();
+    });
+  }
+
+  Future<void> _stopRecording() async {
+    setState(() {
+      _isRecording = false;
+      _isTranscribing = true;
+      _voiceStatus = '🤖 Whisper is transcribing your audio...';
+    });
+
+    try {
+      final path = await _audioRecorder.stop();
+      if (path == null) throw Exception('Recording failed');
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/transcribe-audio'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+      request.files.add(await http.MultipartFile.fromPath('audio', path));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _voiceIngredientsController.text = data['transcript'] ?? '';
+          _voiceStatus =
+              '✅ Heard: "${data['transcript']}" — edit if needed, then tap Get Recipes!';
+          _voiceResultVisible = true;
+        });
+      } else {
+        setState(() => _voiceStatus =
+            '❌ Error: ${data['error'] ?? 'Transcription failed'}');
+      }
+    } catch (e) {
+      setState(() => _voiceStatus = '❌ Error: $e');
+    } finally {
+      setState(() => _isTranscribing = false);
+    }
+  }
+
+  void _getRecommendationsFromVoice() {
+    final value = _voiceIngredientsController.text.trim();
+    if (value.isEmpty) {
+      setState(() {
+        _errorMessage = '⚠️ No ingredients detected yet. Please record first!';
+      });
+      return;
+    }
+    _ingredientsController.text = value;
+    _getRecommendations();
+  }
+
+  // ===== IMAGE =====
+  Future<void> _pickAndAnalyzeImage() async {
+    final picker = ImagePicker();
+    final files = await picker.pickMultiImage();
+    if (files.isEmpty) return;
+
+    setState(() {
+      _isAnalyzingImage = true;
+      _imageStatus = '🤖 BLIP is analyzing ${files.length} image(s)...';
+      _imageResultVisible = false;
+      _imageIngredientsController.clear();
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+    final allIngredients = <String>{};
+
+    try {
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$baseUrl/analyze-image'),
+        );
+        request.headers['Authorization'] = 'Bearer $token';
+        request.files.add(http.MultipartFile.fromBytes(
+          'image',
+          bytes,
+          filename: file.name,
+        ));
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        final data = jsonDecode(response.body);
+
+        if (response.statusCode == 200) {
+          final detected = data['ingredients'] as String? ?? '';
+          detected.split(',').forEach((i) {
+            final trimmed = i.trim();
+            if (trimmed.isNotEmpty) allIngredients.add(trimmed);
+          });
+        } else {
+          setState(() =>
+              _imageStatus = '❌ Error: ${data['error'] ?? 'Analysis failed'}');
+          return;
+        }
+      }
+
+      final finalIngredients = allIngredients.join(', ');
+      setState(() {
+        _imageIngredientsController.text = finalIngredients;
+        _imageStatus =
+            '✅ Detected: "$finalIngredients" — edit if needed, then tap Get Recipes!';
+        _imageResultVisible = true;
+      });
+    } catch (e) {
+      setState(() => _imageStatus = '❌ Error: $e');
+    } finally {
+      setState(() => _isAnalyzingImage = false);
+    }
+  }
+
+  void _getRecommendationsFromImage() {
+    final value = _imageIngredientsController.text.trim();
+    if (value.isEmpty) {
+      setState(() {
+        _errorMessage =
+            '⚠️ No ingredients detected yet. Please upload an image first!';
+      });
+      return;
+    }
+    _ingredientsController.text = value;
+    _getRecommendations();
   }
 
   @override
@@ -289,155 +472,399 @@ class _RecommendScreenState extends State<RecommendScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '🧄 Your Ingredients',
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A)),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Separate multiple ingredients with commas',
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-          ),
-          const SizedBox(height: 14),
-          Focus(
-            child: Builder(builder: (ctx) {
-              final focused = Focus.of(ctx).hasFocus;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: focused
-                      ? const Color(0xFFFF6B35).withOpacity(0.04)
-                      : const Color(0xFFFFFAF7),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: focused
-                        ? const Color(0xFFFF6B35).withOpacity(0.6)
-                        : const Color(0xFFFFE0D0),
-                    width: focused ? 1.5 : 1,
-                  ),
-                  boxShadow: focused
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFFFF6B35).withOpacity(0.1),
-                            blurRadius: 16,
-                          ),
-                        ]
-                      : [],
-                ),
-                child: TextField(
-                  controller: _ingredientsController,
-                  maxLines: 3,
-                  style:
-                      const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-                  decoration: InputDecoration(
-                    hintText: 'e.g. chicken, garlic, onion, tomato...',
-                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                    prefixIcon: Padding(
-                      padding:
-                          const EdgeInsets.only(left: 14, right: 10, top: 14),
-                      child: Icon(Icons.kitchen_rounded,
-                          color: Colors.grey[400], size: 20),
-                    ),
-                    prefixIconConstraints:
-                        const BoxConstraints(minWidth: 0, minHeight: 0),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          // Tab buttons
+          Row(
             children: [
-              '🍗 Chicken',
-              '🧄 Garlic',
-              '🧅 Onion',
-              '🍅 Tomato',
-              '🥚 Egg',
-              '🧀 Cheese'
-            ]
-                .map((item) => GestureDetector(
-                      onTap: () {
-                        final current = _ingredientsController.text;
-                        final ingredient = item.substring(2).trim();
-                        _ingredientsController.text = current.isEmpty
-                            ? ingredient
-                            : '$current, $ingredient';
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3EE),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: const Color(0xFFFF6B35).withOpacity(0.2)),
-                        ),
-                        child: Text(item,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFFFF6B35),
-                                fontWeight: FontWeight.w500)),
-                      ),
-                    ))
-                .toList(),
+              _buildTabBtn('⌨️ Type', 0),
+              const SizedBox(width: 8),
+              _buildTabBtn('🎤 Voice', 1),
+              const SizedBox(width: 8),
+              _buildTabBtn('📸 Image', 2),
+            ],
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: DecoratedBox(
+          const SizedBox(height: 20),
+
+          // Tab content
+          if (_activeTab == 0) _buildTextTab(),
+          if (_activeTab == 1) _buildVoiceTab(),
+          if (_activeTab == 2) _buildImageTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBtn(String label, int index) {
+    final isActive = _activeTab == index;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _activeTab = index;
+        _errorMessage = '';
+        _recommendations = [];
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? const LinearGradient(
+                  colors: [Color(0xFFFF6B35), Color(0xFFF7931E)])
+              : null,
+          color: isActive ? null : const Color(0xFFFFF3EE),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? Colors.transparent
+                : const Color(0xFFFF6B35).withOpacity(0.2),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isActive ? Colors.white : const Color(0xFFFF6B35),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '🧄 Your Ingredients',
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A1A)),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Separate multiple ingredients with commas',
+          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+        ),
+        const SizedBox(height: 14),
+        Focus(
+          child: Builder(builder: (ctx) {
+            final focused = Focus.of(ctx).hasFocus;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF6B35), Color(0xFFF7931E)],
-                ),
+                color: focused
+                    ? const Color(0xFFFF6B35).withOpacity(0.04)
+                    : const Color(0xFFFFFAF7),
                 borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: focused
+                      ? const Color(0xFFFF6B35).withOpacity(0.6)
+                      : const Color(0xFFFFE0D0),
+                  width: focused ? 1.5 : 1,
+                ),
+                boxShadow: focused
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFFFF6B35).withOpacity(0.1),
+                          blurRadius: 16,
+                        ),
+                      ]
+                    : [],
+              ),
+              child: TextField(
+                controller: _ingredientsController,
+                maxLines: 3,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+                decoration: InputDecoration(
+                  hintText: 'e.g. chicken, garlic, onion, tomato...',
+                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                  prefixIcon: Padding(
+                    padding:
+                        const EdgeInsets.only(left: 14, right: 10, top: 14),
+                    child: Icon(Icons.kitchen_rounded,
+                        color: Colors.grey[400], size: 20),
+                  ),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 0, minHeight: 0),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            '🍗 Chicken',
+            '🧄 Garlic',
+            '🧅 Onion',
+            '🍅 Tomato',
+            '🥚 Egg',
+            '🧀 Cheese'
+          ]
+              .map((item) => GestureDetector(
+                    onTap: () {
+                      final current = _ingredientsController.text;
+                      final ingredient = item.substring(2).trim();
+                      _ingredientsController.text = current.isEmpty
+                          ? ingredient
+                          : '$current, $ingredient';
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3EE),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: const Color(0xFFFF6B35).withOpacity(0.2)),
+                      ),
+                      child: Text(item,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFFF6B35),
+                              fontWeight: FontWeight.w500)),
+                    ),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 16),
+        _buildGetRecipesButton(onTap: _isLoading ? null : _getRecommendations),
+      ],
+    );
+  }
+
+  Widget _buildVoiceTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Tap the mic, say your ingredients, then tap stop 🎙️',
+          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+        ),
+        const SizedBox(height: 16),
+
+        // Mic button
+        Center(
+          child: GestureDetector(
+            onTap: _isTranscribing ? null : _toggleRecording,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _isRecording
+                      ? [const Color(0xFFFF3B30), const Color(0xFFFF6B35)]
+                      : [const Color(0xFFFF6B35), const Color(0xFFF7931E)],
+                ),
+                shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF6B35).withOpacity(0.4),
-                    blurRadius: 20,
+                    color: (_isRecording
+                            ? const Color(0xFFFF3B30)
+                            : const Color(0xFFFF6B35))
+                        .withOpacity(0.4),
+                    blurRadius: 24,
                     offset: const Offset(0, 6),
                   ),
                 ],
               ),
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _getRecommendations,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2.5))
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.auto_awesome_rounded,
-                              color: Colors.white, size: 18),
-                          SizedBox(width: 8),
-                          Text('Get Recommendations',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.3)),
-                        ],
-                      ),
+              child: Icon(
+                _isRecording
+                    ? Icons.stop_rounded
+                    : _isTranscribing
+                        ? Icons.hourglass_top_rounded
+                        : Icons.mic_rounded,
+                color: Colors.white,
+                size: 36,
               ),
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+
+        // Status text
+        if (_voiceStatus.isNotEmpty)
+          Center(
+            child: Text(
+              _voiceStatus,
+              style: TextStyle(
+                fontSize: 12,
+                color: _voiceStatus.startsWith('❌')
+                    ? const Color(0xFFF87171)
+                    : Colors.grey[600],
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+
+        // Result input + button
+        if (_voiceResultVisible) ...[
+          const SizedBox(height: 16),
+          _buildDetectedIngredientsField(
+            controller: _voiceIngredientsController,
+            hint: 'Detected ingredients will appear here...',
+          ),
+          const SizedBox(height: 12),
+          _buildGetRecipesButton(
+              onTap: _isLoading ? null : _getRecommendationsFromVoice),
         ],
+      ],
+    );
+  }
+
+  Widget _buildImageTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Upload photos of your ingredients and let AI detect them 📸',
+          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+        ),
+        const SizedBox(height: 16),
+
+        // Upload button
+        GestureDetector(
+          onTap: _isAnalyzingImage ? null : _pickAndAnalyzeImage,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 28),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3EE),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFFFF6B35).withOpacity(0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  _isAnalyzingImage
+                      ? Icons.hourglass_top_rounded
+                      : Icons.add_photo_alternate_rounded,
+                  color: const Color(0xFFFF6B35),
+                  size: 36,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _isAnalyzingImage
+                      ? 'Analyzing...'
+                      : '📂 Tap to upload image(s)',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFFF6B35),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Status text
+        if (_imageStatus.isNotEmpty)
+          Text(
+            _imageStatus,
+            style: TextStyle(
+              fontSize: 12,
+              color: _imageStatus.startsWith('❌')
+                  ? const Color(0xFFF87171)
+                  : Colors.grey[600],
+              height: 1.5,
+            ),
+          ),
+
+        // Result input + button
+        if (_imageResultVisible) ...[
+          const SizedBox(height: 16),
+          _buildDetectedIngredientsField(
+            controller: _imageIngredientsController,
+            hint: 'Detected ingredients will appear here...',
+          ),
+          const SizedBox(height: 12),
+          _buildGetRecipesButton(
+              onTap: _isLoading ? null : _getRecommendationsFromImage),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDetectedIngredientsField({
+    required TextEditingController controller,
+    required String hint,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFAF7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFE0D0)),
+      ),
+      child: TextField(
+        controller: controller,
+        maxLines: 2,
+        style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGetRecipesButton({VoidCallback? onTap}) {
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF6B35), Color(0xFFF7931E)],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF6B35).withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.5))
+              : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded,
+                        color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text('Get Recommendations',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3)),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -632,7 +1059,6 @@ class _RecommendScreenState extends State<RecommendScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name + match badge
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -674,8 +1100,6 @@ class _RecommendScreenState extends State<RecommendScreen>
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // Info tags
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -691,8 +1115,6 @@ class _RecommendScreenState extends State<RecommendScreen>
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // Match progress bar
                 Text(
                   'You have $matchedCount of $totalIngredients ingredients',
                   style:
@@ -709,8 +1131,6 @@ class _RecommendScreenState extends State<RecommendScreen>
                   ),
                 ),
                 const SizedBox(height: 10),
-
-                // Missing ingredients + substitute buttons
                 if (missingIngredients.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -867,8 +1287,6 @@ class _RecommendScreenState extends State<RecommendScreen>
                       ],
                     ),
                   ),
-
-                // Ingredients list
                 if (recipe['ingredients'] != null) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -900,8 +1318,6 @@ class _RecommendScreenState extends State<RecommendScreen>
                   ),
                 ],
                 const SizedBox(height: 14),
-
-                // View Recipe button
                 GestureDetector(
                   onTap: () {
                     final rawId = recipe['recipe_id'] ?? recipe['id'];
