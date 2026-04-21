@@ -345,6 +345,89 @@ def mark_as_cooked(recipe_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ── TASTE PROFILE HELPER ──────────────────────────────────────────
+TASTE_KEYWORDS = {
+    "spicy":     ["chili", "pepper", "cayenne", "jalapeño", "sriracha", "hot sauce", "chilli"],
+    "sweet":     ["sugar", "honey", "chocolate", "coconut milk", "maple syrup", "vanilla"],
+    "savory":    ["garlic", "soy sauce", "onion", "cheese", "mushroom", "broth", "miso"],
+    "healthy":   ["spinach", "broccoli", "quinoa", "tofu", "salad", "kale", "lentil", "oats"],
+    "indulgent": ["butter", "cream", "bacon", "fried", "pastry", "mayo", "cheese sauce"],
+}
+
+CUISINE_WEIGHTS = {
+    "asian":            {"savory": 2, "spicy": 1},
+    "italian":          {"savory": 2, "indulgent": 1},
+    "indian":           {"spicy": 2, "savory": 1},
+    "mexican":          {"spicy": 2, "indulgent": 1},
+    "middle eastern":   {"savory": 2, "healthy": 1},
+    "british":          {"indulgent": 2, "savory": 1},
+    "japanese":         {"savory": 2, "healthy": 1},
+    "american":         {"indulgent": 2},
+    "french":           {"indulgent": 2, "sweet": 1},
+    "french/american":  {"indulgent": 2, "sweet": 1},
+    "vietnamese":       {"healthy": 2, "savory": 1},
+    "hungarian":        {"savory": 2, "indulgent": 1},
+    "greek":            {"healthy": 2, "savory": 1},
+    "russian":          {"indulgent": 2, "savory": 1},
+    "spanish":          {"savory": 2},
+    "thai":             {"spicy": 2, "sweet": 1},
+    "korean":           {"spicy": 2, "savory": 1},
+    "north african":    {"savory": 2, "healthy": 1},
+    "caribbean":        {"sweet": 1, "spicy": 1},
+    "african/caribbean":{"sweet": 1, "spicy": 1},
+    "turkish":          {"savory": 2, "spicy": 1},
+    "eastern european": {"indulgent": 2, "savory": 1},
+    "australian":       {"healthy": 1, "savory": 1},
+    "dessert":          {"sweet": 3, "indulgent": 2},
+    "malaysian":        {"spicy": 2, "savory": 1},
+    "malay":            {"spicy": 2, "savory": 1},
+}
+
+def compute_taste_profile(recipes_list):
+    from collections import defaultdict
+    totals = defaultdict(float)
+    axes = ["spicy", "sweet", "savory", "healthy", "indulgent"]
+
+    for recipe in recipes_list:
+        ingredients_text = str(recipe.get("ingredients", "")).lower()
+        cuisine = str(recipe.get("cuisine", "")).lower()
+
+        for axis, keywords in TASTE_KEYWORDS.items():
+            for kw in keywords:
+                if kw in ingredients_text:
+                    totals[axis] += 1
+
+        for cname, boosts in CUISINE_WEIGHTS.items():
+            if cname in cuisine:
+                for axis, val in boosts.items():
+                    totals[axis] += val
+
+    max_val = max(totals.values(), default=1)
+    return {axis: round((totals.get(axis, 0) / max_val) * 100) for axis in axes}
+
+
+# ── TASTE PROFILE ROUTE ───────────────────────────────────────────
+@app.route("/api/taste-profile")
+@login_required
+def taste_profile_api():
+    cooked = CookedRecipe.query.filter_by(user_id=current_user.id).all()
+
+    if not cooked:
+        return jsonify({"empty": True, "labels": [], "scores": []})
+
+    recommender = get_recommender()
+    df = recommender.df.copy()
+
+    cooked_ids = [c.recipe_id for c in cooked]
+    matched = df[df["recipe_id"].isin(cooked_ids)]
+    recipes_list = matched[["ingredients", "cuisine"]].to_dict(orient="records")
+
+    profile = compute_taste_profile(recipes_list)
+    labels = [k.capitalize() for k in profile.keys()]
+    scores = list(profile.values())
+
+    return jsonify({"empty": False, "labels": labels, "scores": scores})
+
 
 @app.route("/cooked-history")
 @login_required
