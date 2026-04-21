@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - ChefGPT</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <!-- Overlay background -->
@@ -159,6 +160,29 @@
                 <h3>⭐ Saved Recipes</h3>
                 <p>Access your favorite saved recipes anytime</p>
                 <button onclick="window.location.href='{{ url_for('saved_recipes') }}'">View Saved</button>
+            </div>
+    </div>
+     <div class="taste-profile-section">
+            <h2>🍽️ Your Taste Profile</h2>
+            <p class="taste-subtitle">Based on your cooking history</p>
+
+            <div class="taste-card" id="tasteCard">
+
+                <!-- Empty state -->
+                <div class="taste-empty hidden" id="tasteEmpty">
+                    <span>🍳</span>
+                    <h3>No taste data yet</h3>
+                    <p>Start cooking recipes to see your flavour profile!</p>
+                </div>
+
+                <!-- Chart + bars -->
+                <div id="tasteContent">
+                    <div class="taste-chart-wrapper">
+                        <canvas id="tasteRadar"></canvas>
+                    </div>
+                    <div class="taste-bars" id="tasteBars"></div>
+                </div>
+
             </div>
     </div>
         <div class="browse-section">

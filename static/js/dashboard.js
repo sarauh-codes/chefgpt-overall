@@ -240,3 +240,80 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+// ==================== TASTE PROFILE ====================
+
+const AXIS_COLORS = {
+    Spicy:     "#e05d44",
+    Sweet:     "#f0a500",
+    Savory:    "#4f98a3",
+    Healthy:   "#6daa45",
+    Indulgent: "#bb65a0"
+};
+const AXIS_EMOJIS = {
+    Spicy:"🌶️", Sweet:"🍬", Savory:"🧄", Healthy:"🥗", Indulgent:"🧁"
+};
+
+fetch("/api/taste-profile")
+    .then(r => r.json())
+    .then(data => {
+        if (data.empty) {
+            document.getElementById("tasteContent").classList.add("hidden");
+            document.getElementById("tasteEmpty").classList.remove("hidden");
+            return;
+        }
+
+        const ctx = document.getElementById("tasteRadar").getContext("2d");
+        new Chart(ctx, {
+            type: "radar",
+            data: {
+                labels: data.labels.map(l => `${AXIS_EMOJIS[l] || ""} ${l}`),
+                datasets: [{
+                    data: data.scores,
+                    backgroundColor: "rgba(79,152,163,0.15)",
+                    borderColor: "#4f98a3",
+                    pointBackgroundColor: data.labels.map(l => AXIS_COLORS[l] || "#4f98a3"),
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    r: {
+                        min: 0, max: 100,
+                        ticks: { display: false, stepSize: 25 },
+                        pointLabels: {
+                            font: { size: 13, weight: "600" },
+                            color: "#333"
+                        },
+                        grid: { color: "rgba(0,0,0,0.08)" },
+                        angleLines: { color: "rgba(0,0,0,0.08)" }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: ctx => ` ${ctx.raw}%` }
+                    }
+                },
+                animation: { duration: 800 }
+            }
+        });
+
+        const barsEl = document.getElementById("tasteBars");
+        data.labels.forEach((label, i) => {
+            const color = AXIS_COLORS[label] || "#4f98a3";
+            const row = document.createElement("div");
+            row.className = "taste-bar-row";
+            row.innerHTML = `
+                <span class="taste-bar-label">${AXIS_EMOJIS[label] || ""} ${label}</span>
+                <div class="taste-bar-track">
+                    <div class="taste-bar-fill" style="width:${data.scores[i]}%; background:${color};"></div>
+                </div>
+                <span class="taste-bar-score" style="color:${color};">${data.scores[i]}%</span>
+            `;
+            barsEl.appendChild(row);
+        });
+    });
