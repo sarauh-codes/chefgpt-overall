@@ -142,27 +142,7 @@
             </div>
             <img src="https://img.icons8.com/fluency/120/chef-hat.png" class="welcome-img" alt="">
         </div>
-        
-        <div class="dashboard-grid">
-            <div class="card">
-                <h3>🔍 Get Recipe Suggestions</h3>
-                <p>Enter your available ingredients and get personalized recipe recommendations</p>
-                <button onclick="window.location.href='{{ url_for('recommend_page') }}'">Start Cooking</button>
-            </div>
-            
-            <div class="card">
-                <h3>📖 My Cooked Recipes</h3>
-                <p>View all the recipes you've already cooked</p>
-                <button onclick="window.location.href='{{ url_for('cooked_history') }}'">View History</button>
-            </div>
-            
-            <div class="card">
-                <h3>⭐ Saved Recipes</h3>
-                <p>Access your favorite saved recipes anytime</p>
-                <button onclick="window.location.href='{{ url_for('saved_recipes') }}'">View Saved</button>
-            </div>
-    </div>
-     <div class="taste-profile-section">
+        <div class="taste-profile-section">
             <h2>🍽️ Your Taste Profile</h2>
             <p class="taste-subtitle">Based on your cooking history</p>
 
@@ -182,8 +162,26 @@
                     </div>
                     <div class="taste-bars" id="tasteBars"></div>
                 </div>
-
             </div>
+        <div class="dashboard-grid">
+            <div class="card">
+                <h3>🔍 Get Recipe Suggestions</h3>
+                <p>Enter your available ingredients and get personalized recipe recommendations</p>
+                <button onclick="window.location.href='{{ url_for('recommend_page') }}'">Start Cooking</button>
+            </div>
+            
+            <div class="card">
+                <h3>📖 My Cooked Recipes</h3>
+                <p>View all the recipes you've already cooked</p>
+                <button onclick="window.location.href='{{ url_for('cooked_history') }}'">View History</button>
+            </div>
+            
+            <div class="card">
+                <h3>⭐ Saved Recipes</h3>
+                <p>Access your favorite saved recipes anytime</p>
+                <button onclick="window.location.href='{{ url_for('saved_recipes') }}'">View Saved</button>
+            </div>
+    </div>
     </div>
         <div class="browse-section">
             <h2>🍴 Browse All Recipes</h2>
