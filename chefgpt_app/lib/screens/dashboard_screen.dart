@@ -114,7 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/taste-profile'),
+        Uri.parse('$baseUrl/api/mobile-taste-profile'),
         headers: {'Authorization': 'Bearer $token'},
       );
 

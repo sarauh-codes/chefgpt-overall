@@ -428,6 +428,27 @@ def taste_profile_api():
 
     return jsonify({"empty": False, "labels": labels, "scores": scores})
 
+@app.route("/api/mobile-taste-profile")
+@jwt_required()
+def mobile_taste_profile_api():
+    user_id = get_jwt_identity()
+    cooked = CookedRecipe.query.filter_by(user_id=user_id).all()
+
+    if not cooked:
+        return jsonify({"empty": True, "labels": [], "scores": []})
+
+    recommender = get_recommender()
+    df = recommender.df.copy()
+
+    cooked_ids = [c.recipe_id for c in cooked]
+    matched = df[df["recipe_id"].isin(cooked_ids)]
+    recipes_list = matched[["ingredients", "cuisine"]].to_dict(orient="records")
+
+    profile = compute_taste_profile(recipes_list)
+    labels = [k.capitalize() for k in profile.keys()]
+    scores = list(profile.values())
+
+    return jsonify({"empty": False, "labels": labels, "scores": scores})
 
 @app.route("/cooked-history")
 @login_required
