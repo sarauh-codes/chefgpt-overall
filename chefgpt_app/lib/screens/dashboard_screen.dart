@@ -45,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   };
 
   final _axisEmojis = {
-    'Spicy': '🌶',
+    'Spicy': '🌶️',
     'Sweet': '🍬',
     'Savory': '🧄',
     'Healthy': '🥗',
@@ -111,13 +111,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _fetchTasteProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
-
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/api/mobile-taste-profile'),
         headers: {'Authorization': 'Bearer $token'},
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final isEmpty = data['empty'] ?? true;
@@ -148,7 +146,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       return;
     }
     setState(() => _isLoadingRecipes = true);
-
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
@@ -304,8 +301,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
             itemBuilder: (_) => [
-              _popupItem('diet', '🥦', 'Dietary Settings'),
-              _popupItem('logout', '🚪', 'Logout'),
+              _popupItem('diet', Icons.eco_rounded, 'Dietary Settings'),
+              _popupItem('logout', Icons.logout_rounded, 'Logout'),
             ],
           ),
         ],
@@ -313,12 +310,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  PopupMenuItem<String> _popupItem(String value, String emoji, String label) {
+  PopupMenuItem<String> _popupItem(String value, IconData icon, String label) {
     return PopupMenuItem(
       value: value,
       child: Row(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 16)),
+          Icon(icon, size: 16, color: const Color(0xFFFF6B35)),
           const SizedBox(width: 10),
           Text(label,
               style: const TextStyle(
@@ -392,164 +389,218 @@ class _DashboardScreenState extends State<DashboardScreen>
         .map((s) => (s as num).toDouble())
         .toList();
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.055), blurRadius: 20),
-        ],
-        border: Border.all(
-            color: const Color(0xFFFF6B35).withOpacity(0.08), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Your Taste Profile',
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A))),
-          const SizedBox(height: 4),
-          Text('Based on your cooking history',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-          const SizedBox(height: 16),
-          if (_isLoadingTaste)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(color: Color(0xFF4F98A3)),
-              ),
-            )
-          else if (_tasteEmpty || labels.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    const Text('No taste data yet',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: Color(0xFF1A1A1A))),
-                    const SizedBox(height: 4),
-                    Text('Cook some recipes to see your flavour profile!',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                        textAlign: TextAlign.center),
-                  ],
-                ),
-              ),
-            )
-          else
-            Column(
-              children: [
-                SizedBox(
-                  height: 320,
-                  child: RadarChart(
-                    RadarChartData(
-                      radarShape: RadarShape.polygon,
-                      titleTextStyle: const TextStyle(
-                        color: Color(0xFF1A1A1A),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      dataSets: [
-                        RadarDataSet(
-                          fillColor: const Color(0xFF4F98A3).withOpacity(0.15),
-                          borderColor: const Color(0xFF4F98A3),
-                          borderWidth: 2,
-                          entryRadius: 0,
-                          dataEntries:
-                              scores.map((s) => RadarEntry(value: s)).toList(),
-                        ),
-                        ...List.generate(labels.length, (i) {
-                          final color =
-                              _axisColors[labels[i]] ?? const Color(0xFF4F98A3);
-                          final pointScores = List.filled(labels.length, 0.0);
-                          pointScores[i] = scores[i];
-                          return RadarDataSet(
-                            fillColor: Colors.transparent,
-                            borderColor: Colors.transparent,
-                            borderWidth: 0,
-                            entryRadius: 6,
-                            dataEntries: pointScores
-                                .map((s) => RadarEntry(value: s))
-                                .toList(),
-                          );
-                        }),
-                      ],
-                      radarBorderData:
-                          const BorderSide(color: Colors.transparent),
-                      tickCount: 4,
-                      ticksTextStyle: const TextStyle(fontSize: 0),
-                      tickBorderData:
-                          const BorderSide(color: Color(0x30000000)),
-                      gridBorderData:
-                          const BorderSide(color: Color(0x30000000)),
-                      titlePositionPercentageOffset: 0.15,
-                      getTitle: (index, angle) {
-                        if (index >= labels.length)
-                          return const RadarChartTitle(text: '');
-                        return RadarChartTitle(
-                          text:
-                              '${_axisEmojis[labels[index]] ?? ''} ${labels[index]}',
-                          angle: 0,
-                          positionPercentageOffset: 0.15,
-                        );
-                      },
-                    ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('🍽️ Your Taste Profile',
+            style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1A1A1A))),
+        const SizedBox(height: 4),
+        Text('Based on your cooking history',
+            style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4)),
+            ],
+          ),
+          child: _isLoadingTaste
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(color: Color(0xFF4F98A3)),
                   ),
-                ),
-                const SizedBox(height: 20),
-                ...List.generate(labels.length, (i) {
-                  final label = labels[i];
-                  final score = i < scores.length ? scores[i] : 0.0;
-                  final color = _axisColors[label] ?? const Color(0xFF4F98A3);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 100,
-                          child: Text(
-                            '${_axisEmojis[label] ?? ''} $label',
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
+                )
+              : (_tasteEmpty || labels.isEmpty)
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(
+                          children: [
+                            const Text('🍳', style: TextStyle(fontSize: 48)),
+                            const SizedBox(height: 12),
+                            const Text('No taste data yet',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 18,
+                                    color: Color(0xFF333333))),
+                            const SizedBox(height: 6),
+                            Text(
+                                'Start cooking recipes to see your flavour profile!',
+                                style: TextStyle(
+                                    fontSize: 14, color: Colors.grey[500]),
+                                textAlign: TextAlign.center),
+                          ],
                         ),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(99),
-                            child: LinearProgressIndicator(
-                              value: score / 100,
-                              backgroundColor: Colors.black.withOpacity(0.07),
-                              valueColor: AlwaysStoppedAnimation<Color>(color),
-                              minHeight: 10,
+                      ),
+                    )
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth >= 600;
+
+                        // Clamp zeros so radar polygon doesn't collapse
+                        final safeScores =
+                            scores.map((s) => s == 0 ? 0.5 : s).toList();
+
+                        final chart = SizedBox(
+                          width: isWide ? 260 : double.infinity,
+                          height: isWide ? 280 : 300,
+                          child: RadarChart(
+                            RadarChartData(
+                              radarShape: RadarShape.polygon,
+                              titleTextStyle: const TextStyle(
+                                color: Color(0xFF333333),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              dataSets: [
+                                // 1. INVISIBLE DATASET to lock the chart scale to 100% max
+                                RadarDataSet(
+                                  fillColor: Colors.transparent,
+                                  borderColor: Colors.transparent,
+                                  borderWidth: 0,
+                                  entryRadius: 0,
+                                  dataEntries: List.generate(labels.length,
+                                      (_) => const RadarEntry(value: 100)),
+                                ),
+                                // 2. THE MAIN POLYGON
+                                RadarDataSet(
+                                  fillColor:
+                                      const Color(0xFF4F98A3).withOpacity(0.2),
+                                  borderColor: const Color(0xFF4F98A3),
+                                  borderWidth: 2,
+                                  entryRadius: 4, // Clean dots on the vertices
+                                  dataEntries: safeScores
+                                      .map((s) => RadarEntry(value: s))
+                                      .toList(),
+                                ),
+                              ],
+                              radarBorderData:
+                                  const BorderSide(color: Colors.transparent),
+                              tickCount: 4,
+                              ticksTextStyle: const TextStyle(fontSize: 0),
+                              tickBorderData: const BorderSide(
+                                  color: Color(0x14000000)), // faint grid
+                              gridBorderData: const BorderSide(
+                                  color: Color(0x14000000)), // faint grid
+                              titlePositionPercentageOffset: 0.15,
+                              getTitle: (index, angle) {
+                                if (index >= labels.length) {
+                                  return const RadarChartTitle(text: '');
+                                }
+                                final label = labels[index];
+                                final emoji = _axisEmojis[label] ?? '';
+                                return RadarChartTitle(
+                                  text: '$emoji $label',
+                                  angle: 0,
+                                  positionPercentageOffset: 0.15,
+                                );
+                              },
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 42,
-                          child: Text(
-                            '${score.toInt()}%',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: color),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                      ],
+                        );
+
+                        final bars = Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(labels.length, (i) {
+                            final label = labels[i];
+                            final emoji = _axisEmojis[label] ?? '';
+                            final score = i < scores.length ? scores[i] : 0.0;
+                            final color =
+                                _axisColors[label] ?? const Color(0xFF4F98A3);
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 90,
+                                    child: Text(
+                                      '$emoji $label',
+                                      style: const TextStyle(
+                                          color: Color(
+                                              0xFF1A1A1A), // EXPLICIT COLOR FIX
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Container(
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(99),
+                                      ),
+                                      alignment: Alignment.centerLeft,
+                                      child: LayoutBuilder(
+                                          builder: (context, boxConstraints) {
+                                        return AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 800),
+                                          curve: Curves.easeOut,
+                                          width: boxConstraints.maxWidth *
+                                              (score / 100),
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            borderRadius:
+                                                BorderRadius.circular(99),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    width: 38,
+                                    child: Text(
+                                      '${score.toInt()}%',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: color),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        );
+
+                        if (isWide) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              chart,
+                              const SizedBox(width: 24),
+                              Expanded(child: bars),
+                            ],
+                          );
+                        } else {
+                          return Column(
+                            children: [
+                              chart,
+                              const SizedBox(height: 24),
+                              bars,
+                            ],
+                          );
+                        }
+                      },
                     ),
-                  );
-                }),
-              ],
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -560,9 +611,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           children: [
             Expanded(
               child: _dashCard(
-                emoji: '🔍',
+                icon: Icons.search_rounded,
                 title: 'Get Recipe\nSuggestions',
                 subtitle: 'AI-powered recommendations',
+                buttonLabel: 'Start Cooking',
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => RecommendScreen())),
               ),
@@ -570,9 +622,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(width: 14),
             Expanded(
               child: _dashCard(
-                emoji: '📖',
+                icon: Icons.menu_book_rounded,
                 title: 'My Cooked\nRecipes',
                 subtitle: 'View cooking history',
+                buttonLabel: 'View History',
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => CookingHistoryScreen())),
               ),
@@ -580,28 +633,85 @@ class _DashboardScreenState extends State<DashboardScreen>
           ],
         ),
         const SizedBox(height: 14),
-        _dashCard(
-          emoji: '⭐',
+        _dashCardWide(
+          icon: Icons.star_rounded,
           title: 'Saved Recipes',
           subtitle: 'Access your favourite saved recipes anytime',
+          buttonLabel: 'View Saved',
           onTap: () => Navigator.push(context,
               MaterialPageRoute(builder: (_) => const SavedRecipesScreen())),
-          horizontal: true,
         ),
       ],
     );
   }
 
   Widget _dashCard({
-    required String emoji,
+    required IconData icon,
     required String title,
     required String subtitle,
+    required String buttonLabel,
     required VoidCallback onTap,
-    bool horizontal = false,
   }) {
-    final content = horizontal
-        ? Row(children: [
-            Text(emoji, style: const TextStyle(fontSize: 26)),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.055), blurRadius: 20),
+          ],
+          border: Border.all(
+              color: const Color(0xFFFF6B35).withOpacity(0.08), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 28, color: const Color(0xFFFF6B35)),
+            const SizedBox(height: 10),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                    height: 1.3)),
+            const SizedBox(height: 6),
+            Text(subtitle,
+                style: TextStyle(
+                    fontSize: 11, color: Colors.grey[600], height: 1.4)),
+            const SizedBox(height: 14),
+            _orangeButton(onTap, label: buttonLabel),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dashCardWide({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String buttonLabel,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.055), blurRadius: 20),
+          ],
+          border: Border.all(
+              color: const Color(0xFFFF6B35).withOpacity(0.08), width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 28, color: const Color(0xFFFF6B35)),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -618,46 +728,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
             ),
-            _orangeButton(onTap, label: 'View Saved'),
-          ])
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 26)),
-              const SizedBox(height: 10),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                      height: 1.3)),
-              const SizedBox(height: 6),
-              Text(subtitle,
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey[600], height: 1.4)),
-              const SizedBox(height: 14),
-              _orangeButton(onTap,
-                  label: title.contains('Suggest')
-                      ? 'Start Cooking'
-                      : 'View History'),
-            ],
-          );
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: horizontal ? double.infinity : null,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.055), blurRadius: 20),
+            _orangeButton(onTap, label: buttonLabel),
           ],
-          border: Border.all(
-              color: const Color(0xFFFF6B35).withOpacity(0.08), width: 1),
         ),
-        child: content,
       ),
     );
   }
@@ -704,7 +777,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: 28),
         const Center(
-          child: Text('🍴 Browse All Recipes',
+          child: Text('Browse All Recipes',
               style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -735,6 +808,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             decoration: InputDecoration(
               hintText: 'Search by name, cuisine, or ingredients...',
               hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+              prefixIcon:
+                  Icon(Icons.search_rounded, color: Colors.grey[400], size: 20),
               border: InputBorder.none,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
