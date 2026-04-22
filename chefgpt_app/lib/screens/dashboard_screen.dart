@@ -120,16 +120,25 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final isEmpty = data['empty'] ?? true;
         setState(() {
-          _tasteEmpty = data['empty'] ?? true;
-          _tasteProfile = data;
+          _tasteEmpty = isEmpty;
+          _tasteProfile = isEmpty ? {'labels': [], 'scores': []} : data;
           _isLoadingTaste = false;
         });
       } else {
-        setState(() => _isLoadingTaste = false);
+        setState(() {
+          _tasteEmpty = true;
+          _tasteProfile = {'labels': [], 'scores': []};
+          _isLoadingTaste = false;
+        });
       }
     } catch (e) {
-      setState(() => _isLoadingTaste = false);
+      setState(() {
+        _tasteEmpty = true;
+        _tasteProfile = {'labels': [], 'scores': []};
+        _isLoadingTaste = false;
+      });
     }
   }
 
@@ -443,8 +452,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           borderColor: const Color(0xFF4F98A3),
                           borderWidth: 2,
                           entryRadius: 4,
-                          dataEntries: (_tasteProfile['scores'] as List)
-                              .map((s) => RadarEntry(value: s.toDouble()))
+                          dataEntries: ((_tasteProfile['scores'] ?? []) as List)
+                              .map((s) =>
+                                  RadarEntry(value: (s as num).toDouble()))
                               .toList(),
                         ),
                       ],
@@ -458,7 +468,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           const BorderSide(color: Color(0x15000000)),
                       titlePositionPercentageOffset: 0.2,
                       getTitle: (index, angle) {
-                        final label = (_tasteProfile['labels'] as List)[index];
+                        final label =
+                            ((_tasteProfile['labels'] ?? []) as List)[index];
                         return RadarChartTitle(
                           text: '${_axisEmojis[label] ?? ''} $label',
                           angle: 0,
@@ -469,11 +480,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 const SizedBox(height: 16),
                 ...List.generate(
-                  (_tasteProfile['labels'] as List).length,
+                  ((_tasteProfile['labels'] ?? []) as List).length,
                   (i) {
-                    final label = (_tasteProfile['labels'] as List)[i];
+                    final label = ((_tasteProfile['labels'] ?? []) as List)[i];
                     final score =
-                        (_tasteProfile['scores'] as List)[i].toDouble();
+                        (((_tasteProfile['scores'] ?? []) as List)[i] as num)
+                            .toDouble();
                     final color = _axisColors[label] ?? const Color(0xFF4F98A3);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
