@@ -288,8 +288,8 @@ fetch("/api/taste-profile")
                             font: { size: 13, weight: "600" },
                             color: "#333"
                         },
-                        grid: { color: "rgba(0,0,0,0.08)" },
-                        angleLines: { color: "rgba(0,0,0,0.08)" }
+                        grid: { color: "rgba(0,0,0,0.25)" },
+                        angleLines: { color: "rgba(0,0,0,0.25)" }
                     }
                 },
                 plugins: {
