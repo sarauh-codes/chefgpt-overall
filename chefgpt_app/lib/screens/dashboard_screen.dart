@@ -45,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   };
 
   final _axisEmojis = {
-    'Spicy': '🌶️',
+    'Spicy': '🌶',
     'Sweet': '🍬',
     'Savory': '🧄',
     'Healthy': '🥗',
@@ -387,6 +387,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildTasteProfile() {
+    final labels = ((_tasteProfile['labels'] ?? []) as List).cast<String>();
+    final scores = ((_tasteProfile['scores'] ?? []) as List)
+        .map((s) => (s as num).toDouble())
+        .toList();
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -401,7 +406,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('🍽️ Your Taste Profile',
+          const Text('Your Taste Profile',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -417,13 +422,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: CircularProgressIndicator(color: Color(0xFF4F98A3)),
               ),
             )
-          else if (_tasteEmpty)
+          else if (_tasteEmpty || labels.isEmpty)
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
                   children: [
-                    const Text('🍳', style: TextStyle(fontSize: 40)),
                     const SizedBox(height: 8),
                     const Text('No taste data yet',
                         style: TextStyle(
@@ -442,92 +446,106 @@ class _DashboardScreenState extends State<DashboardScreen>
             Column(
               children: [
                 SizedBox(
-                  height: 220,
+                  height: 320,
                   child: RadarChart(
                     RadarChartData(
                       radarShape: RadarShape.polygon,
+                      titleTextStyle: const TextStyle(
+                        color: Color(0xFF1A1A1A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                       dataSets: [
                         RadarDataSet(
                           fillColor: const Color(0xFF4F98A3).withOpacity(0.15),
                           borderColor: const Color(0xFF4F98A3),
                           borderWidth: 2,
-                          entryRadius: 4,
-                          dataEntries: ((_tasteProfile['scores'] ?? []) as List)
-                              .map((s) =>
-                                  RadarEntry(value: (s as num).toDouble()))
-                              .toList(),
+                          entryRadius: 0,
+                          dataEntries:
+                              scores.map((s) => RadarEntry(value: s)).toList(),
                         ),
+                        ...List.generate(labels.length, (i) {
+                          final color =
+                              _axisColors[labels[i]] ?? const Color(0xFF4F98A3);
+                          final pointScores = List.filled(labels.length, 0.0);
+                          pointScores[i] = scores[i];
+                          return RadarDataSet(
+                            fillColor: Colors.transparent,
+                            borderColor: Colors.transparent,
+                            borderWidth: 0,
+                            entryRadius: 6,
+                            dataEntries: pointScores
+                                .map((s) => RadarEntry(value: s))
+                                .toList(),
+                          );
+                        }),
                       ],
                       radarBorderData:
                           const BorderSide(color: Colors.transparent),
                       tickCount: 4,
                       ticksTextStyle: const TextStyle(fontSize: 0),
                       tickBorderData:
-                          const BorderSide(color: Color(0x15000000)),
+                          const BorderSide(color: Color(0x30000000)),
                       gridBorderData:
-                          const BorderSide(color: Color(0x15000000)),
-                      titlePositionPercentageOffset: 0.2,
+                          const BorderSide(color: Color(0x30000000)),
+                      titlePositionPercentageOffset: 0.15,
                       getTitle: (index, angle) {
-                        final label =
-                            ((_tasteProfile['labels'] ?? []) as List)[index];
+                        if (index >= labels.length)
+                          return const RadarChartTitle(text: '');
                         return RadarChartTitle(
-                          text: '${_axisEmojis[label] ?? ''} $label',
+                          text:
+                              '${_axisEmojis[labels[index]] ?? ''} ${labels[index]}',
                           angle: 0,
+                          positionPercentageOffset: 0.15,
                         );
                       },
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                ...List.generate(
-                  ((_tasteProfile['labels'] ?? []) as List).length,
-                  (i) {
-                    final label = ((_tasteProfile['labels'] ?? []) as List)[i];
-                    final score =
-                        (((_tasteProfile['scores'] ?? []) as List)[i] as num)
-                            .toDouble();
-                    final color = _axisColors[label] ?? const Color(0xFF4F98A3);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 90,
-                            child: Text(
-                              '${_axisEmojis[label] ?? ''} $label',
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
+                const SizedBox(height: 20),
+                ...List.generate(labels.length, (i) {
+                  final label = labels[i];
+                  final score = i < scores.length ? scores[i] : 0.0;
+                  final color = _axisColors[label] ?? const Color(0xFF4F98A3);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 100,
+                          child: Text(
+                            '${_axisEmojis[label] ?? ''} $label',
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(99),
+                            child: LinearProgressIndicator(
+                              value: score / 100,
+                              backgroundColor: Colors.black.withOpacity(0.07),
+                              valueColor: AlwaysStoppedAnimation<Color>(color),
+                              minHeight: 10,
                             ),
                           ),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(99),
-                              child: LinearProgressIndicator(
-                                value: score / 100,
-                                backgroundColor: Colors.black.withOpacity(0.07),
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(color),
-                                minHeight: 8,
-                              ),
-                            ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 42,
+                          child: Text(
+                            '${score.toInt()}%',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: color),
+                            textAlign: TextAlign.right,
                           ),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            width: 38,
-                            child: Text(
-                              '${score.toInt()}%',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: color),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
         ],
