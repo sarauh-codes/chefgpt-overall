@@ -447,64 +447,69 @@ class _DashboardScreenState extends State<DashboardScreen>
                       builder: (context, constraints) {
                         final isWide = constraints.maxWidth >= 600;
 
-                        // Clamp zeros so radar polygon doesn't collapse
-                        final safeScores =
-                            scores.map((s) => s == 0 ? 0.5 : s).toList();
+                        // FIX: Removed the 0.5 clamping hack.
+                        // Now 0% will sit perfectly dead-center.
+                        final safeScores = scores;
 
                         final chart = SizedBox(
                           width: isWide ? 260 : double.infinity,
                           height: isWide ? 280 : 300,
-                          child: RadarChart(
-                            RadarChartData(
-                              radarShape: RadarShape.polygon,
-                              titleTextStyle: const TextStyle(
-                                color: Color(0xFF333333),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: 1.0,
+                              child: RadarChart(
+                                RadarChartData(
+                                  radarShape: RadarShape.polygon,
+                                  titleTextStyle: const TextStyle(
+                                    color: Color(0xFF333333),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  dataSets: [
+                                    // 1. INVISIBLE DATASET to lock the chart scale to 100% max
+                                    RadarDataSet(
+                                      fillColor: Colors.transparent,
+                                      borderColor: Colors.transparent,
+                                      borderWidth: 0,
+                                      entryRadius: 0,
+                                      dataEntries: List.generate(labels.length,
+                                          (_) => const RadarEntry(value: 100)),
+                                    ),
+                                    // 2. THE MAIN POLYGON
+                                    RadarDataSet(
+                                      fillColor: const Color(0xFF4F98A3)
+                                          .withOpacity(0.2),
+                                      borderColor: const Color(0xFF4F98A3),
+                                      borderWidth: 2,
+                                      entryRadius: 4,
+                                      dataEntries: safeScores
+                                          .map((s) => RadarEntry(value: s))
+                                          .toList(),
+                                    ),
+                                  ],
+                                  radarBorderData: const BorderSide(
+                                      color: Colors.transparent),
+                                  tickCount: 4,
+                                  ticksTextStyle: const TextStyle(fontSize: 0),
+                                  tickBorderData: const BorderSide(
+                                      color: Color(0x40000000)), // faint grid
+                                  gridBorderData: const BorderSide(
+                                      color: Color(0x40000000)), // faint grid
+                                  titlePositionPercentageOffset: 0.15,
+                                  getTitle: (index, angle) {
+                                    if (index >= labels.length) {
+                                      return const RadarChartTitle(text: '');
+                                    }
+                                    final label = labels[index];
+                                    final emoji = _axisEmojis[label] ?? '';
+                                    return RadarChartTitle(
+                                      text: '$emoji $label',
+                                      angle: 0,
+                                      positionPercentageOffset: 0.15,
+                                    );
+                                  },
+                                ),
                               ),
-                              dataSets: [
-                                // 1. INVISIBLE DATASET to lock the chart scale to 100% max
-                                RadarDataSet(
-                                  fillColor: Colors.transparent,
-                                  borderColor: Colors.transparent,
-                                  borderWidth: 0,
-                                  entryRadius: 0,
-                                  dataEntries: List.generate(labels.length,
-                                      (_) => const RadarEntry(value: 100)),
-                                ),
-                                // 2. THE MAIN POLYGON
-                                RadarDataSet(
-                                  fillColor:
-                                      const Color(0xFF4F98A3).withOpacity(0.2),
-                                  borderColor: const Color(0xFF4F98A3),
-                                  borderWidth: 2,
-                                  entryRadius: 4, // Clean dots on the vertices
-                                  dataEntries: safeScores
-                                      .map((s) => RadarEntry(value: s))
-                                      .toList(),
-                                ),
-                              ],
-                              radarBorderData:
-                                  const BorderSide(color: Colors.transparent),
-                              tickCount: 4,
-                              ticksTextStyle: const TextStyle(fontSize: 0),
-                              tickBorderData: const BorderSide(
-                                  color: Color(0x14000000)), // faint grid
-                              gridBorderData: const BorderSide(
-                                  color: Color(0x14000000)), // faint grid
-                              titlePositionPercentageOffset: 0.15,
-                              getTitle: (index, angle) {
-                                if (index >= labels.length) {
-                                  return const RadarChartTitle(text: '');
-                                }
-                                final label = labels[index];
-                                final emoji = _axisEmojis[label] ?? '';
-                                return RadarChartTitle(
-                                  text: '$emoji $label',
-                                  angle: 0,
-                                  positionPercentageOffset: 0.15,
-                                );
-                              },
                             ),
                           ),
                         );
@@ -527,8 +532,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     child: Text(
                                       '$emoji $label',
                                       style: const TextStyle(
-                                          color: Color(
-                                              0xFF1A1A1A), // EXPLICIT COLOR FIX
+                                          color: Color(0xFF1A1A1A),
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600),
                                       overflow: TextOverflow.ellipsis,
