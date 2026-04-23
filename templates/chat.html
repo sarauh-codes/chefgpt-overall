@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask ChefGPT</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+</head>
+<body>
+
+<!-- Navbar -->
+<div class="navbar">
+  <h1>🍳 ChefGPT</h1>
+  <div class="nav-right">
+    <a href="{{ url_for('dashboard') }}" class="back-btn">← Back to Dashboard</a>
+  </div>
+</div>
+
+<!-- Chat Wrapper -->
+<div class="chat-wrapper">
+
+  <!-- Header -->
+  <div class="chat-header">
+    <div style="width:46px;height:46px;background:linear-gradient(135deg,#ff6b35,#f7931e);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;">🍳</div>
+    <div>
+      <h2 style="margin:0;font-size:18px;">Ask ChefGPT</h2>
+      <p style="margin:0;font-size:13px;color:#888;">Your personal AI cooking assistant</p>
+    </div>
+  </div>
+
+  <!-- Chat Box -->
+  <div class="chat-box">
+
+    <!-- Messages -->
+    <div class="chat-messages" id="chat-messages">
+      <div class="bubble-row">
+        <div class="ai-icon">🍳</div>
+        <div class="bubble ai">Hai {{ username }}! 👋 Apa yang kau nak masak hari ni? Tanya aku apa-apa — resipi, tips, atau cadangan berdasarkan bahan yang ada! 😊</div>
+      </div>
+    </div>
+
+    <!-- Quick Chips -->
+    <div class="chips">
+      <span class="chip" onclick="sendChip('Suggest me a simple chicken recipe')">🍗 Chicken recipe</span>
+      <span class="chip" onclick="sendChip('What can I cook with eggs and vegetables?')">🥚 Eggs & veggies</span>
+      <span class="chip" onclick="sendChip('Give me a healthy low calorie meal idea')">🥗 Healthy meal</span>
+      <span class="chip" onclick="sendChip('Quick 20 minute dinner ideas')">⏱ Quick dinner</span>
+    </div>
+
+    <!-- Input Row -->
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Ask ChefGPT anything..." onkeydown="if(event.key==='Enter') sendMessage()">
+      <button class="send-btn" onclick="sendMessage()">Send ➤</button>
+    </div>
+
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>

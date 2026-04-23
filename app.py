@@ -1,5 +1,5 @@
 # ==================== IMPORTS ====================
-from flask import Flask, render_template, request, url_for, redirect, flash, jsonify, get_flashed_messages
+from flask import Flask, render_template, request, url_for, redirect, flash, jsonify, get_flashed_messages, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -221,7 +221,13 @@ def logout():
     flash("Logged out successfully.", "success")
     return redirect(url_for("home"))
 
-@app.route('/api/chat', methods=['POST'])
+
+@app.route('/chat')
+def chat_page():
+    username = session.get('username', 'User')
+    return render_template('chat.html', username=username)
+
+@app.route('/api/chat', methods=['GET','POST'])
 def chat():
     data = request.get_json()
     user_message = data.get('message')
