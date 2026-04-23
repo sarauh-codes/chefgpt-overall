@@ -16,7 +16,11 @@ import tempfile
 import csv
 import re
 import os
+from dotenv import load_dotenv
+load_dotenv()
+from groq import Groq
 
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # ==================== APP INIT ====================
 app = Flask(__name__)
@@ -217,7 +221,18 @@ def logout():
     flash("Logged out successfully.", "success")
     return redirect(url_for("home"))
 
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_message = data.get('message')
 
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": user_message}]
+    )
+
+    return jsonify({'reply': response.choices[0].message.content})
+    
 # ==================== DASHBOARD ROUTES ====================
 @app.route("/dashboard")
 @login_required

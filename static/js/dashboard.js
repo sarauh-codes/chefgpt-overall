@@ -317,3 +317,86 @@ fetch("/api/taste-profile")
             barsEl.appendChild(row);
         });
     });
+    // ==================== TASTE DRAWER ====================
+
+function openTasteDrawer() {
+    document.getElementById('taste-drawer').style.right = '0';
+    document.getElementById('taste-overlay').style.display = 'block';
+    renderTasteDrawer();
+}
+
+function closeTasteDrawer() {
+    document.getElementById('taste-drawer').style.right = '-480px';
+    document.getElementById('taste-overlay').style.display = 'none';
+}
+
+function renderTasteDrawer() {
+    fetch("/api/taste-profile")
+        .then(r => r.json())
+        .then(data => {
+            if (data.empty) {
+                document.getElementById("tasteEmptyDrawer").style.display = 'block';
+                document.getElementById("tasteContentDrawer").style.display = 'none';
+                return;
+            }
+
+            document.getElementById("tasteEmptyDrawer").style.display = 'none';
+            document.getElementById("tasteContentDrawer").style.display = 'block';
+
+            // Destroy chart lama kalau ada
+            const old = Chart.getChart('tasteRadarDrawer');
+            if (old) old.destroy();
+
+            // Render radar chart
+            const ctx = document.getElementById("tasteRadarDrawer").getContext("2d");
+            new Chart(ctx, {
+                type: "radar",
+                data: {
+                    labels: data.labels.map(l => `${AXIS_EMOJIS[l] || ""} ${l}`),
+                    datasets: [{
+                        data: data.scores,
+                        backgroundColor: "rgba(79,152,163,0.15)",
+                        borderColor: "#4f98a3",
+                        pointBackgroundColor: data.labels.map(l => AXIS_COLORS[l] || "#4f98a3"),
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio:1.2,
+                    scales: {
+                        r: {
+                            min: 0, max: 100,
+                            ticks: { display: false },
+                            pointLabels: { font: { size: 12, weight: "600" }, color: "#333" },
+                            grid: { color: "rgba(0,0,0,0.25)" },
+                            angleLines: { color: "rgba(0,0,0,0.25)" }
+                        }
+                    },
+                    plugins: { legend: { display: false } },
+                    animation: { duration: 800 }
+                }
+            });
+
+            // Render bars
+            const barsEl = document.getElementById("tasteBarsDrawer");
+            barsEl.innerHTML = '';
+            data.labels.forEach((label, i) => {
+                const color = AXIS_COLORS[label] || "#4f98a3";
+                barsEl.innerHTML += `
+                    <div style="margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                            <span style="font-size:13px; font-weight:600;">${AXIS_EMOJIS[label] || ""} ${label}</span>
+                            <span style="font-size:13px; color:${color}; font-weight:600;">${data.scores[i]}%</span>
+                        </div>
+                        <div style="background:#f0f0f0; border-radius:99px; height:8px;">
+                            <div style="background:${color}; height:8px; border-radius:99px;
+                                        width:${data.scores[i]}%; transition:width 0.5s ease;"></div>
+                        </div>
+                    </div>`;
+            });
+        });
+}
