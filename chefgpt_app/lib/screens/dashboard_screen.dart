@@ -447,9 +447,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       builder: (context, constraints) {
                         final isWide = constraints.maxWidth >= 600;
 
-                        // FIX: Removed the 0.5 clamping hack.
-                        // Now 0% will sit perfectly dead-center.
-                        final safeScores = scores;
+                        // ✅ Normalize values to 0.0–1.0
+                        final safeScores =
+                            scores.map((s) => s.clamp(0, 100) / 100.0).toList();
 
                         final chart = SizedBox(
                           width: isWide ? 260 : double.infinity,
@@ -466,16 +466,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     fontWeight: FontWeight.w600,
                                   ),
                                   dataSets: [
-                                    // 1. INVISIBLE DATASET to lock the chart scale to 100% max
+                                    // Invisible dataset to lock scale at 1.0
                                     RadarDataSet(
                                       fillColor: Colors.transparent,
                                       borderColor: Colors.transparent,
                                       borderWidth: 0,
                                       entryRadius: 0,
                                       dataEntries: List.generate(labels.length,
-                                          (_) => const RadarEntry(value: 100)),
+                                          (_) => const RadarEntry(value: 1.0)),
                                     ),
-                                    // 2. THE MAIN POLYGON
+                                    // Main polygon dataset
                                     RadarDataSet(
                                       fillColor: const Color(0xFF4F98A3)
                                           .withOpacity(0.2),
