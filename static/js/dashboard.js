@@ -400,6 +400,7 @@ function renderTasteDrawer() {
             });
         });
 }
+// ==================== CHAT WITH CHEFGPT ====================
 async function sendMessage() {
     const userMessage = "What can I cook with chicken?"; // atau ambil dari input
 
