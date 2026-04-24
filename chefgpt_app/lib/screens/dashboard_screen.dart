@@ -14,6 +14,8 @@ import 'saved_recipes_screen.dart';
 import 'cooking_history_screen.dart';
 import '../constants.dart';
 import '../widgets/dashboard/taste_profile.dart';
+import 'chat_screen.dart';
+import 'chat_fab.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -206,6 +208,7 @@ void _goToTasteProfile() {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAF7),
+      floatingActionButton:const ChatFab(),
       body: AnimatedBuilder(
         animation: _auroraController,
         builder: (context, child) => Stack(

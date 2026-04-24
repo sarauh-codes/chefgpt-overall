@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
+import 'chat_screen.dart';
+import 'chat_fab.dart';
 
 class SavedRecipesScreen extends StatefulWidget {
   const SavedRecipesScreen({super.key});
@@ -58,6 +60,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton:const ChatFab(),
       appBar: AppBar(
         title: const Text('Saved Recipes'),
         backgroundColor: Colors.green,

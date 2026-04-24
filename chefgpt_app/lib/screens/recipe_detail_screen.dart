@@ -14,6 +14,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import '../widgets/recipe/feedback_sheet.dart';
+import 'chat_screen.dart';
+import 'chat_fab.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -172,6 +174,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton:const ChatFab(),
       backgroundColor: const Color(0xFFFFFAF7),
       body: AnimatedBuilder(
         animation: _auroraController,

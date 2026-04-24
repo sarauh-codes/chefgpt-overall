@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/dashboard/aurora_painter.dart';
+import 'chat_screen.dart';
+import 'chat_fab.dart';
 
 class CookingModeScreen extends StatefulWidget {
   final int recipeId;
@@ -227,6 +229,7 @@ class _CookingModeScreenState extends State<CookingModeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: const ChatFab(),
       backgroundColor: const Color(0xFFFFFAF7),
       body: AnimatedBuilder(
         animation: _auroraController,

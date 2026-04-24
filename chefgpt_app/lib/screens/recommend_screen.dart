@@ -9,6 +9,8 @@ import '../constants.dart';
 import '../widgets/dashboard/aurora_painter.dart';
 import 'recipe_detail_screen.dart';
 import 'package:cross_file/cross_file.dart';
+import 'chat_screen.dart';
+import 'chat_fab.dart';
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -319,6 +321,7 @@ class _RecommendScreenState extends State<RecommendScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton:const ChatFab(),
       backgroundColor: const Color(0xFFFFFAF7),
       body: AnimatedBuilder(
         animation: _auroraController,
