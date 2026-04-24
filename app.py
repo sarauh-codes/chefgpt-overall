@@ -4,13 +4,14 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from recipe_recommender import get_recommender
 from config import Config
 from transformers import pipeline, BlipProcessor, BlipForConditionalGeneration
 from PIL import Image as PILImage
+from functools import wraps
 import pandas as pd
 import tempfile
 import csv
@@ -162,6 +163,18 @@ def singularize(word):
     if word.endswith("s") and not word.endswith("ss"):
         return word[:-1]
     return word
+
+def web_or_jwt_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if current_user.is_authenticated:
+            return fn(*args, **kwargs)
+        try:
+            verify_jwt_in_request()
+            return fn(*args, **kwargs)
+        except:
+            return jsonify({'error': 'Unauthorized'}), 401
+    return wrapper
 
 
 # ==================== AUTH ROUTES ====================
@@ -565,7 +578,7 @@ def get_recommendations():
         return jsonify({'error': str(e)}), 500
 
 @app.route("/transcribe-audio", methods=["POST"])
-@jwt_required()
+@web_or_jwt_required
 def transcribe_audio():
     try:
         if 'audio' not in request.files:
@@ -591,7 +604,7 @@ def transcribe_audio():
         return jsonify({'error': str(e)}), 500
 
 @app.route("/analyze-image", methods=["POST"])
-@jwt_required()
+@web_or_jwt_required
 def analyze_image():
     try:
         if 'image' not in request.files:
