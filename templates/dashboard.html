@@ -181,9 +181,10 @@
 
 <!-- Ask ChefGPT AI Button -->
 <div style="margin-bottom:28px;">
-    <a href="{{ url_for('chat_page') }}"
+    <div onclick="openChat()" 
       style="display:flex; align-items:center; gap:14px;
              padding:18px 24px; border-radius:16px;
+            cursor:pointer;
              background:white;
             border: 2px solid #ff6b35;
             color: #333;
@@ -211,7 +212,7 @@
 
       <!-- Arrow -->
       <div style="color:#ff6b35;; font-size:20px;">›</div>
-    </a>
+    </div>
 </div>
 
         <div class="dashboard-grid">
@@ -281,6 +282,6 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    
+    {% include 'partials/floating_chat.html' %}
 </body>
 </html>
