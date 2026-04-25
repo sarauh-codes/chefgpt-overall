@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-class TasteProfileWidget extends StatelessWidget {
+class TasteProfile extends StatelessWidget {
   final Map<String, dynamic> tasteProfile;
   final bool isLoading;
   final bool tasteEmpty;
 
-  const TasteProfileWidget({
+  const TasteProfile({
     super.key,
     required this.tasteProfile,
     required this.isLoading,

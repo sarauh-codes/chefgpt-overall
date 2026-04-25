@@ -38,6 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Map<String, dynamic> _tasteProfile = {};
   bool _isLoadingTaste = true;
   bool _tasteEmpty = false;
+  bool _showTastePanel = false;
 
   @override
   void initState() {
@@ -176,78 +177,108 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 void _goToTasteProfile() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => Scaffold(
-        backgroundColor: const Color(0xFFFFFAF7),
-        appBar: AppBar(
-          title: const Text('🍽️ Taste Profile',
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  color: Colors.white)),
-          backgroundColor: const Color(0xFFFF6B35),
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: TasteProfileWidget(
-            tasteProfile: _tasteProfile,
-            isLoading: _isLoadingTaste,
-            tasteEmpty: _tasteEmpty,
+    setState(() => _showTastePanel = true);
+  } 
+
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFFFFFAF7),
+    floatingActionButton: const ChatFab(),
+    body: AnimatedBuilder(
+      animation: _auroraController,
+      builder: (context, child) => Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(painter: AuroraPainter(_auroraController.value)),
           ),
-        ),
+          child!,
+
+          // ── Dark overlay ──
+          if (_showTastePanel)
+            GestureDetector(
+              onTap: () => setState(() => _showTastePanel = false),
+              child: Container(color: Colors.black.withOpacity(0.35)),
+            ),
+
+          // ── Slide-in panel ──
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            right: _showTastePanel ? 0 : -360,
+            top: 0,
+            bottom: 0,
+            width: 340,
+            child: Material(
+              elevation: 16,
+              child: Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(16, 48, 8, 12),
+                      child: Row(
+                        children: [
+                          const Text('🍽️ Taste Profile',
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1A1A1A))),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () =>
+                                setState(() => _showTastePanel = false), 
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: TasteProfile(
+                          tasteProfile: _tasteProfile,
+                          isLoading: _isLoadingTaste,   // ✅ fixed (was _isLoadingProfile)
+                          tasteEmpty: (_tasteProfile['labels'] as List? ?? []).isEmpty,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildNavbar(),
+          Expanded(
+            child: RefreshIndicator(
+              color: const Color(0xFFFF6B35),
+              onRefresh: _loadRecipes,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcomeSection(),
+                    const SizedBox(height: 28),
+                    _buildDashboardGrid(),
+                    const SizedBox(height: 40),
+                    _buildBrowseSection(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     ),
   );
 }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFFAF7),
-      floatingActionButton:const ChatFab(),
-      body: AnimatedBuilder(
-        animation: _auroraController,
-        builder: (context, child) => Stack(
-          children: [
-            Positioned.fill(
-              child:
-                  CustomPaint(painter: AuroraPainter(_auroraController.value)),
-            ),
-            child!,
-          ],
-        ),
-        child: Column(
-          children: [
-            _buildNavbar(),
-            Expanded(
-              child: RefreshIndicator(
-                color: const Color(0xFFFF6B35),
-                onRefresh: _loadRecipes,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildWelcomeSection(),
-                      const SizedBox(height: 28),
-                      _buildDashboardGrid(),
-                      const SizedBox(height: 40),
-                      _buildBrowseSection(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildNavbar() {
     return Container(
