@@ -283,7 +283,7 @@ fetch("/api/taste-profile")
                 scales: {
                     r: {
                         min: 0, max: 100,
-                        ticks: { display: false, stepSize: 25 },
+                        ticks: { display: false, stepSize: 20 },
                         pointLabels: {
                             font: { size: 13, weight: "600" },
                             color: "#333"
@@ -370,7 +370,7 @@ function renderTasteDrawer() {
                     scales: {
                         r: {
                             min: 0, max: 100,
-                            ticks: { display: false },
+                            ticks: { display: false , stepSize:20 },
                             pointLabels: { font: { size: 12, weight: "600" }, color: "#333" },
                             grid: { color: "rgba(0,0,0,0.25)" },
                             angleLines: { color: "rgba(0,0,0,0.25)" }

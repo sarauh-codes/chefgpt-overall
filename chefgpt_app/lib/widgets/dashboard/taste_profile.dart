@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'radar_painter.dart'; 
+import 'dart:math';
 
 class TasteProfile extends StatelessWidget {
   final Map<String, dynamic> tasteProfile;
@@ -102,65 +103,29 @@ class TasteProfile extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 600;
-        final safeScores =
-            scores.map((s) => s.clamp(0, 100) / 100.0).toList();
 
-        final chart = SizedBox(
-          width: isWide ? 260 : double.infinity,
-          height: isWide ? 280 : 300,
-          child: Center(
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: RadarChart(
-                RadarChartData(
-                  radarShape: RadarShape.polygon,
-                  titleTextStyle: const TextStyle(
-                      color: Color(0xFF333333),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600),
-                  dataSets: [
-                    RadarDataSet(
-                      fillColor: Colors.transparent,
-                      borderColor: Colors.transparent,
-                      borderWidth: 0,
-                      entryRadius: 0,
-                      dataEntries: List.generate(
-                          labels.length, (_) => const RadarEntry(value: 1.0)),
-                    ),
-                    RadarDataSet(
-                      fillColor: const Color(0xFF4F98A3).withOpacity(0.2),
-                      borderColor: const Color(0xFF4F98A3),
-                      borderWidth: 2,
-                      entryRadius: 4,
-                      dataEntries:
-                          safeScores.map((s) => RadarEntry(value: s)).toList(),
-                    ),
-                  ],
-                  radarBorderData:
-                      const BorderSide(color: Colors.transparent),
-                  tickCount: 4,
-                  ticksTextStyle: const TextStyle(fontSize: 0),
-                  tickBorderData:
-                      const BorderSide(color: Color(0x40000000)),
-                  gridBorderData:
-                      const BorderSide(color: Color(0x40000000)),
-                  titlePositionPercentageOffset: 0.15,
-                  getTitle: (index, angle) {
-                    if (index >= labels.length) {
-                      return const RadarChartTitle(text: '');
-                    }
-                    final label = labels[index];
-                    final emoji = _axisEmojis[label] ?? '';
-                    return RadarChartTitle(
-                        text: '$emoji $label',
-                        angle: 0,
-                        positionPercentageOffset: 0.15);
-                  },
-                ),
-              ),
-            ),
-          ),
-        );
+
+        final axisColors = labels.map((l) => _axisColors[l] ?? const Color(0xFF4F98A3)).toList();
+
+final chart = SizedBox(
+  width: double.infinity,
+  height: 300,
+  child: Stack(
+    children: [
+    SizedBox.expand(
+      child:CustomPaint(
+        painter: RadarChartPainter(
+          scores: scores,
+          dotColors: axisColors,
+          rings: 5,
+        ),
+        child: Container(),
+      ),
+    ),
+    _buildLabels(labels, constraints),
+    ],
+  ),
+);
 
         final bars = Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -235,4 +200,26 @@ class TasteProfile extends StatelessWidget {
       },
     );
   }
+  Widget _buildLabels(List<String> labels, BoxConstraints constraints) {
+  final count = labels.length;
+  final angle = (2 * pi) / count;
+  const startAngle = -pi / 2;
+  final radius = constraints.maxWidth * 0.35 + 28.0; // label kat luar ring
+
+  return Stack(
+    children: List.generate(count, (i) {
+      final a = startAngle + i * angle;
+      final x = constraints.maxWidth / 2 + radius * cos(a);
+      final y = 150 + radius * sin(a); // 150 = height/2
+      final label = labels[i];
+      final emoji = _axisEmojis[label] ?? '';
+      return Positioned(
+        left: x - 30,
+        top: y - 10,
+        child: Text('$emoji $label',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+      );
+    }),
+  );
+}
 }
