@@ -215,24 +215,25 @@ Widget build(BuildContext context) {
                 color: Colors.white,
                 child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(16, 48, 8, 12),
-                      child: Row(
-                        children: [
-                          const Text('🍽️ Taste Profile',
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1A1A1A))),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () =>
-                                setState(() => _showTastePanel = false), 
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Container(
+                    //   padding: const EdgeInsets.fromLTRB(16, 48, 8, 12),
+                    //   child: Row(
+                    //     children: [
+                    //       const Text('🍽️ Taste Profile',
+                    //           style: TextStyle(
+                    //               fontSize: 18,
+                    //               fontWeight: FontWeight.w700,
+                    
+                    //               color: Color(0xFF1A1A1A))),
+                    //       const Spacer(),
+                    //       IconButton(
+                    //         icon: const Icon(Icons.close),
+                    //         onPressed: () =>
+                    //             setState(() => _showTastePanel = false), 
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                     const Divider(height: 1),
                     Expanded(
                       child: SingleChildScrollView(

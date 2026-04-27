@@ -11,6 +11,8 @@ import 'recipe_detail_screen.dart';
 import 'package:cross_file/cross_file.dart';
 import 'chat_screen.dart';
 import 'chat_fab.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -31,6 +33,7 @@ class _RecommendScreenState extends State<RecommendScreen>
   final Map<String, String> _substituteResults = {};
   final Map<String, bool> _substituteLoading = {};
   late AnimationController _auroraController;
+  final ImagePicker _picker = ImagePicker();
 
   // Tab state
   int _activeTab = 0; // 0 = text, 1 = voice, 2 = image
@@ -46,6 +49,7 @@ class _RecommendScreenState extends State<RecommendScreen>
   bool _isAnalyzingImage = false;
   String _imageStatus = '';
   bool _imageResultVisible = false;
+  bool _isDetecting = false;
 
   @override
   void initState() {
@@ -245,10 +249,47 @@ class _RecommendScreenState extends State<RecommendScreen>
 
   // ===== IMAGE =====
   Future<void> _pickAndAnalyzeImage() async {
-    final picker = ImagePicker();
-    final files = await picker.pickMultiImage();
-    if (files.isEmpty) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFFFF6B35)),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded, color: Color(0xFFFF6B35)),
+              title: const Text('Choose From Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
 
+  if (source == null) return; // ← user cancel
+
+  final picker = ImagePicker();
+
+  // ← Camera = single image, Gallery = multi image
+  List<XFile> files = [];
+  if (source == ImageSource.camera) {
+    final photo = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      maxWidth: 1024,
+    );
+    if (photo != null) files = [photo];
+  } else {
+    files = await picker.pickMultiImage();
+  }
+
+  if (files.isEmpty) return;
     setState(() {
       _isAnalyzingImage = true;
       _imageStatus = '🤖 BLIP is analyzing ${files.length} image(s)...';
