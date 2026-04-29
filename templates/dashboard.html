@@ -248,6 +248,13 @@
             <div class="recipe-catalog" id="recipe-catalog">
                 {% for recipe in recipes %}
                     <div class="recipe-card">
+                      {% if recipe.image_url %}
+                        <img src="{{ recipe.image_url }}"
+                            alt="{{ recipe.recipe_name }}"
+                            style="width:100%; height:160px; object-fit:cover; border-radius:10px 10px 0 0; display:block;"
+                            loading="lazy"
+                            onerror="this.style.display='none'">
+                        {% endif %}
                         <div class="recipe-header">
                             <h3>{{ recipe.recipe_name }}</h3>
                         </div>

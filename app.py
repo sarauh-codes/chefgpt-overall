@@ -298,7 +298,8 @@ def load_more_recipes():
             'ingredients': str(row['ingredients']),
             'cuisine': str(row['cuisine']),
             'calories': int(row['calories']),
-            'rating': float(row['rating'])
+            'rating': float(row['rating']),
+            'image_url': str(row.get('image_url', '')) or '',
         })
 
     has_more = (offset + limit) < len(df)
@@ -331,7 +332,8 @@ def search_recipes():
             'cuisine': str(row['cuisine']),
             'calories': int(row['calories']),
             'rating': float(row['rating']),
-            'difficulty': str(row['difficulty'])
+            'difficulty': str(row['difficulty']),
+            'image_url': str(row.get('image_url', '')) or '',
         })
 
     return jsonify({'recipes': recipes_list})
@@ -915,7 +917,8 @@ def add_recipe():
             'calories': request.form['calories'],
             'rating': request.form['rating'],
             'difficulty': request.form['difficulty'],
-            'instructions': request.form.get('instructions', '')
+            'instructions': request.form.get('instructions', ''),
+            'image_url': request.form.get('image_url', ''),
         }
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         df.drop(columns=['recipe_id'], inplace=True)
@@ -947,6 +950,7 @@ def edit_recipe(recipe_id):
         df.loc[idx, 'rating'] = request.form['rating']
         df.loc[idx, 'difficulty'] = request.form['difficulty']
         df.loc[idx, 'instructions'] = request.form.get('instructions', '')
+        df.loc[idx, 'image_url'] = request.form.get('image_url', '')
         df.to_csv('recipes.csv', index=False, encoding='utf-8-sig')
         flash("Recipe updated successfully!", "success")
         return redirect(url_for('manage_recipes'))
@@ -1082,7 +1086,8 @@ def api_search_recipes():
             'cuisine': str(row['cuisine']),
             'calories': int(row['calories']),
             'rating': float(row['rating']),
-            'difficulty': str(row['difficulty'])
+            'difficulty': str(row['difficulty']),
+            'image_url': str(row.get('image_url', '')) or '',
         })
 
     return jsonify({'recipes': recipes_list})

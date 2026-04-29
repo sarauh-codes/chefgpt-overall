@@ -118,6 +118,7 @@ function displayResults(recommendations) {
 
             return `
             <div class="recipe-card">
+                ${recipe.image_url ? `<img src="${recipe.image_url}" alt="${recipe.recipe_name}" style="width:100%;height:180px;object-fit:cover;border-radius:10px 10px 0 0;display:block;" onerror="this.style.display='none'">` : ''}
                 <div class="recipe-header">
                     <h3>${recipe.recipe_name}</h3>
                     <span class="match-score" style="background:${barColor}">${pct}% Match</span>

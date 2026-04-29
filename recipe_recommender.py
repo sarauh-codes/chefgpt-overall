@@ -3,7 +3,17 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from rank_bm25 import BM25Okapi
 import numpy as np
+import re
 
+#for excluding keywords
+def clean_ingredients_for_ml(raw):
+    raw = str(raw).lower()
+    raw = re.sub(r'\d+\.?\d*\/?\d*', '', raw)
+    filler = r'\b(cloves?|cups?|tbsp|tsp|tablespoons?|teaspoons?|grams?|g|kg|ml|oz|pounds?|lbs?|sticks?|slices?|pieces?|heads?|bunches?|cans?|packets?|sheets?|sprigs?|pinch|dash|handful|of|a|an|the|fresh|dried|chopped|minced|sliced|diced|large|small|medium|thick|thin|cut|boneless|skinless|grated|shredded|beaten|melted|softened|cooked|raw|frozen|optional)\b'
+    raw = re.sub(filler, '', raw)
+    raw = re.sub(r'[(),\-]', ' ', raw)
+    raw = re.sub(r'\s+', ' ', raw).strip()
+    return raw
 
 class RecipeRecommender:
     def __init__(self, csv_path='RECIPES.csv'):
@@ -23,18 +33,12 @@ class RecipeRecommender:
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
 
         # Encode all recipe ingredients
-        print("Encoding recipe ingredients...")
-        self.recipe_embeddings = self.model.encode(
-            self.df['ingredients'].tolist(),
-            show_progress_bar=True
-        )
+        cleaned_ingredients = self.df['ingredients'].apply(clean_ingredients_for_ml).tolist()
+        self.recipe_embeddings = self.model.encode(cleaned_ingredients, show_progress_bar=True)
 
         # Build BM25 index for keyword matching
         print("Building BM25 keyword index...")
-        tokenized_ingredients = [
-            ingredients.lower().replace(',', ' ').split() 
-            for ingredients in self.df['ingredients'].tolist()
-        ]
+        tokenized_ingredients = [clean_ingredients_for_ml(ing).split() for ing in self.df['ingredients'].tolist()]
         self.bm25 = BM25Okapi(tokenized_ingredients)
 
         print("Model ready! Loaded {} recipes.".format(len(self.df)))
@@ -144,11 +148,9 @@ class RecipeRecommender:
             list: Recipes ranked by match, with match count and missing ingredients
         """
         # Parse user ingredients into a clean set
-        user_items = set(
-            word.strip().lower()
-            for word in user_ingredients.replace(',', ' ').split()
-            if word.strip()
-        )
+        cleaned_user = clean_ingredients_for_ml(user_ingredients)
+        user_items = set(w for w in cleaned_user.split() if w and len(w) > 2)
+        user_embedding = self.model.encode(cleaned_user)
 
         # Semantic similarity using existing model
         user_embedding = self.model.encode([user_ingredients])
@@ -157,11 +159,8 @@ class RecipeRecommender:
         results = []
         for idx, row in self.df.iterrows():
             # Parse recipe ingredients (space-separated in your CSV)
-            recipe_items = set(
-                word.strip().lower()
-                for word in row['ingredients'].split()
-                if word.strip()
-            )
+            cleaned_recipe = clean_ingredients_for_ml(row['ingredients'])
+            recipe_items = set(w for w in cleaned_recipe.split() if w and len(w) > 2)
 
             total = len(recipe_items)
             matched = len(user_items & recipe_items)
@@ -180,7 +179,8 @@ class RecipeRecommender:
                 'total_ingredients': total,
                 'missing_ingredients': missing,
                 'match_pct': match_pct,
-                'semantic_score': round(float(semantic_scores[idx]) * 100, 2)
+                'semantic_score': round(float(semantic_scores[idx]) * 100, 2),
+                'image_url': row.get('image_url', '') or '',
             })
 
         # Sort: first by match %, then by semantic score as tiebreaker
@@ -207,7 +207,8 @@ class RecipeRecommender:
             'calories': int(recipe['calories']),
             'rating': float(recipe['rating']),
             'difficulty': recipe.get('difficulty', 'medium'),
-            'instructions': instructions
+            'instructions': instructions,
+            'image_url': recipe.get('image_url', '') or '',
         }
 
 

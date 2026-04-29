@@ -22,7 +22,17 @@
     <div class="container">
         <div class="recipe-detail">
             <h1 class="recipe-title">{{ recipe.recipe_name }}</h1>
-            
+
+            {% if recipe.image_url %}
+            <div style="margin: 16px 0; border-radius: 12px; overflow: hidden;">
+                <img src="{{ recipe.image_url }}"
+                    alt="{{ recipe.recipe_name }}"
+                    style="width:100%; max-height:380px; object-fit:cover; display:block;"
+                    loading="lazy"
+                    onerror="this.style.display='none'">
+            </div>
+            {% endif %}
+                        
             <div class="recipe-meta">
                 <span class="meta-tag">🍽️ {{ recipe.cuisine }}</span>
                 <span class="meta-tag">🔥 {{ recipe.calories }} calories</span>
