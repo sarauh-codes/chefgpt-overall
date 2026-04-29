@@ -91,8 +91,9 @@ class _LoginScreenState extends State<LoginScreen>
         });
       }
     } catch (e) {
+      print('Login error: $e');
       setState(() {
-        _errorMessage = 'Cannot connect to server. Check your connection.';
+        _errorMessage = e.toString();
       });
     } finally {
       setState(() => _isLoading = false);

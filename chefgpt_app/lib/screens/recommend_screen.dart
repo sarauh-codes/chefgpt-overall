@@ -50,6 +50,7 @@ class _RecommendScreenState extends State<RecommendScreen>
   String _imageStatus = '';
   bool _imageResultVisible = false;
   bool _isDetecting = false;
+  List<XFile> _selectedImages =[];
 
   @override
   void initState() {
@@ -284,9 +285,14 @@ class _RecommendScreenState extends State<RecommendScreen>
       imageQuality: 80,
       maxWidth: 1024,
     );
-    if (photo != null) files = [photo];
+    if (photo != null) {
+    setState(() => _selectedImages.add(photo));
+    files = _selectedImages;  // guna semua gambar dalam list
+}
   } else {
-    files = await picker.pickMultiImage();
+    final picked = await picker.pickMultiImage();
+    setState(() => _selectedImages.addAll(picked));
+    files = _selectedImages;
   }
 
   if (files.isEmpty) return;
