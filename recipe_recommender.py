@@ -137,30 +137,24 @@ class RecipeRecommender:
         return self.recommend(user_ingredients, top_k=top_k, alpha=1.0, min_overlap=0)
 
     def fridge_search(self, user_ingredients, top_k=10):
-        """
-        Fridge-based recipe search using hybrid semantic + literal overlap.
-        
-        Args:
-            user_ingredients (str): Comma-separated ingredients user has
-            top_k (int): Number of results to return
-        
-        Returns:
-            list: Recipes ranked by match, with match count and missing ingredients
-        """
-        # Parse user ingredients into a clean set
-        cleaned_user = clean_ingredients_for_ml(user_ingredients)
-        user_items = set(w for w in cleaned_user.split() if w and len(w) > 2)
-        user_embedding = self.model.encode(cleaned_user)
+    # Parse user ingredients — split by comma FIRST, then clean each one
+        user_items = set()
+        for item in user_ingredients.split(','):
+            cleaned = clean_ingredients_for_ml(item.strip())
+            if cleaned and len(cleaned) > 2:
+                user_items.add(cleaned)
 
-        # Semantic similarity using existing model
         user_embedding = self.model.encode([user_ingredients])
         semantic_scores = cosine_similarity(user_embedding, self.recipe_embeddings)[0]
 
         results = []
         for idx, row in self.df.iterrows():
-            # Parse recipe ingredients (space-separated in your CSV)
-            cleaned_recipe = clean_ingredients_for_ml(row['ingredients'])
-            recipe_items = set(w for w in cleaned_recipe.split() if w and len(w) > 2)
+            # Parse recipe ingredients — split by comma FIRST, then clean each one
+            recipe_items = set()
+            for item in row['ingredients'].split(','):
+                cleaned = clean_ingredients_for_ml(item.strip())
+                if cleaned and len(cleaned) > 2:
+                    recipe_items.add(cleaned)
 
             total = len(recipe_items)
             matched = len(user_items & recipe_items)
@@ -183,9 +177,7 @@ class RecipeRecommender:
                 'image_url': row.get('image_url', '') or '',
             })
 
-        # Sort: first by match %, then by semantic score as tiebreaker
         results.sort(key=lambda x: (x['match_pct'], x['semantic_score']), reverse=True)
-
         return results[:top_k]
 
     def get_recipe_by_id(self, recipe_id):
