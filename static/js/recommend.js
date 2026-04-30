@@ -3,8 +3,6 @@ document.getElementById('ingredients-input').addEventListener('keypress', functi
     if (e.key === 'Enter') getRecommendations();
 });
 
-
-
 // ===== Enter key: voice + image result boxes =====
 document.addEventListener('DOMContentLoaded', function() {
     const voiceInput = document.getElementById('ingredients-input-voice');
@@ -22,8 +20,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-
-
 // ===== Tab switcher =====
 function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
@@ -33,8 +29,6 @@ function switchTab(tab) {
     document.getElementById('error-message').classList.remove('show');
     document.getElementById('results').classList.remove('show');
 }
-
-
 
 // ===== Get recommendations (text tab) =====
 async function getRecommendations() {
@@ -80,8 +74,6 @@ async function getRecommendations() {
     }
 }
 
-
-
 // ===== Display results =====
 function displayResults(recommendations) {
     const recipeList = document.getElementById('recipe-list');
@@ -117,29 +109,31 @@ function displayResults(recommendations) {
                 : `<div class="missing-info all-good">✅ You have all ingredients!</div>`;
 
             return `
-            <div class="recipe-card">
+            <div class="recipe-card" style="padding:0; display:flex; flex-direction:column;">
                 ${recipe.image_url ? `<img src="${recipe.image_url}" alt="${recipe.recipe_name}" style="width:100%;height:180px;object-fit:cover;border-radius:10px 10px 0 0;display:block;" onerror="this.style.display='none'">` : ''}
-                <div class="recipe-header">
-                    <h3>${recipe.recipe_name}</h3>
-                    <span class="match-score" style="background:${barColor}">${pct}% Match</span>
-                </div>
-                <div class="recipe-info">
-                    <span class="info-tag">🍽️ ${recipe.cuisine}</span>
-                    <span class="info-tag">🔥 ${recipe.calories} cal</span>
-                    <span class="info-tag">⭐ ${recipe.rating}/5</span>
-                    <span class="info-tag difficulty-${recipe.difficulty}">${difficultyIcon} ${difficultyText}</span>
-                </div>
-                <div class="match-bar-wrapper">
-                    <span style="font-size:12px;color:#888;">You have <strong>${matched} of ${total}</strong> ingredients</span>
-                    <div style="background:#edf2f7;border-radius:99px;height:6px;margin-top:5px;overflow:hidden;">
-                        <div style="width:${pct}%;height:100%;background:${barColor};border-radius:99px;transition:width 0.6s ease;"></div>
+                <div style="padding:20px 28px 28px 28px; display:flex; flex-direction:column; flex:1;">
+                    <div class="recipe-header">
+                        <h3>${recipe.recipe_name}</h3>
+                        <span class="match-score" style="background:${barColor}">${pct}% Match</span>
                     </div>
+                    <div class="recipe-info">
+                        <span class="info-tag">🍽️ ${recipe.cuisine}</span>
+                        <span class="info-tag">🔥 ${recipe.calories} cal</span>
+                        <span class="info-tag">⭐ ${recipe.rating}/5</span>
+                        <span class="info-tag difficulty-${recipe.difficulty}">${difficultyIcon} ${difficultyText}</span>
+                    </div>
+                    <div class="match-bar-wrapper">
+                        <span style="font-size:12px;color:#888;">You have <strong>${matched} of ${total}</strong> ingredients</span>
+                        <div style="background:#edf2f7;border-radius:99px;height:6px;margin-top:5px;overflow:hidden;">
+                            <div style="width:${pct}%;height:100%;background:${barColor};border-radius:99px;transition:width 0.6s ease;"></div>
+                        </div>
+                    </div>
+                    ${missingHTML}
+                    <div class="ingredients-list">
+                        <strong>Ingredients:</strong> ${recipe.ingredients}
+                    </div>
+                    <a href="/recipe/${recipe.recipe_id}" class="view-recipe-btn" style="margin-top:auto;">View Full Recipe</a>
                 </div>
-                ${missingHTML}
-                <div class="ingredients-list">
-                    <strong>Ingredients:</strong> ${recipe.ingredients}
-                </div>
-                <a href="/recipe/${recipe.recipe_id}" class="view-recipe-btn">View Full Recipe</a>
             </div>
             `;
         }).join('');
@@ -147,8 +141,6 @@ function displayResults(recommendations) {
 
     results.classList.add('show');
 }
-
-
 
 // ===== Substitute feature =====
 async function getSubstitute(ingredient, btn) {
@@ -181,8 +173,6 @@ async function getSubstitute(ingredient, btn) {
         resultSpan.innerHTML = `<span class="sub-none">Error</span>`;
     }
 }
-
-
 
 // ===== Whisper Voice Recording =====
 let mediaRecorder = null;
@@ -276,8 +266,6 @@ async function sendAudioToWhisper(audioBlob) {
     }
 }
 
-
-
 // ===== Submit from voice tab =====
 function getRecommendationsFromVoice() {
     const voiceValue = document.getElementById('ingredients-input-voice').value.trim();
@@ -291,8 +279,6 @@ function getRecommendationsFromVoice() {
     document.getElementById('ingredients-input').value = voiceValue;
     getRecommendations();
 }
-
-
 
 // ===== BLIP Image Analysis =====
 async function handleImageUpload(event) {
@@ -338,8 +324,6 @@ async function handleImageUpload(event) {
     status.textContent = `✅ Detected: "${finalIngredients}" — edit if needed, then click Get Recipes!`;
     resultGroup.style.display = 'flex';
 }
-
-
 
 // ===== Submit from image tab =====
 function getRecommendationsFromImage() {

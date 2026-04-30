@@ -52,7 +52,7 @@
                 <h3>📝 Ingredients</h3>
                 <div class="ingredients-list">
                     <ul>
-                        {% set ingredients_array = recipe.ingredients.split() %}
+                        {% set ingredients_array = recipe.ingredients.split(',') %}
                         {% for ingredient in ingredients_array %}
                             <li>{{ ingredient }}</li>
                         {% endfor %}
