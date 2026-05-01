@@ -9,8 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from recipe_recommender import get_recommender
 from config import Config
-from transformers import pipeline, BlipProcessor, BlipForConditionalGeneration
-from PIL import Image as PILImage
+from transformers import pipeline
 from functools import wraps
 import pandas as pd
 import tempfile
@@ -44,8 +43,7 @@ whisper_model = pipeline(
     model=app.config.get("WHISPER_MODEL", "openai/whisper-small")
 )
 
-blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+# Image analysis now handled by Groq vision (see analyze_image route)
 
 
 # ==================== DATABASE MODELS ====================
@@ -611,34 +609,57 @@ def analyze_image():
     try:
         if 'image' not in request.files:
             return jsonify({'error': 'No image file received'}), 400
+
         image_file = request.files['image']
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-            image_file.save(tmp.name)
-            tmp_path = tmp.name
-        image = PILImage.open(tmp_path).convert("RGB")
-        prompt = "the ingredients in this image are"
-        inputs = blip_processor(image, prompt, return_tensors="pt")
-        output = blip_model.generate(**inputs, max_new_tokens=50)
-        caption = blip_processor.decode(output[0], skip_special_tokens=True)
-        ingredients = caption.replace(prompt, "").strip()
-        descriptors = [
-            "white", "brown", "red", "green", "yellow", "fresh", "raw", "cooked",
-            "sliced", "chopped", "diced", "minced", "whole", "large", "small",
-            "medium", "boiled", "fried", "dried", "frozen", "organic", "ripe"
-        ]
-        parts = re.split(r'\band\b|,', ingredients)
+
+        # Convert image to base64 for Groq vision
+        import base64
+        image_bytes = image_file.read()
+        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+        mime_type = image_file.content_type or 'image/jpeg'
+
+        # Call Groq vision model
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{base64_image}"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                "Look at this image carefully. List EVERY food ingredient or raw food item you can see. "
+                                "Be specific — name the exact ingredient (e.g. 'carrot' not 'vegetable', 'chicken breast' not 'meat'). "
+                                "Return ONLY a comma-separated list of ingredients, nothing else. "
+                                "Example: chicken, garlic, onion, tomato, olive oil"
+                            )
+                        }
+                    ]
+                }
+            ],
+            max_tokens=200,
+        )
+
+        raw = response.choices[0].message.content.strip()
+
+        # Clean up the response
         seen = set()
         cleaned = []
-        for part in parts:
-            word = singularize(part)
-            word_parts = [w for w in word.split() if w not in descriptors]
-            word = " ".join(word_parts).strip()
-            if word and word not in seen:
+        for item in raw.split(','):
+            word = singularize(item.strip().lower())
+            if word and len(word) > 1 and word not in seen:
                 seen.add(word)
                 cleaned.append(word)
+
         ingredients = ", ".join(cleaned)
-        os.remove(tmp_path)
         return jsonify({'ingredients': ingredients})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
