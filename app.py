@@ -199,21 +199,6 @@ def meal_plan_api_payload(plan, randomized_at):
     }
 
 
-# region agent log
-def _agent_debug_log(payload):
-    entry = dict(payload)
-    entry["timestamp"] = int(datetime.utcnow().timestamp() * 1000)
-    entry["sessionId"] = "f263d5"
-    try:
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug-f263d5.log")
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, default=str) + "\n")
-            f.flush()
-    except Exception:
-        pass
-# endregion
-
-
 def singularize(word):
     word = word.strip().lower()
     if word.endswith("ies"):
@@ -457,136 +442,27 @@ def meal_plan_week_api():
 
     df, _profile = base_recipes_for_user(current_user.id)
 
-    # region agent log
-    _agent_debug_log(
-        {
-            "hypothesisId": "H3-H4",
-            "location": "meal_plan_week_api:after_base",
-            "message": "filter_pipeline_start",
-            "data": {
-                "n_after_diet": len(df),
-                "cuisine_raw": cuisine or None,
-                "difficulty_raw": difficulty or None,
-                "max_calories": max_calories,
-                "min_rating": min_rating,
-            },
-            "runId": "preflight",
-        }
-    )
-    # endregion
-
     if cuisine:
         df = df[df["cuisine"].astype(str).str.lower() == cuisine.lower()]
-
-    # region agent log
-    _agent_debug_log(
-        {
-            "hypothesisId": "H1",
-            "location": "meal_plan_week_api:after_cuisine",
-            "message": "count_after_cuisine",
-            "data": {"n": len(df), "cuisine_applied": bool(cuisine)},
-            "runId": "preflight",
-        }
-    )
-    # endregion
 
     if max_calories is not None:
         df = df[df["calories"] <= max_calories]
 
-    # region agent log
-    _agent_debug_log(
-        {
-            "hypothesisId": "H4",
-            "location": "meal_plan_week_api:after_max_cal",
-            "message": "count_after_calories_cap",
-            "data": {"n": len(df), "max_calories_applied": max_calories is not None},
-            "runId": "preflight",
-        }
-    )
-    # endregion
-
     if min_rating is not None:
         df = df[df["rating"] >= min_rating]
-
-    # region agent log
-    _agent_debug_log(
-        {
-            "hypothesisId": "H4",
-            "location": "meal_plan_week_api:after_min_rating",
-            "message": "count_after_min_rating",
-            "data": {"n": len(df), "min_rating_applied": min_rating is not None},
-            "runId": "preflight",
-        }
-    )
-    # endregion
 
     df_before_difficulty = df
     relaxed_difficulty = False
 
     if difficulty and difficulty != "any":
-        # region agent log
-        _dc = df_before_difficulty["difficulty"].fillna("medium").astype(str).str.lower()
-        _vc_raw = _dc.value_counts().head(25)
-        _vc = {str(k): int(v) for k, v in _vc_raw.items()}
-        _agent_debug_log(
-            {
-                "hypothesisId": "H2-H5",
-                "location": "meal_plan_week_api:before_difficulty_trim",
-                "message": "difficulty_distribution",
-                "data": {
-                    "n_before": len(df_before_difficulty),
-                    "requested": difficulty,
-                    "value_counts_lowercase": _vc,
-                },
-                "runId": "preflight",
-            }
-        )
-        # endregion
         diff_col = df_before_difficulty["difficulty"].fillna("medium").astype(str).str.lower()
         df = df_before_difficulty[diff_col == difficulty]
-
-        # region agent log
-        _agent_debug_log(
-            {
-                "hypothesisId": "H2",
-                "location": "meal_plan_week_api:after_difficulty",
-                "message": "count_after_difficulty",
-                "data": {"n": len(df), "difficulty_applied": difficulty},
-                "runId": "preflight",
-            }
-        )
-        # endregion
 
         if len(df) < 7 <= len(df_before_difficulty):
             relaxed_difficulty = True
             df = df_before_difficulty
-            # region agent log
-            _agent_debug_log(
-                {
-                    "hypothesisId": "FIX-verify",
-                    "location": "meal_plan_week_api:difficulty_relaxed",
-                    "message": "widened_pool_after_strict_difficulty",
-                    "data": {
-                        "n_after_relax": len(df),
-                        "requested_difficulty": difficulty,
-                    },
-                    "runId": "post-fix",
-                }
-            )
-            # endregion
 
     if len(df) < 7:
-        # region agent log
-        _agent_debug_log(
-            {
-                "hypothesisId": "H_ALL",
-                "location": "meal_plan_week_api:reject_pool",
-                "message": "insufficient_rows",
-                "data": {"final_n": len(df)},
-                "runId": "preflight",
-            }
-        )
-        # endregion
         return jsonify(
             {
                 "error": "Not enough recipes match your dietary settings and filters. Try widening your filters.",
