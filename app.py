@@ -199,6 +199,31 @@ def meal_plan_api_payload(plan, randomized_at):
     }
 
 
+def cuisines_after_diet_for_user(user_id):
+    df, _profile = base_recipes_for_user(user_id)
+    return sorted(
+        {str(c).strip() for c in df["cuisine"].dropna().tolist() if str(c).strip()},
+        key=str.lower,
+    )
+
+
+def saved_meal_plan_bootstrap_or_none(user_id):
+    meal_plan_bootstrap = None
+    rec = get_active_weekly_meal_plan_record(user_id)
+    if rec:
+        try:
+            plan = json.loads(rec.plan_json)
+            if isinstance(plan, list) and len(plan) == 7:
+                meal_plan_bootstrap = meal_plan_api_payload(plan, rec.randomized_at)
+            else:
+                db.session.delete(rec)
+                db.session.commit()
+        except (TypeError, ValueError):
+            db.session.delete(rec)
+            db.session.commit()
+    return meal_plan_bootstrap
+
+
 def singularize(word):
     word = word.strip().lower()
     if word.endswith("ies"):
@@ -389,24 +414,9 @@ def search_recipes():
 @app.route("/meal-planner")
 @login_required
 def meal_planner():
-    df, profile = base_recipes_for_user(current_user.id)
-    cuisines = sorted(
-        {str(c).strip() for c in df['cuisine'].dropna().tolist() if str(c).strip()},
-        key=str.lower,
-    )
-    meal_plan_bootstrap = None
-    rec = get_active_weekly_meal_plan_record(current_user.id)
-    if rec:
-        try:
-            plan = json.loads(rec.plan_json)
-            if isinstance(plan, list) and len(plan) == 7:
-                meal_plan_bootstrap = meal_plan_api_payload(plan, rec.randomized_at)
-            else:
-                db.session.delete(rec)
-                db.session.commit()
-        except (TypeError, ValueError):
-            db.session.delete(rec)
-            db.session.commit()
+    _df, profile = base_recipes_for_user(current_user.id)
+    cuisines = cuisines_after_diet_for_user(current_user.id)
+    meal_plan_bootstrap = saved_meal_plan_bootstrap_or_none(current_user.id)
     return render_template(
         "meal_planner.html",
         username=current_user.username,
@@ -417,11 +427,26 @@ def meal_planner():
     )
 
 
-@app.route("/api/meal-plan-week", methods=["POST", "DELETE"])
-@login_required
+@app.route("/api/meal-plan-week", methods=["GET", "POST", "DELETE"])
+@web_or_jwt_required
 def meal_plan_week_api():
+    uid = (
+        current_user.id
+        if getattr(current_user, "is_authenticated", False)
+        else int(get_jwt_identity())
+    )
+
+    if request.method == "GET":
+        return jsonify(
+            {
+                "cuisines": cuisines_after_diet_for_user(uid),
+                "meal_plan_valid_days": MEAL_PLAN_VALID_DAYS,
+                "saved_plan": saved_meal_plan_bootstrap_or_none(uid),
+            }
+        )
+
     if request.method == "DELETE":
-        WeeklyMealPlan.query.filter_by(user_id=current_user.id).delete()
+        WeeklyMealPlan.query.filter_by(user_id=uid).delete()
         db.session.commit()
         return jsonify({"ok": True})
 
@@ -440,7 +465,7 @@ def meal_plan_week_api():
     except (TypeError, ValueError):
         min_rating = None
 
-    df, _profile = base_recipes_for_user(current_user.id)
+    df, _profile = base_recipes_for_user(uid)
 
     if cuisine:
         df = df[df["cuisine"].astype(str).str.lower() == cuisine.lower()]
@@ -496,7 +521,7 @@ def meal_plan_week_api():
         )
 
     now = datetime.utcnow()
-    row = WeeklyMealPlan.query.filter_by(user_id=current_user.id).first()
+    row = WeeklyMealPlan.query.filter_by(user_id=uid).first()
     payload = json.dumps(plan)
     if row:
         row.plan_json = payload
@@ -504,7 +529,7 @@ def meal_plan_week_api():
     else:
         db.session.add(
             WeeklyMealPlan(
-                user_id=current_user.id,
+                user_id=uid,
                 randomized_at=now,
                 plan_json=payload,
             )
