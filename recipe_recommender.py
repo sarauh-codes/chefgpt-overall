@@ -119,7 +119,8 @@ class RecipeRecommender:
                 'similarity_score': round(float(hybrid_scores[idx]) * 100, 2),  # Hybrid score
                 'semantic_score': round(float(semantic_normalized[idx]) * 100, 2),  # For debugging
                 'keyword_score': round(float(bm25_normalized[idx]) * 100, 2),  # For debugging
-                'ingredient_overlap': overlap
+                'ingredient_overlap': overlap,
+                'image_url': str(recipe.get('image_url', '') or ''),
             })
 
         return recommendations

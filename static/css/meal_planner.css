@@ -1,0 +1,269 @@
+/* Weekly meal planner — extends recommend.css */
+
+.meal-planner-panel {
+  background: white;
+  padding: 32px 36px;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(255, 107, 53, 0.08);
+  border: 1px solid rgba(255, 107, 53, 0.08);
+  margin-bottom: 28px;
+}
+
+.meal-planner-panel h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.meal-planner-sub {
+  color: #777;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.meal-planner-sub a {
+  color: #ff6b35;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.meal-planner-sub a:hover {
+  text-decoration: underline;
+}
+
+.meal-diet-hint {
+  background: #fff3ee;
+  border: 1px solid rgba(255, 107, 53, 0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 22px;
+}
+
+.meal-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.meal-filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.meal-filter-grid select,
+.meal-filter-grid input {
+  padding: 12px 14px;
+  border: 2px solid #ffe0d0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: 'Poppins', sans-serif;
+  outline: none;
+  transition: border 0.2s;
+  background: #fff;
+}
+
+.meal-filter-grid select:focus,
+.meal-filter-grid input:focus {
+  border-color: #ff6b35;
+}
+
+.meal-plan-expiry-banner {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e8f4fc 0%, #f5faff 100%);
+  border: 1px solid rgba(25, 118, 210, 0.2);
+  color: #1a5270;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.meal-plan-expiry-banner strong {
+  color: #0d47a1;
+}
+
+.meal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.btn-randomize-week {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.35);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-randomize-week:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.45);
+}
+
+.btn-randomize-week:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-reset-plan {
+  padding: 14px 22px;
+  background: transparent;
+  color: #666;
+  border: 2px solid #ddd;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.btn-reset-plan:hover:not(:disabled) {
+  border-color: #ff6b35;
+  color: #ff6b35;
+  background: #fff9f7;
+}
+
+.btn-reset-plan:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.meal-plan-error {
+  display: none;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  color: #9b2c2c;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.meal-plan-error.visible {
+  display: block;
+}
+
+.meal-plan-success-notice {
+  display: none;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  color: #276749;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.meal-plan-success-notice.visible {
+  display: block;
+}
+
+.meal-plan-table-wrap {
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 107, 53, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.meal-plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: white;
+}
+
+.meal-plan-table th,
+.meal-plan-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.meal-plan-table th {
+  background: linear-gradient(135deg, #fff3ee 0%, #fffaF7 100%);
+  font-weight: 700;
+  color: #333;
+  white-space: nowrap;
+}
+
+.meal-plan-table tr:last-child td {
+  border-bottom: none;
+}
+
+.meal-plan-empty {
+  color: #bbb;
+  font-style: italic;
+}
+
+.meal-plan-recipe-name {
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+}
+
+.meal-plan-recipe-name a {
+  color: #ff6b35;
+  text-decoration: none;
+}
+
+.meal-plan-recipe-name a:hover {
+  text-decoration: underline;
+}
+
+.meal-plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.meal-plan-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.meal-plan-cell-inner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+@media (max-width: 640px) {
+  .meal-planner-panel {
+    padding: 24px 20px;
+  }
+
+  .meal-plan-table th,
+  .meal-plan-table td {
+    padding: 12px;
+  }
+}

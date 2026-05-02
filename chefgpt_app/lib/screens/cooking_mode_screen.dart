@@ -1,4 +1,5 @@
 import '../constants.dart';
+import '../utils/recipe_format.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,13 +36,7 @@ class _CookingModeScreenState extends State<CookingModeScreen>
       duration: const Duration(seconds: 16),
     )..repeat();
 
-    final raw = widget.recipe['instructions'] ?? '';
-    _steps = raw
-        .toString()
-        .split(' | ')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    _steps = splitRecipeInstructions(widget.recipe['instructions']);
     _checked = List.filled(_steps.length, false);
   }
 

@@ -287,9 +287,9 @@ class _RecommendScreenState extends State<RecommendScreen>
       maxWidth: 1024,
     );
     if (photo != null) {
-    setState(() => _selectedImages.add(photo));
-    files = _selectedImages;  // guna semua gambar dalam list
-}
+      setState(() => _selectedImages.add(photo));
+      files = _selectedImages;
+    }
   } else {
     final picked = await picker.pickMultiImage();
     setState(() => _selectedImages.addAll(picked));
@@ -339,6 +339,7 @@ class _RecommendScreenState extends State<RecommendScreen>
               final trimmed = i.trim();
               if (trimmed.isNotEmpty) allIngredients.add(trimmed);
             });
+          }
         } else {
           setState(() =>
               _imageStatus = '❌ Error: ${data['error'] ?? 'Analysis failed'}');
@@ -1123,6 +1124,8 @@ class _RecommendScreenState extends State<RecommendScreen>
       matchColor = const Color(0xFFFF6B6B);
     }
 
+    final imageUrl =
+        recipe['image_url'] == null ? '' : recipe['image_url'].toString().trim();
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1133,6 +1136,7 @@ class _RecommendScreenState extends State<RecommendScreen>
         border: Border.all(
             color: const Color(0xFFFF6B35).withOpacity(0.08), width: 1),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1144,6 +1148,36 @@ class _RecommendScreenState extends State<RecommendScreen>
                   const BorderRadius.vertical(top: Radius.circular(20)),
             ),
           ),
+          if (imageUrl.isNotEmpty)
+            SizedBox(
+              height: 128,
+              width: double.infinity,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, prog) {
+                  if (prog == null) return child;
+                  return const ColoredBox(
+                    color: Color(0xFFFFF3EE),
+                    child: Center(
+                      child: SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFFF6B35),
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (_, __, ___) => ColoredBox(
+                  color: const Color(0xFFFFF3EE),
+                  child: Icon(Icons.restaurant_rounded,
+                      color: matchColor.withOpacity(0.45), size: 44),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
             child: Column(

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Meal Planner - ChefGPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/recommend.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/meal_planner.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <h1>🍳 ChefGPT</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Home</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="meal-planner-panel">
+            <h2>📅 Weekly Meal Planner</h2>
+            <p class="meal-planner-sub">
+                Set optional filters, then roll the dice for seven unique dinners (Monday–Sunday).
+                Your plan is saved for <strong>{{ meal_plan_valid_days }} days</strong> from the time you randomize (then it clears automatically).
+                Recipes always respect your
+                <a href="{{ url_for('dashboard') }}">dietary settings</a>
+                (profile menu on the dashboard).
+            </p>
+
+            <div class="meal-diet-hint">
+                {% if profile %}
+                    Current diet: <strong>{{ profile.diet_type|replace('_', ' ')|title }}</strong>.
+                    {% if profile.allergies %}Allergies excluded.{% endif %}
+                {% else %}
+                    No saved dietary profile yet — all recipes are eligible unless you
+                    <a href="{{ url_for('dashboard') }}">set preferences on the dashboard</a>.
+                {% endif %}
+            </div>
+
+            <div class="meal-filter-grid">
+                <label>
+                    Cuisine
+                    <select id="filter-cuisine">
+                        <option value="">Any cuisine</option>
+                        {% for c in cuisines %}
+                        <option value="{{ c }}">{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Max calories (per meal)
+                    <input type="number" id="filter-max-cal" min="0" step="50" placeholder="e.g. 800">
+                </label>
+                <label>
+                    Min rating
+                    <input type="number" id="filter-min-rating" min="0" max="5" step="0.1" placeholder="e.g. 4">
+                </label>
+                <label>
+                    Difficulty
+                    <select id="filter-difficulty">
+                        <option value="any">Any</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="meal-plan-expiry-banner" id="meal-plan-expiry-banner" style="display:none;" role="status">
+                <span id="meal-plan-expiry-text"></span>
+            </div>
+
+            <div class="meal-actions">
+                <button type="button" class="btn-randomize-week" id="btn-randomize-week" title="Randomize week">
+                    🎲 Randomize my week
+                </button>
+                <button type="button" class="btn-reset-plan" id="btn-reset-plan" title="Clear saved plan">
+                    Clear plan
+                </button>
+            </div>
+
+            <div class="meal-plan-success-notice" id="meal-plan-success-notice" style="display:none;" role="status"></div>
+
+            <div class="meal-plan-error" id="meal-plan-error" role="alert"></div>
+
+            <div class="meal-plan-table-wrap">
+                <table class="meal-plan-table" id="meal-plan-table">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Recipe</th>
+                        </tr>
+                    </thead>
+                    <tbody id="meal-plan-body">
+                        <tr data-day="Monday"><th scope="row">Monday</th><td class="meal-plan-empty">—</td></tr>
+                        <tr data-day="Tuesday"><th scope="row">Tuesday</th><td class="meal-plan-empty">—</td></tr>
+                        <tr data-day="Wednesday"><th scope="row">Wednesday</th><td class="meal-plan-empty">—</td></tr>
+                        <tr data-day="Thursday"><th scope="row">Thursday</th><td class="meal-plan-empty">—</td></tr>
+                        <tr data-day="Friday"><th scope="row">Friday</th><td class="meal-plan-empty">—</td></tr>
+                        <tr data-day="Saturday"><th scope="row">Saturday</th><td class="meal-plan-empty">—</td></tr>
+                        <tr data-day="Sunday"><th scope="row">Sunday</th><td class="meal-plan-empty">—</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <span id="meal-plan-valid-days" style="display:none">{{ meal_plan_valid_days }}</span>
+    <script type="application/json" id="meal-plan-bootstrap">{{ meal_plan_bootstrap | tojson }}</script>
+
+    <script src="{{ url_for('static', filename='js/meal_planner.js') }}"></script>
+    {% include 'partials/floating_chat.html' %}
+</body>
+</html>

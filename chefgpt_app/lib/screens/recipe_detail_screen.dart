@@ -1,4 +1,5 @@
 import '../constants.dart';
+import '../utils/recipe_format.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -467,8 +468,7 @@ Widget _buildBody() {
       .where((e) => e.isNotEmpty)
       .toList();
 
-  final instructions =
-      (recipe['instructions'] ?? '').toString().split(' | ');
+  final instructions = splitRecipeInstructions(recipe['instructions']);
 
   return SingleChildScrollView(
     controller: _scrollController,
@@ -629,6 +629,91 @@ const SizedBox(height: 16),
 
   // ── Hero Card ──
   Widget _buildHeroCard(Map<String, dynamic> recipe) {
+    final imageUrl = (recipe['image_url'] ?? '').toString().trim();
+    if (imageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          alignment: Alignment.bottomLeft,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    color: const Color(0xFFFFF3EE),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFFF6B35),
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (_, __, ___) => SizedBox.expand(
+                  child: _buildHeroGradientFallback(recipe),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.08),
+                      Colors.black.withOpacity(0.72),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    recipe['recipe_name'] ?? 'Recipe',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      height: 1.2,
+                      shadows: [
+                        Shadow(
+                            blurRadius: 8, color: Colors.black54),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    recipe['cuisine'] ?? '',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.92),
+                      fontSize: 14,
+                      shadows: const [
+                        Shadow(blurRadius: 6, color: Colors.black45),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return _buildHeroGradientFallback(recipe);
+  }
+
+  Widget _buildHeroGradientFallback(Map<String, dynamic> recipe) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -910,11 +995,7 @@ Future<pw.Document> _buildPdfDocument() async {
       .where((e) => e.isNotEmpty)
       .toList();
 
-  final instructions = (recipe['instructions'] ?? '')
-      .toString()
-      .split(' | ')
-      .where((s) => s.trim().isNotEmpty)
-      .toList();
+  final instructions = splitRecipeInstructions(recipe['instructions']);
 
   doc.addPage(
     pw.MultiPage(
