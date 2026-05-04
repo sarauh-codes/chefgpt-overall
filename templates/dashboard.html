@@ -211,41 +211,86 @@
   </main>
 </div>
 
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-{% include 'partials/floating_chat.html' %}
+        <div class="dashboard-grid">
+            <div class="card">
+                <h3>🔍 Get Recipe Suggestions</h3>
+                <p>Enter your available ingredients and get personalized recipe recommendations</p>
+                <button onclick="window.location.href='{{ url_for('recommend_page') }}'">Start Cooking</button>
+            </div>
+            
+            <div class="card">
+                <h3>📖 My Cooked Recipes</h3>
+                <p>View all the recipes you've already cooked</p>
+                <button onclick="window.location.href='{{ url_for('cooked_history') }}'">View History</button>
+            </div>
+            
+            <div class="card">
+                <h3>⭐ Saved Recipes</h3>
+                <p>Access your favorite saved recipes anytime</p>
+                <button onclick="window.location.href='{{ url_for('saved_recipes') }}'">View Saved</button>
+            </div>
 
-<script>
-const h = new Date().getHours();
-const g = h < 12 ? {text:'Good morning',emoji:'☀️',sub:"What's for breakfast today?"} : h < 17 ? {text:'Good afternoon',emoji:'🌤️',sub:"Lunch time — what are we making?"} : h < 21 ? {text:'Good evening',emoji:'🌙',sub:"What's for dinner tonight?"} : {text:'Good night',emoji:'🌙',sub:"Late night snack ideas?"};
-const uname = "{{ username }}";
-document.getElementById('greetingText').innerHTML = `${g.text}, <span class="greeting-name">${uname}</span> ${g.emoji}`;
-document.getElementById('greetingSub').textContent = g.sub;
-document.getElementById('dashBotGreeting').textContent = `${g.text} ${uname}! ${g.emoji} What ingredients do you have? I'll suggest the perfect meal!`;
-const now = new Date();
-document.getElementById('topbarDate').innerHTML = `📅 ${now.toLocaleDateString('en-MY',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}`;
-
-async function sendDashChat() {
-  const input = document.getElementById('dashChatInput');
-  const messages = document.getElementById('dashChatMessages');
-  const msg = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-  messages.innerHTML += `<div class="chat-msg user"><div class="chat-bubble">${msg}</div></div>`;
-  messages.scrollTop = messages.scrollHeight;
-  const typingId = 'typing-' + Date.now();
-  messages.innerHTML += `<div class="chat-msg bot" id="${typingId}"><div class="chat-bubble typing-bubble">ChefGPT is thinking...</div></div>`;
-  messages.scrollTop = messages.scrollHeight;
-  try {
-    const res = await fetch('/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message: msg})});
-    const data = await res.json();
-    document.getElementById(typingId).remove();
-    messages.innerHTML += `<div class="chat-msg bot"><div class="chat-bubble">${data.reply}</div></div>`;
-  } catch(e) {
-    document.getElementById(typingId).remove();
-    messages.innerHTML += `<div class="chat-msg bot"><div class="chat-bubble">Sorry, something went wrong. Try again!</div></div>`;
-  }
-  messages.scrollTop = messages.scrollHeight;
-}
-</script>
+            <div class="card">
+                <h3>📅 Weekly Meal Planner</h3>
+                <p>Roll a full week of dinners that respect your dietary settings</p>
+                <button onclick="window.location.href='{{ url_for('meal_planner') }}'">Plan My Week</button>
+            </div>
+    </div>
+    </div>
+        <div class="browse-section">
+            <h2>🍴 Browse All Recipes</h2>
+            <p>Explore our collection of delicious recipes</p>
+             <div class="search-container">
+                <input type="text" 
+                    id="recipe-search" 
+                    placeholder="🔍 Search by recipe name, cuisine, or ingredients..." 
+                    oninput="searchRecipes()">
+                </div>
+        
+            <div class="recipe-catalog" id="recipe-catalog">
+                {% for recipe in recipes %}
+                    <div class="recipe-card">
+                      {% if recipe.image_url %}
+                        <img src="{{ recipe.image_url }}"
+                            alt="{{ recipe.recipe_name }}"
+                            style="width:100%; height:160px; object-fit:cover; border-radius:10px 10px 0 0; display:block;"
+                            loading="lazy"
+                            onerror="this.style.display='none'">
+                        {% endif %}
+                        <div class="recipe-header">
+                            <h3>{{ recipe.recipe_name }}</h3>
+                        </div>
+                        
+                        <div class="recipe-info">
+                            <span class="info-tag">🍽️ {{ recipe.cuisine }}</span>
+                            <span class="info-tag">🔥 {{ recipe.calories }} cal</span>
+                            <span class="info-tag">⭐ {{ recipe.rating }}/5</span>
+                        </div>
+                        
+                        <div class="ingredients-list">
+                            <strong>Ingredients:</strong> {{ recipe.ingredients }}
+                        </div>
+                        
+                        <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="view-recipe-btn">View Full Recipe</a>
+                    </div>
+                {% endfor %}
+            </div>
+            <div id="no-results" style="display: none;">
+                <h3>No recipes found</h3>
+                <p>Try a different search term or load more recipes</p>
+            </div>
+            
+            {% if total_recipes > 12 %}
+                <div class="load-more-container">
+                    <button class="btn-load-more" id="load-more-btn" onclick="loadMoreRecipes()">
+                        Load More Recipes
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    {% include 'partials/floating_chat.html' %}
 </body>
 </html>

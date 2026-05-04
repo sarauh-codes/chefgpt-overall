@@ -12,6 +12,7 @@ import 'login_screen.dart';
 import 'recommend_screen.dart';
 import 'saved_recipes_screen.dart';
 import 'cooking_history_screen.dart';
+import 'meal_planner_screen.dart';
 import '../constants.dart';
 import '../widgets/dashboard/taste_profile.dart';
 import 'chat_screen.dart';
@@ -467,6 +468,19 @@ Widget build(BuildContext context) {
           buttonLabel: 'View Saved',
           onTap: () => Navigator.push(context,
               MaterialPageRoute(builder: (_) => const SavedRecipesScreen())),
+        ),
+        const SizedBox(height: 14),
+        _dashCardWide(
+          icon: Icons.calendar_month_rounded,
+          title: 'Weekly Meal Planner',
+          subtitle:
+              'Roll seven dinners aligned with your diet; saved for seven days.',
+          buttonLabel: 'Plan My Week',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const MealPlannerScreen()),
+          ),
         ),
       ],
     );

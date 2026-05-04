@@ -6,7 +6,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
+import json
 from recipe_recommender import get_recommender
 from config import Config
 from transformers import pipeline
@@ -100,6 +101,18 @@ class DietaryProfile(db.Model):
     user = db.relationship('User', backref=db.backref('dietary_profile', uselist=False))
 
 
+MEAL_PLAN_VALID_DAYS = 7
+
+
+class WeeklyMealPlan(db.Model):
+    __tablename__ = 'weekly_meal_plans'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    randomized_at = db.Column(db.DateTime, nullable=False)
+    plan_json = db.Column(db.Text, nullable=False)
+    user = db.relationship('User', backref=db.backref('weekly_meal_plan', uselist=False))
+
+
 # ==================== DATABASE INIT ====================
 with app.app_context():
     db.create_all()
@@ -148,6 +161,67 @@ def apply_dietary_filter(df, profile):
             df = df[~df['ingredients'].str.lower().str.contains(item, na=False)]
 
     return df
+
+
+def base_recipes_for_user(user_id):
+    """Deduplicated recipe dataframe with the user's dietary profile applied."""
+    recommender = get_recommender()
+    df = recommender.df.copy()
+    df = df.drop_duplicates(subset=['recipe_name'], keep='first')
+    profile = DietaryProfile.query.filter_by(user_id=user_id).first()
+    df = apply_dietary_filter(df, profile)
+    return df, profile
+
+
+def _meal_plan_expires_at(randomized_at):
+    return randomized_at + timedelta(days=MEAL_PLAN_VALID_DAYS)
+
+
+def get_active_weekly_meal_plan_record(user_id):
+    """Return the user's saved weekly plan row if it exists and is not expired; otherwise delete stale row and return None."""
+    row = WeeklyMealPlan.query.filter_by(user_id=user_id).first()
+    if not row:
+        return None
+    if datetime.utcnow() >= _meal_plan_expires_at(row.randomized_at):
+        db.session.delete(row)
+        db.session.commit()
+        return None
+    return row
+
+
+def meal_plan_api_payload(plan, randomized_at):
+    exp = _meal_plan_expires_at(randomized_at)
+    return {
+        "plan": plan,
+        "expires_at": exp.isoformat(),
+        "expires_display": exp.strftime("%d %b %Y, %I:%M %p") + " UTC",
+        "randomized_at": randomized_at.isoformat(),
+    }
+
+
+def cuisines_after_diet_for_user(user_id):
+    df, _profile = base_recipes_for_user(user_id)
+    return sorted(
+        {str(c).strip() for c in df["cuisine"].dropna().tolist() if str(c).strip()},
+        key=str.lower,
+    )
+
+
+def saved_meal_plan_bootstrap_or_none(user_id):
+    meal_plan_bootstrap = None
+    rec = get_active_weekly_meal_plan_record(user_id)
+    if rec:
+        try:
+            plan = json.loads(rec.plan_json)
+            if isinstance(plan, list) and len(plan) == 7:
+                meal_plan_bootstrap = meal_plan_api_payload(plan, rec.randomized_at)
+            else:
+                db.session.delete(rec)
+                db.session.commit()
+        except (TypeError, ValueError):
+            db.session.delete(rec)
+            db.session.commit()
+    return meal_plan_bootstrap
 
 
 def singularize(word):
@@ -356,6 +430,141 @@ def search_recipes():
         })
 
     return jsonify({'recipes': recipes_list})
+
+
+@app.route("/meal-planner")
+@login_required
+def meal_planner():
+    _df, profile = base_recipes_for_user(current_user.id)
+    cuisines = cuisines_after_diet_for_user(current_user.id)
+    meal_plan_bootstrap = saved_meal_plan_bootstrap_or_none(current_user.id)
+    return render_template(
+        "meal_planner.html",
+        username=current_user.username,
+        cuisines=cuisines,
+        profile=profile,
+        meal_plan_bootstrap=meal_plan_bootstrap,
+        meal_plan_valid_days=MEAL_PLAN_VALID_DAYS,
+    )
+
+
+@app.route("/api/meal-plan-week", methods=["GET", "POST", "DELETE"])
+@web_or_jwt_required
+def meal_plan_week_api():
+    uid = (
+        current_user.id
+        if getattr(current_user, "is_authenticated", False)
+        else int(get_jwt_identity())
+    )
+
+    if request.method == "GET":
+        return jsonify(
+            {
+                "cuisines": cuisines_after_diet_for_user(uid),
+                "meal_plan_valid_days": MEAL_PLAN_VALID_DAYS,
+                "saved_plan": saved_meal_plan_bootstrap_or_none(uid),
+            }
+        )
+
+    if request.method == "DELETE":
+        WeeklyMealPlan.query.filter_by(user_id=uid).delete()
+        db.session.commit()
+        return jsonify({"ok": True})
+
+    data = request.get_json() or {}
+    cuisine = (data.get("cuisine") or "").strip()
+    difficulty = (data.get("difficulty") or "").strip().lower()
+    max_calories = data.get("max_calories")
+    min_rating = data.get("min_rating")
+
+    try:
+        max_calories = int(max_calories) if max_calories not in (None, "") else None
+    except (TypeError, ValueError):
+        max_calories = None
+    try:
+        min_rating = float(min_rating) if min_rating not in (None, "") else None
+    except (TypeError, ValueError):
+        min_rating = None
+
+    df, _profile = base_recipes_for_user(uid)
+
+    if cuisine:
+        df = df[df["cuisine"].astype(str).str.lower() == cuisine.lower()]
+
+    if max_calories is not None:
+        df = df[df["calories"] <= max_calories]
+
+    if min_rating is not None:
+        df = df[df["rating"] >= min_rating]
+
+    df_before_difficulty = df
+    relaxed_difficulty = False
+
+    if difficulty and difficulty != "any":
+        diff_col = df_before_difficulty["difficulty"].fillna("medium").astype(str).str.lower()
+        df = df_before_difficulty[diff_col == difficulty]
+
+        if len(df) < 7 <= len(df_before_difficulty):
+            relaxed_difficulty = True
+            df = df_before_difficulty
+
+    if len(df) < 7:
+        return jsonify(
+            {
+                "error": "Not enough recipes match your dietary settings and filters. Try widening your filters.",
+                "available": int(len(df)),
+            }
+        ), 400
+
+    picked = df.sample(n=7, replace=False)
+    days = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    plan = []
+    for i, (_, row) in enumerate(picked.iterrows()):
+        plan.append(
+            {
+                "day": days[i],
+                "recipe_id": int(row["recipe_id"]),
+                "recipe_name": str(row["recipe_name"]),
+                "cuisine": str(row["cuisine"]),
+                "calories": int(row["calories"]),
+                "rating": float(row["rating"]),
+                "difficulty": str(row.get("difficulty", "medium")),
+                "image_url": str(row.get("image_url", "") or ""),
+            }
+        )
+
+    now = datetime.utcnow()
+    row = WeeklyMealPlan.query.filter_by(user_id=uid).first()
+    payload = json.dumps(plan)
+    if row:
+        row.plan_json = payload
+        row.randomized_at = now
+    else:
+        db.session.add(
+            WeeklyMealPlan(
+                user_id=uid,
+                randomized_at=now,
+                plan_json=payload,
+            )
+        )
+    db.session.commit()
+
+    api_payload = meal_plan_api_payload(plan, now)
+    if relaxed_difficulty:
+        api_payload["notice"] = (
+            "Few recipes matched your chosen difficulty ("
+            + difficulty
+            + "). Filled the week using any difficulty that still matches your other filters."
+        )
+    return jsonify(api_payload)
 
 
 # ==================== RECIPE ROUTES ====================
@@ -925,7 +1134,7 @@ def manage_recipes():
     if current_user.role != 'admin':
         flash("Access denied!", "danger")
         return redirect(url_for('dashboard'))
-    df = pd.read_csv('recipes.csv', encoding='utf-8-sig')
+    df = pd.read_csv('RECIPES.csv', encoding='utf-8-sig')
     df.columns = df.columns.str.strip()
     if 'recipe_id' not in df.columns:
         df.insert(0, 'recipe_id', range(1, len(df)+1))
@@ -946,7 +1155,7 @@ def add_recipe():
         flash("Access denied!", "danger")
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
-        df = pd.read_csv('recipes.csv', encoding='utf-8-sig')
+        df = pd.read_csv('RECIPES.csv', encoding='utf-8-sig')
         df.columns = df.columns.str.strip()
         if 'recipe_id' not in df.columns:
             df.insert(0, 'recipe_id', range(1, len(df) + 1))
@@ -964,7 +1173,7 @@ def add_recipe():
         }
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         df.drop(columns=['recipe_id'], inplace=True)
-        df.to_csv('recipes.csv', index=False, encoding='utf-8-sig')
+        df.to_csv('RECIPES.csv', index=False, encoding='utf-8-sig')
         flash("Recipe added successfully!", "success")
         return redirect(url_for('manage_recipes'))
     return render_template('admin/add_recipe.html')
@@ -976,7 +1185,7 @@ def edit_recipe(recipe_id):
     if current_user.role != 'admin':
         flash("Access denied!", "danger")
         return redirect(url_for('dashboard'))
-    df = pd.read_csv('recipes.csv', encoding='utf-8-sig')
+    df = pd.read_csv('RECIPES.csv', encoding='utf-8-sig')
     df.columns = df.columns.str.strip()
     if 'recipe_id' not in df.columns:
         df.insert(0, 'recipe_id', range(1, len(df)+1))
@@ -993,7 +1202,7 @@ def edit_recipe(recipe_id):
         df.loc[idx, 'difficulty'] = request.form['difficulty']
         df.loc[idx, 'instructions'] = request.form.get('instructions', '')
         df.loc[idx, 'image_url'] = request.form.get('image_url', '')
-        df.to_csv('recipes.csv', index=False, encoding='utf-8-sig')
+        df.to_csv('RECIPES.csv', index=False, encoding='utf-8-sig')
         flash("Recipe updated successfully!", "success")
         return redirect(url_for('manage_recipes'))
     recipe = df.loc[idx[0]].to_dict()
@@ -1007,7 +1216,7 @@ def delete_recipe(recipe_id):
         flash("Access denied!", "danger")
         return redirect(url_for('dashboard'))
     recipes = []
-    with open('recipes.csv', newline='', encoding='utf-8') as f:
+    with open('RECIPES.csv', newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             recipes.append(row)
@@ -1018,7 +1227,7 @@ def delete_recipe(recipe_id):
         return redirect(url_for('manage_recipes'))
     df = df[df['recipe_id'] != recipe_id]
     df.drop(columns=['recipe_id'], inplace=True)
-    df.to_csv('recipes.csv', index=False)
+    df.to_csv('RECIPES.csv', index=False)
     flash("Recipe deleted successfully!", "success")
     return redirect(url_for('manage_recipes'))
 
@@ -1098,7 +1307,6 @@ def api_get_recipes():
     profile = DietaryProfile.query.filter_by(user_id=user_id).first()
     df = apply_dietary_filter(df, profile)
     df_shuffled = df.sample(n=min(12, len(df)), replace=False)
-    return jsonify({'recipes': df_shuffled.to_dict('records')}) 
     return jsonify({'recipes': df_shuffled.to_dict('records')})
 
 

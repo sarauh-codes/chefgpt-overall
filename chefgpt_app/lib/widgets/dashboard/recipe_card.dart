@@ -7,6 +7,7 @@ class RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = (recipe['image_url'] ?? '').toString().trim();
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -17,6 +18,7 @@ class RecipeCard extends StatelessWidget {
         border: Border.all(
             color: const Color(0xFFFF6B35).withOpacity(0.07), width: 1),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -28,6 +30,39 @@ class RecipeCard extends StatelessWidget {
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
           ),
+          if (imageUrl.isNotEmpty)
+            SizedBox(
+              height: 140,
+              width: double.infinity,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                loadingBuilder: (context, child, prog) {
+                  if (prog == null) return child;
+                  return const ColoredBox(
+                    color: Color(0xFFFFF3EE),
+                    child: Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFFF6B35),
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (_, __, ___) => Container(
+                  color: const Color(0xFFFFF3EE),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.restaurant_rounded,
+                      color: const Color(0xFFFF6B35).withOpacity(0.5),
+                      size: 48),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
             child: Column(
