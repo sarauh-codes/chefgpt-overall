@@ -51,7 +51,6 @@ class _RecommendScreenState extends State<RecommendScreen>
   bool _imageResultVisible = false;
   bool _isDetecting = false;
   List<XFile> _selectedImages =[];
-  List<String> _detectedIngredients = [];
 
   @override
   void initState() {
@@ -287,7 +286,7 @@ class _RecommendScreenState extends State<RecommendScreen>
       maxWidth: 1024,
     );
     if (photo != null) {
-    setState(() => _selectedImages.add(photo));
+    setState(() => _selectedImages = [photo]);
     files = _selectedImages;  // guna semua gambar dalam list
 }
   } else {
@@ -299,7 +298,7 @@ class _RecommendScreenState extends State<RecommendScreen>
   if (files.isEmpty) return;
     setState(() {
       _isAnalyzingImage = true;
-      _imageStatus = '🤖 BLIP is analyzing ${files.length} image(s)...';
+      _imageStatus = '🤖 Analyzing ${files.length} image(s)...';
       _imageResultVisible = false;
       _imageIngredientsController.clear();
     });
@@ -327,18 +326,11 @@ class _RecommendScreenState extends State<RecommendScreen>
         final data = jsonDecode(response.body);
 
         if (response.statusCode == 200) {
-          // Priority: ingredients_list (array), fallback: ingredients (string)
-          if (data['ingredients_list'] != null && data['ingredients_list'] is List) {
-            for (var item in data['ingredients_list']) {
-              final trimmed = item.toString().trim();
-              if (trimmed.isNotEmpty) allIngredients.add(trimmed);
-            }
-          } else {
-            final detected = data['ingredients'] as String? ?? '';
-            detected.split(',').forEach((i) {
-              final trimmed = i.trim();
-              if (trimmed.isNotEmpty) allIngredients.add(trimmed);
-            });
+          final detected = data['ingredients'] as String? ?? '';
+          detected.split(',').forEach((i) {
+            final trimmed = i.trim();
+            if (trimmed.isNotEmpty) allIngredients.add(trimmed);
+          });
         } else {
           setState(() =>
               _imageStatus = '❌ Error: ${data['error'] ?? 'Analysis failed'}');
@@ -349,9 +341,8 @@ class _RecommendScreenState extends State<RecommendScreen>
       final finalIngredients = allIngredients.join(', ');
       setState(() {
         _imageIngredientsController.text = finalIngredients;
-        _detectedIngredients = allIngredients.toList(); 
         _imageStatus =
-            '✅ Detected ${allIngredients.length} ingredient(s) — edit if needed, then tap Get Recipes!';
+            '✅ Detected: "$finalIngredients" — edit if needed, then tap Get Recipes!';
         _imageResultVisible = true;
       });
     } catch (e) {
@@ -851,27 +842,6 @@ class _RecommendScreenState extends State<RecommendScreen>
         // Result input + button
         if (_imageResultVisible) ...[
           const SizedBox(height: 16),
-           if (_detectedIngredients.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _detectedIngredients.map((ing) {
-                return Chip(
-                  label: Text(ing),
-                  backgroundColor: const Color(0xFFFFF3EE),
-                  side: const BorderSide(color: Color(0xFFFF6B35)),
-                  labelStyle: const TextStyle(color: Color(0xFFFF6B35)),
-                  deleteIcon: const Icon(Icons.close, size: 18, color: Color(0xFFFF6B35)),
-                  onDeleted: () {
-                    setState(() {
-                      _detectedIngredients.remove(ing);
-                      _imageIngredientsController.text = _detectedIngredients.join(', ');
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          if (_detectedIngredients.isNotEmpty) const SizedBox(height: 12),
           _buildDetectedIngredientsField(
             controller: _imageIngredientsController,
             hint: 'Detected ingredients will appear here...',

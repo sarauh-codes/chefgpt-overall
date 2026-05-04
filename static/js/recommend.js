@@ -280,25 +280,43 @@ function getRecommendationsFromVoice() {
     getRecommendations();
 }
 
-// ===== BLIP Image Analysis =====
+// ===== Image Upload with Animation =====
+let uploadedFiles = [];
+
 async function handleImageUpload(event) {
-    const files = Array.from(event.target.files);
-    if (!files.length) return;
+    const newFiles = Array.from(event.target.files);
+    if (!newFiles.length) return;
+
+    uploadedFiles = [...uploadedFiles, ...newFiles];
 
     const uploadLabel = document.getElementById('imageUploadLabel');
-    const status = document.getElementById('imageStatus');
     const resultGroup = document.getElementById('image-result-group');
-    const imageInput = document.getElementById('ingredients-input-image');
+    const analyzingBox = document.getElementById('analyzingBox');
+    const doneBox = document.getElementById('doneBox');
+    const detectedChips = document.getElementById('detectedChips');
+    const clearBtn = document.getElementById('clearImagesBtn');
 
     uploadLabel.classList.add('has-image');
     resultGroup.style.display = 'none';
-    status.textContent = `🤖 BLIP is analyzing ${files.length} image(s)...`;
+    doneBox.classList.remove('active');
+    detectedChips.innerHTML = '';
 
+    // Show thumbnails
+    renderThumbnails();
+    clearBtn.style.display = 'inline-block';
+
+    // Start analyzing
+    analyzingBox.classList.add('active');
     const allIngredients = new Set();
+    const total = uploadedFiles.length;
 
-    for (const file of files) {
+    for (let i = 0; i < uploadedFiles.length; i++) {
+        document.getElementById('progressLabel').textContent = `Analyzing image ${i + 1} of ${total}...`;
+        document.getElementById('progressSub').textContent = uploadedFiles[i].name || `Image ${i + 1}`;
+        document.getElementById('progressFill').style.width = `${Math.round((i / total) * 100)}%`;
+
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append('image', uploadedFiles[i]);
 
         try {
             const response = await fetch('/analyze-image', {
@@ -306,23 +324,77 @@ async function handleImageUpload(event) {
                 body: formData
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
-
-            data.ingredients.split(',').forEach(i => {
-                const trimmed = i.trim();
-                if (trimmed) allIngredients.add(trimmed);
-            });
-
+            if (response.ok && data.ingredients) {
+                data.ingredients.split(',').forEach(ing => {
+                    const trimmed = ing.trim();
+                    if (trimmed) allIngredients.add(trimmed);
+                });
+            }
         } catch (error) {
-            status.textContent = '❌ Error: ' + error.message;
-            return;
+            console.warn(`Image ${i + 1} failed, skipping:`, error);
         }
     }
 
+    document.getElementById('progressFill').style.width = '100%';
+    await new Promise(r => setTimeout(r, 300));
+    analyzingBox.classList.remove('active');
+
     const finalIngredients = Array.from(allIngredients).join(', ');
-    imageInput.value = finalIngredients;
-    status.textContent = `✅ Detected: "${finalIngredients}" — edit if needed, then click Get Recipes!`;
+    document.getElementById('ingredients-input-image').value = finalIngredients;
+
+    // Show chips one by one
+    doneBox.classList.add('active');
+    Array.from(allIngredients).forEach((ing, i) => {
+        setTimeout(() => {
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            chip.textContent = ing;
+            detectedChips.appendChild(chip);
+        }, i * 80);
+    });
+
     resultGroup.style.display = 'flex';
+    event.target.value = '';
+}
+
+function renderThumbnails() {
+    const strip = document.getElementById('previewStrip');
+    strip.innerHTML = '';
+    uploadedFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const thumb = document.createElement('div');
+            thumb.className = 'preview-thumb';
+            thumb.innerHTML = `
+                <img src="${e.target.result}" alt="ingredient photo">
+                <button class="remove-btn" onclick="removeImage(${index})">✕</button>
+            `;
+            strip.appendChild(thumb);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function removeImage(index) {
+    uploadedFiles.splice(index, 1);
+    renderThumbnails();
+    if (uploadedFiles.length === 0) {
+        clearImages();
+    }
+}
+
+function clearImages() {
+    uploadedFiles = [];
+    document.getElementById('previewStrip').innerHTML = '';
+    document.getElementById('analyzingBox').classList.remove('active');
+    document.getElementById('doneBox').classList.remove('active');
+    document.getElementById('detectedChips').innerHTML = '';
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('image-result-group').style.display = 'none';
+    document.getElementById('ingredients-input-image').value = '';
+    document.getElementById('imageUploadLabel').classList.remove('has-image');
+    document.getElementById('clearImagesBtn').style.display = 'none';
+    document.getElementById('imageInput').value = '';
 }
 
 // ===== Submit from image tab =====
