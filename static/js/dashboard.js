@@ -117,12 +117,24 @@ async function loadMoreRecipes() {
     btn.textContent = 'Loading...';
     
     try {
+        // #region agent log
+        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H4-H5',location:'dashboard.js:loadMoreRecipes',message:'before fetch',data:{currentOffset},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         const response = await fetch(`/load-more-recipes?offset=${currentOffset}`);
+        // #region agent log
+        const ct = response.headers.get('content-type') || '';
+        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H2-H3',location:'dashboard.js:loadMoreRecipes',message:'after fetch',data:{status:response.status,ok:response.ok,contentType:ct},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         const data = await response.json();
+        // #region agent log
+        const r0 = data.recipes && data.recipes[0];
+        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H1-H4',location:'dashboard.js:loadMoreRecipes',message:'after json',data:{recipesIsArray:Array.isArray(data.recipes),recipesLen:data.recipes?data.recipes.length:null,firstKeys:r0?Object.keys(r0):[],hasDifficulty:!!(r0&&('difficulty'in r0))},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         
         if (data.recipes.length > 0) {
             let addedCount = 0;
-            
+            const safeAttr = (s) => String(s ?? '').replace(/"/g, '&quot;');
+
             data.recipes.forEach(recipe => {
                 if (displayedRecipeIds.has(String(recipe.recipe_id))) return;
                 
@@ -131,9 +143,14 @@ async function loadMoreRecipes() {
                 
                 const difficultyIcon = recipe.difficulty === 'easy' ? '✅' : recipe.difficulty === 'medium' ? '⚡' : '🔥';
                 const difficultyText = recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1);
+
+                const imgHtml = (recipe.image_url && String(recipe.image_url).trim())
+                    ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" style="width:100%; height:160px; object-fit:cover; border-radius:10px 10px 0 0; display:block;" loading="lazy" onerror="this.style.display='none'">`
+                    : '';
                 
                 const card = `
                     <div class="recipe-card">
+                        ${imgHtml}
                         <div class="recipe-header">
                             <h3>${recipe.recipe_name}</h3>
                         </div>
@@ -159,6 +176,9 @@ async function loadMoreRecipes() {
             }
         }
     } catch (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H1-H2',location:'dashboard.js:loadMoreRecipes',message:'catch',data:{errName:error&&error.name,errMessage:error&&error.message},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         console.error('Error:', error);
         alert('Failed to load more recipes');
     } finally {
