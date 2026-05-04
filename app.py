@@ -372,76 +372,49 @@ def dashboard():
 @app.route('/load-more-recipes')
 @login_required
 def load_more_recipes():
-    # #region agent log
-    def _debug_log(hypothesis_id, message, data):
-        payload = {
-            "sessionId": "8dbc77",
-            "runId": "pre-fix",
-            "hypothesisId": hypothesis_id,
-            "location": "app.py:load_more_recipes",
-            "message": message,
-            "data": data,
-            "timestamp": int(datetime.utcnow().timestamp() * 1000),
-        }
-        with open("debug-8dbc77.log", "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload) + "\n")
-    # #endregion
+    offset = request.args.get('offset', 0, type=int)
+    limit = 12
 
-    try:
-        offset = request.args.get('offset', 0, type=int)
-        limit = 12
+    recommender = get_recommender()
+    df = recommender.df.copy()
+    df = df.drop_duplicates(subset=['recipe_name'], keep='first')
+    profile = DietaryProfile.query.filter_by(user_id=current_user.id).first()
+    df = apply_dietary_filter(df, profile)
+    df = df.sample(frac=1).reset_index(drop=True)
+    recipes_df = df.iloc[offset:offset + limit]
 
-        recommender = get_recommender()
-        df = recommender.df.copy()
-        df = df.drop_duplicates(subset=['recipe_name'], keep='first')
-        profile = DietaryProfile.query.filter_by(user_id=current_user.id).first()
-        df = apply_dietary_filter(df, profile)
-        df = df.sample(frac=1).reset_index(drop=True)
-        recipes_df = df.iloc[offset:offset + limit]
+    recipes_list = []
+    for _, row in recipes_df.iterrows():
+        img = row.get("image_url", "")
+        if pd.isna(img):  # noqa: ambiguous truthiness intentional for NA
+            img = ""
+        else:
+            img = str(img).strip()
+            if img.lower() in ("nan", "none", ""):
+                img = ""
+        cook = row.get("cook_time", None)
+        if pd.isna(cook) if cook is not None else False:  # type: ignore[truthy-function]
+            cook = None
+        cook_time_disp = (
+            str(int(cook))
+            if cook is not None and not pd.isna(cook) and str(cook).strip() not in ("", "nan")  # type: ignore[truthy-function]
+            else "30"
+        )
 
-        # #region agent log
-        _debug_log("H3-H5", "prepared dataframe window", {
-            "offset": offset,
-            "limit": limit,
-            "totalAfterFilter": int(len(df)),
-            "windowCount": int(len(recipes_df)),
+        recipes_list.append({
+            'recipe_id': int(row['recipe_id']),
+            'recipe_name': str(row['recipe_name']),
+            'ingredients': str(row['ingredients']),
+            'cuisine': str(row['cuisine']),
+            'calories': int(row['calories']),
+            'rating': float(row['rating']),
+            'difficulty': str(row.get('difficulty', 'medium')),
+            'image_url': img,
+            'cook_time': cook_time_disp,
         })
-        # #endregion
 
-        recipes_list = []
-        for _, row in recipes_df.iterrows():
-            recipes_list.append({
-                'recipe_id': int(row['recipe_id']),
-                'recipe_name': str(row['recipe_name']),
-                'ingredients': str(row['ingredients']),
-                'cuisine': str(row['cuisine']),
-                'calories': int(row['calories']),
-                'rating': float(row['rating']),
-                'difficulty': str(row.get('difficulty', 'medium')),
-                'image_url': str(row.get('image_url', '')) or '',
-            })
-
-        # #region agent log
-        first_recipe = recipes_list[0] if recipes_list else {}
-        img_nonempty = sum(1 for r in recipes_list if (r.get("image_url") or "").strip())
-        _debug_log("IMG1-IMG2", "response payload preview", {
-            "recipesLen": int(len(recipes_list)),
-            "firstKeys": list(first_recipe.keys()) if first_recipe else [],
-            "hasDifficulty": bool("difficulty" in first_recipe),
-            "imageUrlNonEmptyCount": int(img_nonempty),
-        })
-        # #endregion
-
-        has_more = (offset + limit) < len(df)
-        return jsonify({'recipes': recipes_list, 'has_more': has_more})
-    except Exception as e:
-        # #region agent log
-        _debug_log("H5", "route exception", {
-            "errorType": type(e).__name__,
-            "errorMessage": str(e),
-        })
-        # #endregion
-        raise
+    has_more = (offset + limit) < len(df)
+    return jsonify({'recipes': recipes_list, 'has_more': has_more})
 
 
 @app.route('/search-recipes', methods=['GET'])
