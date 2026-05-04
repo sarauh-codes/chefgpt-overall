@@ -1,3 +1,57 @@
+const rotatingPrompts = [
+  "Find recipes using chicken and rice...",
+  "Plan a healthy dinner for tonight...",
+  "What can I cook with eggs?",
+  "Suggest a quick halal meal...",
+  "Make something spicy and cheap...",
+  "Use my leftovers creatively..."
+];
+
+let promptIndex = 0;
+let charIndex = 0;
+let deleting = false;
+
+function typePrompt() {
+  const input = document.getElementById("dashChatInput");
+  if (!input) return;
+
+  if (document.activeElement === input && input.value.trim() !== "") {
+    setTimeout(typePrompt, 800);
+    return;
+  }
+
+  const currentPrompt = rotatingPrompts[promptIndex];
+
+  if (!deleting) {
+    charIndex++;
+    input.setAttribute("placeholder", currentPrompt.substring(0, charIndex));
+
+    if (charIndex === currentPrompt.length) {
+      deleting = true;
+      setTimeout(typePrompt, 900);
+      return;
+    }
+  } else {
+    charIndex--;
+    input.setAttribute("placeholder", currentPrompt.substring(0, charIndex));
+
+    if (charIndex === 0) {
+      deleting = false;
+      promptIndex++;
+
+      if (promptIndex >= rotatingPrompts.length) {
+        promptIndex = 0;
+      }
+    }
+  }
+
+  const speed = deleting ? 18 : 28;
+  setTimeout(typePrompt, speed);
+}
+
+window.addEventListener("load", typePrompt);
+
+
 let currentOffset = 12;
 let displayedRecipeIds = new Set();
 let searchTimeout;
@@ -511,3 +565,4 @@ async function sendMessage() {
   input.focus();
   messages.scrollTop = messages.scrollHeight;
 }
+

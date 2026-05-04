@@ -97,7 +97,7 @@
       <a href="{{ url_for('recommend_page') }}" class="nav-item"><span class="nav-icon">🔍</span> Get Recipe Suggestions</a>
       <a href="{{ url_for('cooked_history') }}" class="nav-item"><span class="nav-icon">📖</span> My Cooked Recipes</a>
       <a href="{{ url_for('saved_recipes') }}" class="nav-item"><span class="nav-icon">⭐</span> Saved Recipes</a>
-      <a href="#" class="nav-item"><span class="nav-icon">📅</span> Weekly Meal Planner</a>
+      <a href="{{ url_for('meal_planner')}}" class="nav-item"><span class="nav-icon">📅</span> Weekly Meal Planner</a>
     </nav>
 
     <div class="sidebar-bottom">
@@ -120,177 +120,88 @@
         <div class="alert alert-{{ category }}">{{ message }}</div>
       {% endfor %}{% endif %}
     {% endwith %}
+<div class="page-content">
+<section class="agent-center">
+  <div class="agent-pill">CHEFGPT AGENT</div>
 
-    <div class="page-content">
-      <div class="page-inner">
+  <h1>Hi {{ username }}, what do you want to cook?</h1>
+  <p>Tell me ingredients, cravings, diet, or mood.</p>
 
-      <!-- CHATBOX -->
-      <div class="chatbox-card">
-        <div class="chatbox-header">
-          <div class="chatbox-header-icon">🍳</div>
-          <div>
-            <div class="chatbox-header-title">Ask ChefGPT</div>
-            <div class="chatbox-header-sub">Your personal AI chef assistant</div>
-          </div>
-        </div>
-        <div class="chatbox-messages" id="dashChatMessages">
-          <div class="chat-msg bot">
-            <div class="chat-bubble" id="dashBotGreeting">Good evening {{ username }}! 🌙 What ingredients do you have? I'll suggest the perfect meal!</div>
-          </div>
-        </div>
-        <div class="chatbox-input-area">
-          <input type="text" id="dashChatInput" placeholder="Ask me anything about cooking..." onkeydown="if(event.key==='Enter') sendDashChat()">
-          <button class="chatbox-send-btn" onclick="sendDashChat()">›</button>
-        </div>
-      </div>
+  <div class="agent-box">
+    <textarea
+      id="dashChatInput"
+      onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendDashChat();}"></textarea>
 
-      <!-- DIVIDER -->
-      <div class="divider">
-        <div class="divider-line"></div>
-        <div class="divider-text">Popular recipes for you</div>
-        <div class="divider-line"></div>
-      </div>
-
-      <!-- RECIPE SECTION -->
-      <div class="section-row">
-        <div class="section-label">Browse all recipes</div>
-        <span class="section-link" onclick="document.getElementById('recipe-search').focus()">See all →</span>
-      </div>
-
-      <div class="search-wrap">
-        <input type="text" id="recipe-search" placeholder="🔍 Search recipes, cuisine, ingredients..." oninput="searchRecipes()">
-      </div>
-
-      <div class="recipe-grid" id="recipe-catalog">
-        {% for recipe in recipes %}
-        <div class="recipe-card">
-          <div class="recipe-card-img">
-            {% if recipe.image_url %}
-            <img src="{{ recipe.image_url }}" alt="{{ recipe.recipe_name }}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">
-            {% else %}
-            <div class="recipe-img-placeholder">🍽️</div>
-            {% endif %}
-            <div class="recipe-time-badge">⏱ {{ recipe.cook_time if recipe.cook_time else '30' }} min</div>
-          </div>
-          <div class="recipe-card-body">
-            <div class="recipe-card-name">{{ recipe.recipe_name }}</div>
-            <div class="recipe-card-meta">{{ recipe.cuisine }} · {{ recipe.calories }} cal</div>
-            <div class="recipe-card-footer">
-              <span class="recipe-rating">⭐ {{ recipe.rating }}</span>
-              <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="recipe-view-btn">View</a>
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-
-      <div id="no-results" style="display:none; text-align:center; padding:40px; color:#888;">
-        <div style="font-size:40px; margin-bottom:10px;">🔍</div>
-        <h3 style="margin-bottom:6px; color:#555;">No recipes found</h3>
-        <p>Try a different search term</p>
-      </div>
-
-      {% if total_recipes > 12 %}
-      <div class="load-more-wrap" id="load-more-container">
-        <button class="load-more-btn" id="load-more-btn" onclick="loadMoreRecipes()">Load More Recipes</button>
-      </div>
-      {% endif %}
-
-      <!-- BOTTOM BANNER -->
-      <div class="ideas-banner">
-        <div class="ideas-banner-icon">👨‍🍳</div>
-        <div class="ideas-banner-text">
-          <div class="ideas-banner-title">Need more ideas?</div>
-          <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!</div>
-        </div>
-        <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
-      </div>
-
-      </div><!-- end page-inner -->
+    <div class="agent-box-bottom">
+      <button class="agent-mode" type="button">⚡ Chef</button>
+      <button class="agent-send" type="button" onclick="sendDashChat()">↑</button>
     </div>
-  </main>
+  </div>
+</section>
+
+  <section class="dashboard-lower">
+    <div class="divider">
+      <div class="divider-line"></div>
+      <div class="divider-text">Popular recipes for you</div>
+      <div class="divider-line"></div>
+    </div>
+
+    <div class="section-row">
+      <div class="section-label">Browse all recipes</div>
+      <span class="section-link" onclick="document.getElementById('recipe-search').focus()">See all →</span>
+    </div>
+
+    <div class="search-wrap">
+      <input type="text" id="recipe-search" placeholder="🔍 Search recipes, cuisine, ingredients..." oninput="searchRecipes()">
+    </div>
+
+    <div class="recipe-grid" id="recipe-catalog">
+      {% for recipe in recipes %}
+      <div class="recipe-card">
+        <div class="recipe-card-img">
+          {% if recipe.image_url %}
+          <img src="{{ recipe.image_url }}" alt="{{ recipe.recipe_name }}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">
+          {% else %}
+          <div class="recipe-img-placeholder">🍽️</div>
+          {% endif %}
+          <div class="recipe-time-badge">⏱ {{ recipe.cook_time if recipe.cook_time else '30' }} min</div>
+        </div>
+
+        <div class="recipe-card-body">
+          <div class="recipe-card-name">{{ recipe.recipe_name }}</div>
+          <div class="recipe-card-meta">{{ recipe.cuisine }} · {{ recipe.calories }} cal</div>
+          <div class="recipe-card-footer">
+            <span class="recipe-rating">⭐ {{ recipe.rating }}</span>
+            <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="recipe-view-btn">View</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div id="no-results" style="display:none; text-align:center; padding:40px; color:#888;">
+      <div style="font-size:40px; margin-bottom:10px;">🔍</div>
+      <h3 style="margin-bottom:6px; color:#555;">No recipes found</h3>
+      <p>Try a different search term</p>
+    </div>
+
+    {% if total_recipes > 12 %}
+    <div class="load-more-wrap" id="load-more-container">
+      <button class="load-more-btn" id="load-more-btn" onclick="loadMoreRecipes()">Load More Recipes</button>
+    </div>
+    {% endif %}
+    <div class="ideas-banner">
+      <div class="ideas-banner-icon">👨‍🍳</div>
+      <div class="ideas-banner-text">
+        <div class="ideas-banner-title">Need more ideas?</div>
+        <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!</div>
+      </div>
+      <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
+    </div>
+  </section>
+
 </div>
-
-        <div class="dashboard-grid">
-            <div class="card">
-                <h3>🔍 Get Recipe Suggestions</h3>
-                <p>Enter your available ingredients and get personalized recipe recommendations</p>
-                <button onclick="window.location.href='{{ url_for('recommend_page') }}'">Start Cooking</button>
-            </div>
-            
-            <div class="card">
-                <h3>📖 My Cooked Recipes</h3>
-                <p>View all the recipes you've already cooked</p>
-                <button onclick="window.location.href='{{ url_for('cooked_history') }}'">View History</button>
-            </div>
-            
-            <div class="card">
-                <h3>⭐ Saved Recipes</h3>
-                <p>Access your favorite saved recipes anytime</p>
-                <button onclick="window.location.href='{{ url_for('saved_recipes') }}'">View Saved</button>
-            </div>
-
-            <div class="card">
-                <h3>📅 Weekly Meal Planner</h3>
-                <p>Roll a full week of dinners that respect your dietary settings</p>
-                <button onclick="window.location.href='{{ url_for('meal_planner') }}'">Plan My Week</button>
-            </div>
-    </div>
-    </div>
-        <div class="browse-section">
-            <h2>🍴 Browse All Recipes</h2>
-            <p>Explore our collection of delicious recipes</p>
-             <div class="search-container">
-                <input type="text" 
-                    id="recipe-search" 
-                    placeholder="🔍 Search by recipe name, cuisine, or ingredients..." 
-                    oninput="searchRecipes()">
-                </div>
-        
-            <div class="recipe-catalog" id="recipe-catalog">
-                {% for recipe in recipes %}
-                    <div class="recipe-card">
-                      {% if recipe.image_url %}
-                        <img src="{{ recipe.image_url }}"
-                            alt="{{ recipe.recipe_name }}"
-                            style="width:100%; height:160px; object-fit:cover; border-radius:10px 10px 0 0; display:block;"
-                            loading="lazy"
-                            onerror="this.style.display='none'">
-                        {% endif %}
-                        <div class="recipe-header">
-                            <h3>{{ recipe.recipe_name }}</h3>
-                        </div>
-                        
-                        <div class="recipe-info">
-                            <span class="info-tag">🍽️ {{ recipe.cuisine }}</span>
-                            <span class="info-tag">🔥 {{ recipe.calories }} cal</span>
-                            <span class="info-tag">⭐ {{ recipe.rating }}/5</span>
-                        </div>
-                        
-                        <div class="ingredients-list">
-                            <strong>Ingredients:</strong> {{ recipe.ingredients }}
-                        </div>
-                        
-                        <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="view-recipe-btn">View Full Recipe</a>
-                    </div>
-                {% endfor %}
-            </div>
-            <div id="no-results" style="display: none;">
-                <h3>No recipes found</h3>
-                <p>Try a different search term or load more recipes</p>
-            </div>
-            
-            {% if total_recipes > 12 %}
-                <div class="load-more-container">
-                    <button class="btn-load-more" id="load-more-btn" onclick="loadMoreRecipes()">
-                        Load More Recipes
-                    </button>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-    
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    {% include 'partials/floating_chat.html' %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% include 'partials/floating_chat.html' %}
 </body>
 </html>
