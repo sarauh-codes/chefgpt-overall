@@ -20,11 +20,28 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+function escapeHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function safeAttr(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
+function hasRecipeImage(url) {
+    const u = String(url ?? '').trim().toLowerCase();
+    return u.length > 0 && u !== 'nan' && u !== 'none';
+}
+
 // Track initial recipes
 document.addEventListener('DOMContentLoaded', function() {
     const initialCards = document.querySelectorAll('.recipe-card');
     initialCards.forEach(card => {
-        const link = card.querySelector('.view-recipe-btn');
+        const link = card.querySelector('a.recipe-view-btn');
         if (link) {
             const recipeId = link.href.split('/').pop();
             displayedRecipeIds.add(recipeId);
@@ -117,53 +134,37 @@ async function loadMoreRecipes() {
     btn.textContent = 'Loading...';
     
     try {
-        // #region agent log
-        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H4-H5',location:'dashboard.js:loadMoreRecipes',message:'before fetch',data:{currentOffset},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         const response = await fetch(`/load-more-recipes?offset=${currentOffset}`);
-        // #region agent log
-        const ct = response.headers.get('content-type') || '';
-        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H2-H3',location:'dashboard.js:loadMoreRecipes',message:'after fetch',data:{status:response.status,ok:response.ok,contentType:ct},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         const data = await response.json();
-        // #region agent log
-        const r0 = data.recipes && data.recipes[0];
-        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H1-H4',location:'dashboard.js:loadMoreRecipes',message:'after json',data:{recipesIsArray:Array.isArray(data.recipes),recipesLen:data.recipes?data.recipes.length:null,firstKeys:r0?Object.keys(r0):[],hasDifficulty:!!(r0&&('difficulty'in r0))},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        
+
         if (data.recipes.length > 0) {
             let addedCount = 0;
-            const safeAttr = (s) => String(s ?? '').replace(/"/g, '&quot;');
 
             data.recipes.forEach(recipe => {
                 if (displayedRecipeIds.has(String(recipe.recipe_id))) return;
-                
+
                 displayedRecipeIds.add(String(recipe.recipe_id));
                 addedCount++;
-                
-                const difficultyIcon = recipe.difficulty === 'easy' ? '✅' : recipe.difficulty === 'medium' ? '⚡' : '🔥';
-                const difficultyText = recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1);
 
-                const imgHtml = (recipe.image_url && String(recipe.image_url).trim())
-                    ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" style="width:100%; height:160px; object-fit:cover; border-radius:10px 10px 0 0; display:block;" loading="lazy" onerror="this.style.display='none'">`
-                    : '';
-                
+                const cookTime = recipe.cook_time != null ? String(recipe.cook_time) : '30';
+                const imgInner = hasRecipeImage(recipe.image_url)
+                    ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" loading="lazy" onerror="var d=document.createElement('div');d.className='recipe-img-placeholder';d.textContent='🍽️';this.replaceWith(d);">`
+                    : `<div class="recipe-img-placeholder">🍽️</div>`;
+
                 const card = `
                     <div class="recipe-card">
-                        ${imgHtml}
-                        <div class="recipe-header">
-                            <h3>${recipe.recipe_name}</h3>
+                        <div class="recipe-card-img">
+                            ${imgInner}
+                            <div class="recipe-time-badge">⏱ ${escapeHtml(cookTime)} min</div>
                         </div>
-                        <div class="recipe-info">
-                            <span class="info-tag">🍽️ ${recipe.cuisine}</span>
-                            <span class="info-tag">🔥 ${recipe.calories} cal</span>
-                            <span class="info-tag">⭐ ${recipe.rating}/5</span>
-                            <span class="info-tag difficulty-${recipe.difficulty}">${difficultyIcon} ${difficultyText}</span>
+                        <div class="recipe-card-body">
+                            <div class="recipe-card-name">${escapeHtml(recipe.recipe_name)}</div>
+                            <div class="recipe-card-meta">${escapeHtml(recipe.cuisine)} · ${escapeHtml(String(recipe.calories))} cal</div>
+                            <div class="recipe-card-footer">
+                                <span class="recipe-rating">⭐ ${escapeHtml(String(recipe.rating))}</span>
+                                <a href="/recipe/${recipe.recipe_id}" class="recipe-view-btn">View</a>
+                            </div>
                         </div>
-                        <div class="ingredients-list">
-                            <strong>Ingredients:</strong> ${recipe.ingredients}
-                        </div>
-                        <a href="/recipe/${recipe.recipe_id}" class="view-recipe-btn">View Full Recipe</a>
                     </div>
                 `;
                 catalog.insertAdjacentHTML('beforeend', card);
@@ -176,9 +177,6 @@ async function loadMoreRecipes() {
             }
         }
     } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7454/ingest/8a53f535-9969-4e28-8fcd-c6fa7a3b88a0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8dbc77'},body:JSON.stringify({sessionId:'8dbc77',runId:'pre-fix',hypothesisId:'H1-H2',location:'dashboard.js:loadMoreRecipes',message:'catch',data:{errName:error&&error.name,errMessage:error&&error.message},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         console.error('Error:', error);
         alert('Failed to load more recipes');
     } finally {
