@@ -308,11 +308,13 @@ def logout():
 
 
 @app.route('/chat')
+@login_required
 def chat_page():
     username = session.get('username', 'User')
     return render_template('chat.html', username=username)
 
 @app.route('/api/chat', methods=['GET','POST'])
+@login_required
 def chat():
     data = request.get_json()
     user_message = data.get('message')

@@ -50,6 +50,20 @@ function typePrompt() {
 }
 
 window.addEventListener("load", typePrompt);
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('dashChatInput');
+    if (input) {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const placeholder = this.getAttribute('placeholder');
+                if (placeholder) {
+                    this.value = placeholder.replace('...', '').trim();
+                }
+            }
+        });
+    }
+});
 
 
 let currentOffset = 12;
@@ -326,69 +340,7 @@ const AXIS_EMOJIS = {
     Spicy:"🌶️", Sweet:"🍬", Savory:"🧄", Healthy:"🥗", Indulgent:"🧁"
 };
 
-fetch("/api/taste-profile")
-    .then(r => r.json())
-    .then(data => {
-        if (data.empty) {
-            document.getElementById("tasteContent").classList.add("hidden");
-            document.getElementById("tasteEmpty").classList.remove("hidden");
-            return;
-        }
 
-        const ctx = document.getElementById("tasteRadar").getContext("2d");
-        new Chart(ctx, {
-            type: "radar",
-            data: {
-                labels: data.labels.map(l => `${AXIS_EMOJIS[l] || ""} ${l}`),
-                datasets: [{
-                    data: data.scores,
-                    backgroundColor: "rgba(79,152,163,0.15)",
-                    borderColor: "#4f98a3",
-                    pointBackgroundColor: data.labels.map(l => AXIS_COLORS[l] || "#4f98a3"),
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    borderWidth: 2,
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    r: {
-                        min: 0, max: 100,
-                        ticks: { display: false, stepSize: 20 },
-                        pointLabels: {
-                            font: { size: 13, weight: "600" },
-                            color: "#333"
-                        },
-                        grid: { color: "rgba(0,0,0,0.25)" },
-                        angleLines: { color: "rgba(0,0,0,0.25)" }
-                    }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: { label: ctx => ` ${ctx.raw}%` }
-                    }
-                },
-                animation: { duration: 800 }
-            }
-        });
-
-        const barsEl = document.getElementById("tasteBars");
-        data.labels.forEach((label, i) => {
-            const color = AXIS_COLORS[label] || "#4f98a3";
-            const row = document.createElement("div");
-            row.className = "taste-bar-row";
-            row.innerHTML = `
-                <span class="taste-bar-label">${AXIS_EMOJIS[label] || ""} ${label}</span>
-                <div class="taste-bar-track">
-                    <div class="taste-bar-fill" style="width:${data.scores[i]}%; background:${color};"></div>
-                </div>
-                <span class="taste-bar-score" style="color:${color};">${data.scores[i]}%</span>
-            `;
-            barsEl.appendChild(row);
-        });
-    });
     // ==================== TASTE DRAWER ====================
 
 function openTasteDrawer() {
@@ -473,94 +425,81 @@ function renderTasteDrawer() {
         });
 }
 // ==================== CHAT WITH CHEFGPT ====================
-async function sendMessage() {
-    const userMessage = "What can I cook with chicken?"; // atau ambil dari input
+async function sendMessage(source = 'floating') {
+    // Identify if the request is coming from the Hero (Center) section
+    const isHero = (source === 'hero');
+    
+    // Select the appropriate input field based on the source
+    const input = document.getElementById(isHero ? 'dashChatInput' : 'chat-input');
+    
+    // Select the appropriate message container based on the source
+    const messages = document.getElementById(isHero ? 'hero-chat-messages' : 'chat-messages');
+    
+    // Sanitize user input by trimming whitespace
+    const text = input.value.trim();
+    if (!text) return;
 
-    const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage })
-    });
+    // If using the Hero section, hide the dashboard header to focus on the conversation
+    if (isHero) {
+        const header = document.getElementById('hero-header-text');
+        if (header) header.style.display = 'none';
+        const section = document.getElementById('hero-section');
+        if (section) section.style.paddingTop = '20px';
+    }
 
-    const data = await response.json();
-    console.log(data.reply); // reply dari ChefGPT
+    // Create and display the User's message bubble
+    const userRow = document.createElement('div');
+    userRow.style.cssText = 'display:flex; justify-content:flex-end; margin-bottom:12px;';
+    userRow.innerHTML = `<div style="background:linear-gradient(135deg,#ff6b35,#f7931e);
+        color:white; padding:10px 14px; border-radius:14px; border-bottom-right-radius:4px;
+        font-size:13px; max-width:75%;">${text}</div>`;
+    messages.appendChild(userRow);
+    
+    // Reset input field and disable it while waiting for the AI response
+    input.value = '';
+    input.disabled = true;
+    messages.scrollTop = messages.scrollHeight;
+
+    // Create a temporary 'Thinking' indicator for visual feedback
+    const typingId = 'typing-' + Date.now();
+    const typing = document.createElement('div');
+    typing.id = typingId;
+    typing.style.cssText = 'color:#aaa; font-size:12px; font-style:italic; padding:4px 8px;';
+    typing.textContent = '⏳ ChefGPT is thinking...';
+    messages.appendChild(typing);
+
+    try {
+        // Send the user message to the backend API
+        const res = await fetch('/api/chat', { 
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: text})
+        });
+        const data = await res.json();
+        
+        // Remove the 'Thinking' indicator once the response is received
+        document.getElementById(typingId).remove();
+
+        // Create and display the AI Bot response bubble
+        const aiRow = document.createElement('div');
+        aiRow.style.cssText = 'display:flex; align-items:flex-end; gap:8px; margin-bottom:12px;';
+        aiRow.innerHTML = `
+            <div style="width:26px; height:26px; background:linear-gradient(135deg,#ff6b35,#f7931e);
+                border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;">🍳</div>
+            <div style="background:#2e2e2e; padding:10px 14px; border-radius:14px; border-bottom-left-radius:4px;
+    font-size:13px; max-width:75%; color:#f0f0f0; line-height:1.4;">${data.reply}</div>`;
+        messages.appendChild(aiRow);
+        // scroll to show reply
+        messages.scrollTop = messages.scrollHeight;
+
+    } catch (e) {
+        const typingEl = document.getElementById(typingId);
+        // Handle connection errors gracefully
+        if (typingEl) typingEl.textContent = 'Oops! Something went wrong 😅';
+    }
+
+    // Re-enable input and return focus to the user
+    input.disabled = false;
+    input.focus();
+    messages.scrollTop = messages.scrollHeight;
 }
-function openChat() {
-  const overlay = document.getElementById('chat-overlay');
-  overlay.style.display = 'flex';
-  document.getElementById('chat-input').focus();
-}
-
-function closeChat() {
-  document.getElementById('chat-overlay').style.display = 'none';
-}
-
-function sendChip(text) {
-  document.getElementById('chat-input').value = text;
-  sendMessage();
-}
-
-async function sendMessage() {
-  const input = document.getElementById('chat-input');
-  const sendBtn = document.querySelector('#chat-overlay .send-btn');
-  const messages = document.getElementById('chat-messages');
-  const text = input.value.trim();
-  if (!text) return;
-
-  // User bubble
-  const userRow = document.createElement('div');
-  userRow.style.cssText = 'display:flex;justify-content:flex-end;';
-  userRow.innerHTML = `<div style="background:linear-gradient(135deg,#ff6b35,#f7931e);
-    color:white;padding:10px 14px;border-radius:14px;border-bottom-right-radius:4px;
-    font-size:13px;max-width:75%;">${text}</div>`;
-  messages.appendChild(userRow);
-  input.value = '';
-  input.disabled = true;
-  messages.scrollTop = messages.scrollHeight;
-
-  // Typing
-  const typing = document.createElement('div');
-  typing.id = 'typing';
-  typing.style.cssText = 'color:#aaa;font-size:12px;font-style:italic;padding:4px 8px;';
-  typing.textContent = '⏳ ChefGPT is thinking...';
-  messages.appendChild(typing);
-  messages.scrollTop = messages.scrollHeight;
-
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: text})
-    });
-    if (!res.ok) throw new Error();
-    const data = await res.json();
-
-    typing.remove();
-    const aiRow = document.createElement('div');
-    aiRow.style.cssText = 'display:flex;align-items:flex-end;gap:8px;';
-    const icon = document.createElement('div');
-    icon.style.cssText = 'width:26px;height:26px;background:linear-gradient(135deg,#ff6b35,#f7931e);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;';
-    icon.textContent = '🍳';
-    const bubble = document.createElement('div');
-    bubble.style.cssText = 'background:#f5f5f5;padding:10px 14px;border-radius:14px;border-bottom-left-radius:4px;font-size:13px;max-width:75%;color:#333;';
-    bubble.textContent = data.reply;
-    aiRow.appendChild(icon);
-    aiRow.appendChild(bubble);
-    messages.appendChild(aiRow);
-
-  } catch {
-    typing.remove();
-    const errRow = document.createElement('div');
-    errRow.style.cssText = 'display:flex;align-items:flex-end;gap:8px;';
-    const bubble = document.createElement('div');
-    bubble.style.cssText = 'background:#f5f5f5;padding:10px 14px;border-radius:14px;font-size:13px;color:#999;';
-    bubble.textContent = 'Oops! Something went wrong 😅';
-    errRow.appendChild(bubble);
-    messages.appendChild(errRow);
-  }
-
-  input.disabled = false;
-  input.focus();
-  messages.scrollTop = messages.scrollHeight;
-}
-

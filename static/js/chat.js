@@ -11,10 +11,10 @@ function closeChat() {
 
 function sendChip(text) {
   document.getElementById('chat-input').value = text;
-  sendMessage();
+  sendFloatingMessage();
 }
 
-async function sendMessage() {
+async function sendFloatingMessage() {
   const input = document.getElementById('chat-input');
   const messages = document.getElementById('chat-messages');
   const text = input.value.trim();

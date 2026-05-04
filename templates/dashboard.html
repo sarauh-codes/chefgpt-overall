@@ -121,22 +121,24 @@
       {% endfor %}{% endif %}
     {% endwith %}
 <div class="page-content">
-<section class="agent-center">
+<section class="agent-center" id="hero-section">
+  <div id="hero-header-text">
   <div class="agent-pill">CHEFGPT AGENT</div>
 
   <h1>Hi {{ username }}, what do you want to cook?</h1>
   <p>Tell me ingredients, cravings, diet, or mood.</p>
-
+  </div>
   <div class="agent-box">
     <textarea
       id="dashChatInput"
-      onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendDashChat();}"></textarea>
+      onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendMessage('hero');}"></textarea>
 
     <div class="agent-box-bottom">
       <button class="agent-mode" type="button">⚡ Chef</button>
-      <button class="agent-send" type="button" onclick="sendDashChat()">↑</button>
+      <button class="agent-send" type="button" onclick="sendMessage('hero')">↑</button>
     </div>
   </div>
+  <div id="hero-chat-messages" style="width: 100%; max-width: 700px; margin: 20px auto; text-align: left;"></div>
 </section>
 
   <section class="dashboard-lower">
@@ -190,6 +192,7 @@
       <button class="load-more-btn" id="load-more-btn" onclick="loadMoreRecipes()">Load More Recipes</button>
     </div>
     {% endif %}
+
     <div class="ideas-banner">
       <div class="ideas-banner-icon">👨‍🍳</div>
       <div class="ideas-banner-text">
@@ -199,8 +202,8 @@
       <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
     </div>
   </section>
-
-</div>
+</main>
+  </div>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% include 'partials/floating_chat.html' %}
 </body>

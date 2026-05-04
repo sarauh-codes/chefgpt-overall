@@ -70,10 +70,10 @@
   <!-- Input -->
   <div style="padding:12px; border-top:1px solid #f0f0f0; display:flex; gap:8px;">
     <input id="chat-input" type="text" placeholder="Ask ChefGPT..."
-      onkeydown="if(event.key==='Enter') sendMessage()"
+      onkeydown="if(event.key==='Enter') sendFloatingMessage()"
       style="flex:1;padding:8px 14px;border:2px solid #e0e0e0;border-radius:999px;
              font-size:13px;outline:none;">
-    <button onclick="sendMessage()"
+    <button onclick="sendFloatingMessage()"
       style="background:linear-gradient(135deg,#ff6b35,#f7931e);border:none;
              border-radius:999px;padding:8px 16px;color:white;font-weight:600;
              font-size:13px;cursor:pointer;">
