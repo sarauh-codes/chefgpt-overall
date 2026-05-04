@@ -503,3 +503,36 @@ async function sendMessage(source = 'floating') {
     input.focus();
     messages.scrollTop = messages.scrollHeight;
 }
+function applyTheme(theme) {
+  const icon = document.getElementById("themeIcon");
+  const text = document.getElementById("themeText");
+
+  if (theme === "dark") {
+    document.body.classList.add("dark-theme");
+    if (icon) icon.textContent = "🌙";
+    if (text) text.textContent = "Dark";
+  } else {
+    document.body.classList.remove("dark-theme");
+    if (icon) icon.textContent = "☀️";
+    if (text) text.textContent = "Light";
+  }
+
+  localStorage.setItem("theme", theme);
+}
+
+function toggleTheme() {
+  const isDark = document.body.classList.contains("dark-theme");
+  applyTheme(isDark ? "light" : "dark");
+}
+
+window.addEventListener("load", () => {
+  const savedTheme = localStorage.getItem("theme");
+
+  if (savedTheme) {
+    applyTheme(savedTheme);
+    return;
+  }
+
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(systemDark ? "dark" : "light");
+});

@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+  
 
 <!-- ===== DIETARY DRAWER ===== -->
 <div id="diet-overlay" onclick="closeDietDrawer()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200;"></div>
@@ -77,7 +78,6 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">🍳 ChefGPT</div>
-
     <div class="profile-block">
       <div class="profile-row">
         <div class="avatar">{{ username[:2].upper() }}</div>
@@ -107,13 +107,16 @@
 
   <!-- MAIN -->
   <main class="main-content">
-    <div class="topbar">
-      <div>
-        <div class="topbar-greeting" id="greetingText">Good evening, <span class="greeting-name">{{ username }}</span> 🌙</div>
-        <div class="topbar-sub" id="greetingSub">What's for dinner tonight?</div>
-      </div>
-      <div class="topbar-date" id="topbarDate"></div>
-    </div>
+<div class="topbar-actions">
+  <div class="topbar-date" id="topbarDate"></div>
+
+  <button class="theme-switch" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+    <span class="theme-switch-icon" id="themeIcon">🌙</span>
+    <span class="theme-switch-text" id="themeText">Dark</span>
+    <span class="theme-switch-knob"></span>
+  </button>
+</div>
+
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}{% for category, message in messages %}
