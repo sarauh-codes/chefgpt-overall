@@ -317,9 +317,30 @@ def chat():
     data = request.get_json()
     user_message = data.get('message')
 
+    if not user_message:
+        return jsonify({'error': 'No message provided'}), 400
+
+    if len(user_message) > 1000:
+        return jsonify({'error': 'Message too long. Please keep it under 1000 characters.'}), 400
+
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
-        messages=[{"role": "user", "content": user_message}]
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are ChefGPT, a friendly and knowledgeable AI chef assistant. "
+                    "You only answer questions related to food, cooking, recipes, ingredients, "
+                    "nutrition, meal planning, and kitchen tips. "
+                    "If the user asks about anything unrelated to food or cooking, politely decline "
+                    "and redirect them back to food-related topics. "
+                    "Keep your answers practical, friendly, and concise. "
+                    "When suggesting recipes, always mention the key ingredients needed."
+                )
+            },
+            {"role": "user", "content": user_message}
+        ],
+        max_tokens=500,
     )
 
     return jsonify({'reply': response.choices[0].message.content})

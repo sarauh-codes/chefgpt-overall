@@ -51,7 +51,6 @@ class _RecommendScreenState extends State<RecommendScreen>
   bool _imageResultVisible = false;
   bool _isDetecting = false;
   List<XFile> _selectedImages =[];
-  List<String> _detectedIngredients = [];
 
   @override
   void initState() {
@@ -299,7 +298,7 @@ class _RecommendScreenState extends State<RecommendScreen>
   if (files.isEmpty) return;
     setState(() {
       _isAnalyzingImage = true;
-      _imageStatus = '🤖 BLIP is analyzing ${files.length} image(s)...';
+      _imageStatus = '🤖 Analyzing ${files.length} image(s)...';
       _imageResultVisible = false;
       _imageIngredientsController.clear();
     });
@@ -350,9 +349,8 @@ class _RecommendScreenState extends State<RecommendScreen>
       final finalIngredients = allIngredients.join(', ');
       setState(() {
         _imageIngredientsController.text = finalIngredients;
-        _detectedIngredients = allIngredients.toList(); 
         _imageStatus =
-            '✅ Detected ${allIngredients.length} ingredient(s) — edit if needed, then tap Get Recipes!';
+            '✅ Detected: "$finalIngredients" — edit if needed, then tap Get Recipes!';
         _imageResultVisible = true;
       });
     } catch (e) {
@@ -852,27 +850,6 @@ class _RecommendScreenState extends State<RecommendScreen>
         // Result input + button
         if (_imageResultVisible) ...[
           const SizedBox(height: 16),
-           if (_detectedIngredients.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _detectedIngredients.map((ing) {
-                return Chip(
-                  label: Text(ing),
-                  backgroundColor: const Color(0xFFFFF3EE),
-                  side: const BorderSide(color: Color(0xFFFF6B35)),
-                  labelStyle: const TextStyle(color: Color(0xFFFF6B35)),
-                  deleteIcon: const Icon(Icons.close, size: 18, color: Color(0xFFFF6B35)),
-                  onDeleted: () {
-                    setState(() {
-                      _detectedIngredients.remove(ing);
-                      _imageIngredientsController.text = _detectedIngredients.join(', ');
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          if (_detectedIngredients.isNotEmpty) const SizedBox(height: 12),
           _buildDetectedIngredientsField(
             controller: _imageIngredientsController,
             hint: 'Detected ingredients will appear here...',

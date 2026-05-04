@@ -60,7 +60,7 @@
                 </div>
             </div>
 
-            <!-- Tab 3: Image (BLIP) -->
+            <!-- Tab 3: Image Upload -->
             <div class="tab-content" id="content-image" style="display: none;">
                 <p style="color: #666; margin-bottom: 12px;">Upload one or more photos of your ingredients and let AI detect them 📸</p>
                 <div class="image-section">
@@ -68,8 +68,35 @@
                         <span id="uploadPrompt">📂 Click to upload one or more images</span>
                         <input type="file" id="imageInput" accept="image/*" multiple onchange="handleImageUpload(event)" style="display: none;">
                     </label>
-                    <p class="voice-status" id="imageStatus"></p>
+
+                    <!-- Thumbnail preview strip -->
+                    <div class="preview-strip" id="previewStrip"></div>
+
+                    <!-- Analyzing animation -->
+                    <div class="analyzing-box" id="analyzingBox">
+                        <div class="img-spinner"></div>
+                        <div class="progress-text">
+                            <p class="progress-label" id="progressLabel">Analyzing image...</p>
+                            <p class="progress-sub" id="progressSub">Detecting ingredients with AI vision</p>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Done state with chips -->
+                    <div class="done-box" id="doneBox">
+                        <div class="done-icon">✓</div>
+                        <div style="flex:1;">
+                            <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#276749;">Detected — edit if needed, then click Get Recipes!</p>
+                            <div class="detected-chips" id="detectedChips"></div>
+                        </div>
+                    </div>
+
+                    <!-- Clear button -->
+                    <button class="clear-images-btn" id="clearImagesBtn" onclick="clearImages()" style="display:none;">✕ Clear images</button>
                 </div>
+
                 <div class="input-group" id="image-result-group" style="display: none;">
                     <input
                         type="text"

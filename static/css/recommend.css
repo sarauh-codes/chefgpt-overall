@@ -594,3 +594,167 @@ body {
     color: #a0aec0;
     font-style: italic;
 }
+/* ===== Image Upload Animations ===== */
+.preview-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  min-height: 0;
+}
+
+.preview-thumb {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #e2e8f0;
+  animation: popIn 0.25s ease;
+  flex-shrink: 0;
+}
+
+.preview-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.preview-thumb .remove-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.preview-thumb .remove-btn:hover {
+  background: rgba(220,53,69,0.85);
+}
+
+@keyframes popIn {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.analyzing-box {
+  display: none;
+  align-items: center;
+  gap: 14px;
+  background: #fff8f5;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-top: 14px;
+  border: 1px solid #FFB899;
+}
+
+.analyzing-box.active { display: flex; }
+
+.img-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #FFB899;
+  border-top-color: #FF6B35;
+  border-radius: 50%;
+  animation: imgSpin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes imgSpin { to { transform: rotate(360deg); } }
+
+.progress-text { flex: 1; }
+
+.progress-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 3px;
+}
+
+.progress-sub {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+}
+
+.progress-bar-track {
+  height: 4px;
+  background: #FFE8DC;
+  border-radius: 99px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #FF6B35;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.done-box {
+  display: none;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-top: 14px;
+}
+
+.done-box.active { display: flex; }
+
+.done-icon {
+  width: 26px;
+  height: 26px;
+  background: #38a169;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.detected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  background: #fff;
+  border: 1px solid #9ae6b4;
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #276749;
+  animation: popIn 0.2s ease;
+}
+
+.clear-images-btn {
+  margin-top: 10px;
+  background: none;
+  border: none;
+  color: #a0aec0;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.clear-images-btn:hover { color: #e53e3e; }
