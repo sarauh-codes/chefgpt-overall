@@ -536,3 +536,55 @@ window.addEventListener("load", () => {
   const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   applyTheme(systemDark ? "dark" : "light");
 });
+
+// ==================== TOAST NOTIFICATIONS ====================
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position: fixed; bottom: 30px; right: 30px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; pointer-events: none;';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    
+    // Style based on type
+    const isDarkTheme = document.body.classList.contains('dark-theme');
+    
+    // Make toasts look great in both light and dark modes
+    const bgColor = type === 'success' ? '#1a3a2a' : '#3a1a1a';
+    const textColor = type === 'success' ? '#68d391' : '#fc8181';
+    const borderColor = type === 'success' ? '#276749' : '#9b2c2c';
+    
+    toast.style.cssText = `
+        background: ${bgColor};
+        color: ${textColor};
+        border: 1px solid ${borderColor};
+        padding: 16px 24px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        transform: translateY(50px) scale(0.9);
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: auto;
+    `;
+    
+    toast.textContent = message;
+    container.appendChild(toast);
+    
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.style.transform = 'translateY(0) scale(1)';
+        toast.style.opacity = '1';
+    });
+    
+    // Animate out and remove
+    setTimeout(() => {
+        toast.style.transform = 'translateY(20px) scale(0.9)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, 3000);
+}

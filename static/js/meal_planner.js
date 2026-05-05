@@ -10,16 +10,19 @@
   ];
 
   function resetRows() {
-    const tbody = document.getElementById("meal-plan-body");
-    tbody.innerHTML = "";
+    const container = document.getElementById("meal-plan-body");
+    container.innerHTML = "";
     DAYS.forEach((day) => {
-      const tr = document.createElement("tr");
-      tr.dataset.day = day;
-      tr.innerHTML =
-        '<th scope="row">' +
-        day +
-        '</th><td class="meal-plan-empty">—</td>';
-      tbody.appendChild(tr);
+      const card = document.createElement("div");
+      card.className = "day-card";
+      card.innerHTML = `
+        <div class="day-header">${day}</div>
+        <div class="day-card-empty">
+            <div style="font-size: 32px;">🍽️</div>
+            <div>No meal planned</div>
+        </div>
+      `;
+      container.appendChild(card);
     });
   }
 
@@ -80,57 +83,37 @@
   }
 
   function renderPlan(plan) {
-    const tbody = document.getElementById("meal-plan-body");
-    tbody.innerHTML = "";
+    const container = document.getElementById("meal-plan-body");
+    container.innerHTML = "";
     plan.forEach((item) => {
-      const tr = document.createElement("tr");
-      tr.dataset.day = item.day;
+      const card = document.createElement("div");
+      card.className = "day-card";
 
-      const th = document.createElement("th");
-      th.scope = "row";
-      th.textContent = item.day;
-
-      const td = document.createElement("td");
-      const inner = document.createElement("div");
-      inner.className = "meal-plan-cell-inner";
-
+      let imgHTML = '';
       if (item.image_url) {
-        const img = document.createElement("img");
-        img.className = "meal-plan-thumb";
-        img.alt = "";
-        img.loading = "lazy";
-        img.src = item.image_url;
-        img.onerror = function () {
-          img.style.display = "none";
-        };
-        inner.appendChild(img);
+        imgHTML = `<img src="${item.image_url}" class="meal-plan-thumb" onerror="this.style.display='none'">`;
+      } else {
+        imgHTML = `<div class="recipe-img-placeholder" style="height:140px; background:var(--panel-2); display:flex; align-items:center; justify-content:center; font-size:48px;">🍲</div>`;
       }
 
-      const textWrap = document.createElement("div");
-      const nameEl = document.createElement("div");
-      nameEl.className = "meal-plan-recipe-name";
-      const a = document.createElement("a");
-      a.href = "/recipe/" + encodeURIComponent(String(item.recipe_id));
-      a.textContent = item.recipe_name;
-      nameEl.appendChild(a);
-
-      const meta = document.createElement("div");
-      meta.className = "meal-plan-meta";
-      ["🍽️ " + item.cuisine, "🔥 " + item.calories + " cal", "⭐ " + item.rating + "/5"].forEach(
-        function (text) {
-          const span = document.createElement("span");
-          span.textContent = text;
-          meta.appendChild(span);
-        }
-      );
-
-      textWrap.appendChild(nameEl);
-      textWrap.appendChild(meta);
-      inner.appendChild(textWrap);
-      td.appendChild(inner);
-      tr.appendChild(th);
-      tr.appendChild(td);
-      tbody.appendChild(tr);
+      card.innerHTML = `
+        <div class="day-header">${item.day}</div>
+        <div class="recipe-card-img" style="position:relative;">
+            ${imgHTML}
+        </div>
+        <div class="recipe-card-body" style="padding: 20px; flex: 1; display: flex; flex-direction: column;">
+            <div class="meal-plan-recipe-name" style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">
+                <a href="/recipe/${item.recipe_id}" style="color: var(--text); text-decoration: none; transition: color 0.2s;">${item.recipe_name}</a>
+            </div>
+            <div class="meal-plan-meta" style="color: var(--muted); font-size: 13px; font-weight:500; margin-bottom: 20px; display:flex; gap:12px; flex-wrap:wrap;">
+                <span>🍽️ ${item.cuisine}</span>
+                <span>🔥 ${item.calories} cal</span>
+                <span>⭐ ${item.rating}/5</span>
+            </div>
+            <a href="/recipe/${item.recipe_id}" class="view-recipe-btn" style="margin-top:auto; background:var(--brand); color:white; padding:12px; border-radius:25px; text-align:center; text-decoration:none; font-weight:700; font-size: 14px; transition:all 0.3s; box-shadow: 0 4px 12px var(--brand-soft);">Cook This! 🍳</a>
+        </div>
+      `;
+      container.appendChild(card);
     });
   }
 

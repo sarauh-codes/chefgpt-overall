@@ -1,3 +1,15 @@
+function switchTab(event, tabId) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    document.getElementById('tab-' + tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
 let selectedRating = 0;
 
 function setRating(rating) {
@@ -27,8 +39,26 @@ async function toggleSave() {
     if (data.success) {
         btn.dataset.saved = isSaved ? 'false' : 'true';
         btn.textContent = isSaved ? '💾 Save Recipe' : '✅ Saved';
+        
+        if (typeof showToast === 'function') {
+            if (isSaved) {
+                showToast('Recipe removed from saved list.', 'success');
+            } else {
+                showToast('✅ Recipe saved successfully!', 'success');
+                // Trigger delightful micro-animation
+                if (window.confetti) {
+                    confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: ['#FF6B35', '#f7931e', '#ffffff']
+                    });
+                }
+            }
+        }
     } else {
-        alert(data.message);
+        if (typeof showToast === 'function') showToast(data.message, 'error');
+        else alert(data.message);
     }
 }
 
@@ -66,14 +96,17 @@ async function submitFeedback() {
         const data = await response.json();
         
         if (response.ok) {
-            alert('✅ ' + data.message);
+            if (typeof showToast === 'function') showToast('✅ ' + data.message, 'success');
+            else alert('✅ ' + data.message);
             document.getElementById('comment-input').value = '';
             loadFeedbacks();
         } else {
-            alert('Error: ' + data.error);
+            if (typeof showToast === 'function') showToast('Error: ' + data.error, 'error');
+            else alert('Error: ' + data.error);
         }
     } catch (error) {
-        alert('Error submitting feedback');
+        if (typeof showToast === 'function') showToast('Error submitting feedback', 'error');
+        else alert('Error submitting feedback');
     }
 }
 
@@ -108,6 +141,17 @@ async function loadFeedbacks() {
 // Load feedbacks when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadFeedbacks();
+    
+    // Auto-open reviews tab if coming from the cooking completion screen
+    if (window.location.hash === '#feedback' || window.location.hash === '#reviews') {
+        const reviewBtn = document.querySelector('button[onclick*="reviews"]');
+        if (reviewBtn) {
+            reviewBtn.click();
+            setTimeout(() => {
+                reviewBtn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
+    }
 });
 
 // ------------share Recipe----------
@@ -116,13 +160,33 @@ const recipeName = document.querySelector('.recipe-title').textContent.trim();
 const shareText = `Check out this recipe: ${recipeName} 🍽️`;
 
 function openShareModal() {
-    document.getElementById('share-modal').style.display = 'block';
-    document.getElementById('share-overlay').style.display = 'block';
+    // If the browser supports native sharing (like on mobile phones or modern Macs), use that!
+    if (navigator.share) {
+        navigator.share({
+            title: recipeName,
+            text: shareText,
+            url: recipeUrl,
+        })
+        .catch(console.error);
+    } else {
+        // Fallback to our custom modal for older browsers / desktop
+        const modal = document.getElementById('share-modal');
+        document.getElementById('share-overlay').style.display = 'block';
+        modal.style.display = 'block';
+        
+        // Trigger reflow for animation
+        void modal.offsetWidth;
+        modal.classList.add('show');
+    }
 }
 
 function closeShareModal() {
-    document.getElementById('share-modal').style.display = 'none';
-    document.getElementById('share-overlay').style.display = 'none';
+    const modal = document.getElementById('share-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+        document.getElementById('share-overlay').style.display = 'none';
+    }, 300);
 }
 
 function shareWhatsApp() {
@@ -144,13 +208,10 @@ function shareTelegram() {
 function copyLink() {
     const input = document.getElementById('share-link-input');
     navigator.clipboard.writeText(input.value).then(() => {
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = '✅ Copied!';
-        btn.style.background = '#28a745';
-        setTimeout(() => {
-            btn.textContent = '📋 Copy';
-            btn.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
-        }, 2000);
+        if (typeof showToast === 'function') {
+            showToast('🔗 Link copied to clipboard!', 'success');
+        }
+        closeShareModal();
     });
 }
 
@@ -160,18 +221,21 @@ function printRecipe() {
 }
 
 function downloadPDF() {
+    if (typeof showToast === 'function') showToast('⏳ Generating PDF... Please wait.', 'success');
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-function cleanText(text) {
-    return text
-        .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')   // remove emojis
-        .replace(/[\u{2600}-\u{26FF}]/gu, '')       // remove misc symbols
-        .replace(/[\u{2700}-\u{27BF}]/gu, '')       // remove dingbats
-        .replace(/[^\x00-\x7F]/g, '')               // remove ALL non-ASCII characters
-        .replace(/\s+/g, ' ')                        // clean extra spaces
-        .trim();
-}
+    function cleanText(text) {
+        return text
+            .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')   
+            .replace(/[\u{2600}-\u{26FF}]/gu, '')       
+            .replace(/[\u{2700}-\u{27BF}]/gu, '')       
+            .replace(/[^\x00-\x7F]/g, '')               
+            .replace(/\s+/g, ' ')                        
+            .trim();
+    }
+
     const title = cleanText(document.querySelector('.recipe-title').textContent);
     const metaTags = document.querySelectorAll('.meta-tag');
     const cuisine = cleanText(metaTags[0]?.textContent || '');
@@ -179,71 +243,85 @@ function cleanText(text) {
     const rating = cleanText(metaTags[2]?.textContent || '');
     const difficulty = cleanText(metaTags[3]?.textContent || '');
 
-    const ingredientItems = document.querySelectorAll('.ingredients-list li');
-    const ingredients = Array.from(ingredientItems).map(li => '• ' + cleanText(li.textContent));
+    const ingredientItems = document.querySelectorAll('.ingredient-text');
+    const ingredients = Array.from(ingredientItems).map(el => '[  ] ' + cleanText(el.textContent));
 
-    const instructionItems = document.querySelectorAll('.instructions-list li');
-    const instructions = Array.from(instructionItems).map((li, i) => `${i + 1}. ${cleanText(li.textContent)}`);
+    const instructionItems = document.querySelectorAll('.print-only .timeline-content');
+    const instructions = Array.from(instructionItems).map((el, i) => `Step ${i + 1}:\n${cleanText(el.textContent)}`);
 
     let y = 20;
 
-    // Title
+    // Stylish Header
+    doc.setFillColor(255, 107, 53); // ChefGPT Orange
+    doc.rect(0, 0, 210, 35, 'F');
+    
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(102, 126, 234);
-    doc.text(title, 105, y, { align: 'center' });
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.text(title, 105, 18, { align: 'center' });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`${cuisine}   |   ${calories}   |   ${rating}   |   Difficulty: ${difficulty}`, 105, 28, { align: 'center' });
+
+    y = 50;
+
+    // Ingredients Section
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40);
+    doc.text('Ingredients Checklist', 15, y);
     y += 10;
 
-    // Divider
-    doc.setDrawColor(102, 126, 234);
-    doc.line(15, y, 195, y);
-    y += 8;
-
-    // Meta info
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`${cuisine}   |   ${calories}   |   ${rating}   |   ${difficulty}`, 105, y, { align: 'center' });
-    y += 12;
-
-    // Ingredients
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(40, 40, 40);
-    doc.text('Ingredients', 15, y);
-    y += 7;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(80, 80, 80);
+    doc.setTextColor(60, 60, 60);
+    
     ingredients.forEach(ing => {
         if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(ing, 18, y);
-        y += 6;
+        doc.text(ing, 15, y);
+        y += 7;
     });
-    y += 6;
+    
+    y += 10;
 
-    // Instructions
+    // Instructions Section
+    if (y > 250) { doc.addPage(); y = 20; }
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.setTextColor(40, 40, 40);
-    doc.text('Instructions', 15, y);
-    y += 7;
+    doc.text('Step-by-Step Instructions', 15, y);
+    y += 10;
 
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
-    doc.setTextColor(80, 80, 80);
     instructions.forEach(step => {
         if (y > 270) { doc.addPage(); y = 20; }
-        const lines = doc.splitTextToSize(step, 175);
-        doc.text(lines, 18, y);
-        y += lines.length * 6 + 2;
+        
+        // Make 'Step X:' bold visually by splitting it
+        const splitText = step.split('\n');
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 107, 53);
+        doc.text(splitText[0], 15, y);
+        y += 6;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
+        const lines = doc.splitTextToSize(splitText[1], 180);
+        doc.text(lines, 15, y);
+        
+        y += (lines.length * 6) + 8; // Extra padding between steps
     });
 
     // Footer
-    doc.setFontSize(9);
-    doc.setTextColor(180, 180, 180);
-    doc.text('Generated by ChefGPT', 105, 290, { align: 'center' });
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(9);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Generated by ChefGPT - Page ${i} of ${totalPages}`, 105, 290, { align: 'center' });
+    }
 
-    doc.save(`${title}.pdf`);
+    doc.save(`${title.replace(/\s+/g, '_')}_Recipe.pdf`);
+    
+    if (typeof showToast === 'function') showToast('✅ PDF downloaded successfully!', 'success');
 }

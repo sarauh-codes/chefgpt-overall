@@ -26,27 +26,32 @@
         
         {% if recipes|length == 0 %}
             <div class="empty-state">
-                <h3>🍽️ No Recipes Cooked Yet</h3>
+                <div style="font-size: 48px; margin-bottom: 16px;">🍽️</div>
+                <h3>No Recipes Cooked Yet</h3>
                 <p>Start your cooking journey by finding recipes and marking them as cooked!</p>
                 <a href="{{ url_for('recommend_page') }}">Find Recipes to Cook</a>
             </div>
         {% else %}
+            <div class="recipe-grid">
             {% for cooked in recipes %}
-                <div class="recipe-card">
-                    <div class="recipe-info">
-                        <h3>{{ cooked.recipe_name }}</h3>
-                        <div class="recipe-meta">
-                            Recipe ID: #{{ cooked.recipe_id }}
+                <div class="recipe-card" onclick="window.location.href='{{ url_for('recipe_detail', recipe_id=cooked.recipe_id) }}'">
+                    <div class="recipe-card-img">
+                        <div class="recipe-img-placeholder">👨‍🍳</div>
+                        <div class="recipe-time-badge" style="background: #38A169;">✅ Mastered</div>
+                    </div>
+                    <div class="recipe-card-body">
+                        <div class="recipe-card-name" style="font-size: 15px;">{{ cooked.recipe_name }}</div>
+                        <div class="recipe-card-meta" style="color: var(--muted); font-weight: 500; margin-top: 4px;">
+                            <span style="font-size: 14px;">📅</span> {{ cooked.cooked_at.strftime('%b %d, %Y') }}
                         </div>
-                        <div class="cooked-date">
-                            🕒 Cooked on: {{ cooked.cooked_at.strftime('%B %d, %Y at %I:%M %p') }}
+                        <div class="recipe-card-footer" style="margin-top: 12px;">
+                            <div class="recipe-rating" style="font-size: 11px;">At {{ cooked.cooked_at.strftime('%I:%M %p') }}</div>
+                            <div class="recipe-view-btn" style="background: var(--brand);">Cook Again 🍳</div>
                         </div>
                     </div>
-                    <a href="{{ url_for('recipe_detail', recipe_id=cooked.recipe_id) }}" class="view-btn">
-                        View Recipe
-                    </a>
                 </div>
             {% endfor %}
+            </div>
         {% endif %}
     </div>
 {% endblock %}

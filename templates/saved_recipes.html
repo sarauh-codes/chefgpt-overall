@@ -21,29 +21,35 @@
 
         {% if recipes|length == 0 %}
             <div class="empty-state">
-                <h3>💾 No Saved Recipes Yet</h3>
+                <div style="font-size: 48px; margin-bottom: 16px;">💾</div>
+                <h3>No Saved Recipes Yet</h3>
                 <p>Browse recipes and hit Save to bookmark your favourites!</p>
                 <a href="{{ url_for('dashboard') }}">Browse Recipes</a>
             </div>
         {% else %}
+            <div class="recipe-grid">
             {% for saved in recipes %}
-                 <div class="recipe-card">
-        <div class="recipe-info">
-            <h3>{{ saved.recipe_name }}</h3>
-            <div class="cooked-date">
-                🕒 Saved on: {{ saved.saved_at.strftime('%B %d, %Y at %I:%M %p') }}
-            </div>
-        </div>
-        <div style="display:flex; gap:10px;">
-            <a href="{{ url_for('recipe_detail', recipe_id=saved.recipe_id) }}" class="view-btn">
-                View Recipe
-            </a>
-            <button class="view-btn" style="background:#e74c3c;" onclick="unsave({{ saved.recipe_id }}, this)">
-                🗑️ Remove
-            </button>
-        </div>
-    </div>
+                <div class="recipe-card" onclick="window.location.href='{{ url_for('recipe_detail', recipe_id=saved.recipe_id) }}'" style="position: relative;">
+                    <button class="view-btn" style="position: absolute; top: 8px; right: 8px; background: rgba(231, 76, 60, 0.9); color: white; border: none; padding: 6px 10px; font-size: 11px; z-index: 10; border-radius: 8px;" onclick="event.stopPropagation(); unsave({{ saved.recipe_id }}, this)">
+                        ✕ Remove
+                    </button>
+                    <div class="recipe-card-img">
+                        <div class="recipe-img-placeholder">⭐</div>
+                        <div class="recipe-time-badge" style="background: #DD6B20; color: white;">📌 Bookmarked</div>
+                    </div>
+                    <div class="recipe-card-body">
+                        <div class="recipe-card-name" style="font-size: 15px; padding-right: 20px;">{{ saved.recipe_name }}</div>
+                        <div class="recipe-card-meta" style="color: #38A169; font-weight: 500; margin-top: 4px;">
+                            <span style="font-size: 14px;">📅</span> {{ saved.saved_at.strftime('%b %d, %Y') }}
+                        </div>
+                        <div class="recipe-card-footer" style="margin-top: 12px;">
+                            <div class="recipe-rating" style="font-size: 11px;">Saved at {{ saved.saved_at.strftime('%I:%M %p') }}</div>
+                            <div class="recipe-view-btn" style="background: var(--brand);">Cook This! 🍳</div>
+                        </div>
+                    </div>
+                </div>
             {% endfor %}
+            </div>
         {% endif %}
     </div>
 {% endblock %}

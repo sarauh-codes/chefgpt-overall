@@ -1,30 +1,34 @@
-/* Weekly meal planner — extends recommend.css */
+/* meal_planner.css - Modernized */
 
 .meal-planner-panel {
-  background: white;
-  padding: 32px 36px;
+  background: var(--panel);
+  padding: 36px 40px;
   border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(255, 107, 53, 0.08);
-  border: 1px solid rgba(255, 107, 53, 0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.03);
+  border: 1px solid var(--border);
   margin-bottom: 28px;
+  animation: slideUp 0.4s ease-out forwards;
 }
 
 .meal-planner-panel h2 {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 800;
-  margin-bottom: 8px;
-  color: #1a1a1a;
+  margin-bottom: 12px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .meal-planner-sub {
-  color: #777;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .meal-planner-sub a {
-  color: #ff6b35;
+  color: var(--brand);
   font-weight: 600;
   text-decoration: none;
 }
@@ -34,236 +38,192 @@
 }
 
 .meal-diet-hint {
-  background: #fff3ee;
-  border: 1px solid rgba(255, 107, 53, 0.2);
-  border-radius: 12px;
-  padding: 12px 16px;
-  font-size: 13px;
-  color: #555;
-  margin-bottom: 22px;
+  background: var(--brand-soft);
+  border: 1px solid rgba(255, 107, 53, 0.15);
+  border-radius: 16px;
+  padding: 16px 20px;
+  font-size: 14px;
+  color: var(--brand);
+  margin-bottom: 28px;
+  font-weight: 500;
 }
 
 .meal-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
 }
 
 .meal-filter-grid label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: var(--text);
 }
 
 .meal-filter-grid select,
 .meal-filter-grid input {
-  padding: 12px 14px;
-  border: 2px solid #ffe0d0;
-  border-radius: 12px;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
   font-size: 14px;
-  font-family: 'Poppins', sans-serif;
+  background: var(--panel-2);
+  color: var(--text);
   outline: none;
-  transition: border 0.2s;
-  background: #fff;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .meal-filter-grid select:focus,
 .meal-filter-grid input:focus {
-  border-color: #ff6b35;
+  border-color: var(--brand);
+  background: var(--panel);
+  box-shadow: 0 4px 16px var(--brand-soft);
 }
 
 .meal-plan-expiry-banner {
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #e8f4fc 0%, #f5faff 100%);
-  border: 1px solid rgba(25, 118, 210, 0.2);
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(25, 118, 210, 0.05);
+  border: 1px solid rgba(25, 118, 210, 0.15);
   color: #1a5270;
   font-size: 14px;
   line-height: 1.5;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
-
-.meal-plan-expiry-banner strong {
-  color: #0d47a1;
+body.dark-theme .meal-plan-expiry-banner {
+  color: #64b5f6;
 }
 
 .meal-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 28px;
+  gap: 16px;
+  margin-bottom: 36px;
 }
 
 .btn-randomize-week {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 28px;
-  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  padding: 16px 32px;
+  background: var(--brand);
   color: white;
   border: none;
   border-radius: 25px;
   font-size: 15px;
   font-weight: 700;
-  font-family: 'Poppins', sans-serif;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.35);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px var(--brand-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-randomize-week:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.45);
-}
-
-.btn-randomize-week:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  transform: none;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+  filter: brightness(1.1);
 }
 
 .btn-reset-plan {
-  padding: 14px 22px;
-  background: transparent;
-  color: #666;
-  border: 2px solid #ddd;
+  padding: 16px 26px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 25px;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  transition: all 0.3s ease;
 }
 
 .btn-reset-plan:hover:not(:disabled) {
-  border-color: #ff6b35;
-  color: #ff6b35;
-  background: #fff9f7;
-}
-
-.btn-reset-plan:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .meal-plan-error {
   display: none;
   padding: 14px 18px;
-  border-radius: 12px;
-  background: #fff5f5;
-  border: 1px solid #feb2b2;
-  color: #9b2c2c;
+  border-radius: 14px;
+  background: rgba(229, 62, 62, 0.1);
+  border: 1px solid rgba(229, 62, 62, 0.2);
+  color: #E53E3E;
   font-size: 14px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
-.meal-plan-error.visible {
-  display: block;
-}
+.meal-plan-error.visible { display: block; animation: slideUp 0.3s ease; }
 
 .meal-plan-success-notice {
   display: none;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: #f0fff4;
-  border: 1px solid #9ae6b4;
-  color: #276749;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(56, 161, 105, 0.1);
+  border: 1px solid rgba(56, 161, 105, 0.2);
+  color: #38a169;
   font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
-.meal-plan-success-notice.visible {
-  display: block;
+.meal-plan-success-notice.visible { display: block; animation: slideUp 0.3s ease; }
+
+.meal-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
 }
 
-.meal-plan-table-wrap {
-  overflow-x: auto;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 107, 53, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-}
-
-.meal-plan-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  background: white;
-}
-
-.meal-plan-table th,
-.meal-plan-table td {
-  padding: 14px 16px;
-  text-align: left;
-  border-bottom: 1px solid #f0f0f0;
-  vertical-align: top;
-}
-
-.meal-plan-table th {
-  background: linear-gradient(135deg, #fff3ee 0%, #fffaF7 100%);
-  font-weight: 700;
-  color: #333;
-  white-space: nowrap;
-}
-
-.meal-plan-table tr:last-child td {
-  border-bottom: none;
-}
-
-.meal-plan-empty {
-  color: #bbb;
-  font-style: italic;
-}
-
-.meal-plan-recipe-name {
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 6px;
-}
-
-.meal-plan-recipe-name a {
-  color: #ff6b35;
-  text-decoration: none;
-}
-
-.meal-plan-recipe-name a:hover {
-  text-decoration: underline;
-}
-
-.meal-plan-meta {
+.day-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 12px;
-  color: #666;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.day-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 24px rgba(255,107,53,0.15);
+  border-color: var(--brand-soft);
+}
+
+.day-header {
+  background: linear-gradient(135deg, var(--brand) 0%, #f77f00 100%);
+  color: white;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.day-card-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
 }
 
 .meal-plan-thumb {
-  width: 56px;
-  height: 56px;
+  width: 100%;
+  height: 140px;
   object-fit: cover;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
-.meal-plan-cell-inner {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
 }
 
 @media (max-width: 640px) {
-  .meal-planner-panel {
-    padding: 24px 20px;
-  }
-
-  .meal-plan-table th,
-  .meal-plan-table td {
-    padding: 12px;
-  }
+  .meal-planner-panel { padding: 24px 20px; }
+  .meal-plan-table th, .meal-plan-table td { padding: 14px; }
 }

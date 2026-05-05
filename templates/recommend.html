@@ -9,10 +9,14 @@
 {% block content %}
 
     <div class="container">
+        <!-- Hero Header -->
+        <div class="page-header">
+            <h2>✨ AI Recipe Recommendations</h2>
+            <p>Don't know what to cook? Tell us what you have, and our AI will generate the perfect recipe tailored to your ingredients and dietary preferences.</p>
+        </div>
         <div class="search-box">
-            <h2>  <img src="https://img.icons8.com/fluency/36/search.png" style="vertical-align:middle; margin-right:10px;">
-            Get Recipe Recommendations</h2>
-            <p style="color: #666; margin-bottom: 20px;">Choose how you want to enter your ingredients</p>
+            <h2 style="font-size: 24px;">🔍 What ingredients do you have?</h2>
+            <p class="search-subtitle">Choose how you want to enter your ingredients</p>
 
             <!-- 3 Tab Buttons -->
             <div class="input-tabs">
@@ -23,7 +27,7 @@
 
             <!-- Tab 1: Text -->
             <div class="tab-content" id="content-text">
-                <p style="color: #666; margin-bottom: 12px;">Enter your available ingredients (comma-separated)</p>
+                <p class="search-subtitle">Enter your available ingredients (comma-separated)</p>
                 <div class="input-group">
                     <input
                         type="text"
@@ -33,11 +37,20 @@
                     >
                     <button class="btn-search" onclick="getRecommendations()">Get Recipes</button>
                 </div>
+                
+                <div class="quick-suggestions">
+                    <span>💡 Popular:</span>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'chicken, '">Chicken</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'rice, '">Rice</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'pasta, '">Pasta</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'eggs, '">Eggs</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'tomatoes, '">Tomatoes</button>
+                </div>
             </div>
 
             <!-- Tab 2: Voice (Whisper) -->
             <div class="tab-content" id="content-voice" style="display: none;">
-                <p style="color: #666; margin-bottom: 12px;">Click the mic, say your ingredients, then click stop 🎙️</p>
+                <p class="search-subtitle">Click the mic, say your ingredients, then click stop 🎙️</p>
                 <div class="voice-section">
                     <button class="btn-mic" id="micBtn" onclick="toggleRecording()">🎤 Start Recording</button>
                     <p class="voice-status" id="voiceStatus"></p>
@@ -55,7 +68,7 @@
 
             <!-- Tab 3: Image Upload -->
             <div class="tab-content" id="content-image" style="display: none;">
-                <p style="color: #666; margin-bottom: 12px;">Upload one or more photos of your ingredients and let AI detect them 📸</p>
+                <p class="search-subtitle">Upload one or more photos of your ingredients and let AI detect them 📸</p>
                 <div class="image-section">
                     <label class="image-upload-label" id="imageUploadLabel" for="imageInput">
                         <span id="uploadPrompt">📂 Click to upload one or more images</span>
@@ -81,7 +94,7 @@
                     <div class="done-box" id="doneBox">
                         <div class="done-icon">✓</div>
                         <div style="flex:1;">
-                            <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#276749;">Detected — edit if needed, then click Get Recipes!</p>
+                            <p class="detected-subtitle">Detected — edit if needed, then click Get Recipes!</p>
                             <div class="detected-chips" id="detectedChips"></div>
                         </div>
                     </div>
@@ -110,7 +123,7 @@
         </div>
 
         <div class="results" id="results">
-            <h2 style="color: #667eea; margin-bottom: 20px;">Recommended Recipes for You</h2>
+            <h2>Recommended Recipes for You</h2>
             <div id="recipe-list"></div>
         </div>
     </div>
