@@ -1,21 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fridge Search - ChefGPT</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/fridge_search.css') }}">
-</head>
-<body>
-    <div class="navbar">
-        <h1>🍳 ChefGPT</h1>
-        <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}">Home</a>
-            <a href="{{ url_for('recommend_page') }}">Recommendations</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        </div>
-    </div>
+{% extends "base.html" %}
 
+{% block title %}Fridge Search - ChefGPT{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fridge_search.css') }}">
+{% endblock %}
+
+{% block content %}
     <div class="container">
 
         <div class="search-box">
@@ -69,7 +60,9 @@
         </div>
 
     </div>
+{% endblock %}
 
+{% block extra_scripts %}
     <script>
         let tags = [];
 
@@ -244,5 +237,4 @@
             document.getElementById('error-message').style.display = 'none';
         }
     </script>
-</body>
-</html>
+{% endblock %}

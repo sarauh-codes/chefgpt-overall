@@ -2,34 +2,154 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ChefGPT{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block extra_head %}{% endblock %}
 </head>
-
 <body>
 
-<!-- FLASH MESSAGES -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    <div class="flash-messages">
-      {% for category, message in messages %}
-        <div class="flash {{ category }}">{{ message }}</div>
-      {% endfor %}
+
+<div class="dashboard-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">🍳 ChefGPT</div>
+    <div class="profile-block">
+      <div class="profile-row">
+        <div class="avatar">{{ current_user.username[:2].upper() if current_user.is_authenticated else '' }}</div>
+        <div>
+          <div class="profile-name">{{ current_user.username if current_user.is_authenticated else '' }}</div>
+          <div class="profile-email">{{ current_user.email if current_user.is_authenticated else '' }}</div>
+        </div>
+      </div>
+      <div class="profile-pills">
+        <button class="pill" onclick="openDietDrawer()">🥗 Dietary</button>
+        <button class="pill" onclick="openTasteDrawer()">🍽️ Taste</button>
+      </div>
     </div>
-  {% endif %}
-{% endwith %}
+    <nav class="sidebar-nav">
+      <div class="nav-label">MENU</div>
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">🏠</span> Dashboard</a>
+      <a href="{{ url_for('recommend_page') }}" class="nav-item {% if request.endpoint == 'recommend_page' %}active{% endif %}">
+        <span class="nav-icon">🔍</span> Get Recipe Suggestions</a>
+      <a href="{{ url_for('cooked_history') }}" class="nav-item {% if request.endpoint == 'cooked_history' %}active{% endif %}">
+        <span class="nav-icon">📖</span> My Cooked Recipes</a>
+      <a href="{{ url_for('saved_recipes') }}" class="nav-item {% if request.endpoint == 'saved_recipes' %}active{% endif %}">
+        <span class="nav-icon">⭐</span> Saved Recipes</a>
+      <a href="{{ url_for('meal_planner') }}" class="nav-item {% if request.endpoint == 'meal_planner' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Weekly Meal Planner</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a href="{{ url_for('logout') }}" class="nav-item nav-logout">
+        <span class="nav-icon">🚪</span> Logout</a>
+    </div>
+  </aside>
 
-<!-- PAGE CONTENT -->
-{% block content %}{% endblock %}
+  <!-- MAIN -->
+  <main class="main-content">
 
-<!-- AUTO HIDE FLASH -->
+    <div class="topbar-actions">
+      <div class="topbar-date" id="topbarDate"></div>
+      <button class="theme-switch" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span class="theme-switch-icon" id="themeIcon">🌙</span>
+        <span class="theme-switch-text" id="themeText">Dark</span>
+        <span class="theme-switch-knob"></span>
+      </button>
+    </div>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="page-content">
+      {% block content %}{% endblock %}
+    </div>
+
+  </main>
+</div>
+
+<!-- Auto hide flash -->
 <script>
   setTimeout(() => {
-    document.querySelectorAll('.flash').forEach(flash => {
-      flash.classList.add('hide');
-      setTimeout(() => flash.remove(), 500);
+    document.querySelectorAll('.alert').forEach(el => {
+      el.classList.add('hide');
+      el.addEventListener('transitionend', () => el.remove());
     });
   }, 3000);
 </script>
 
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% include 'partials/floating_chat.html' %}
+{% block extra_scripts %}{% endblock %}
+
 </body>
+<!-- DIET DRAWER -->
+<div id="diet-overlay" onclick="closeDietDrawer()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200;"></div>
+<div id="diet-drawer" style="position:fixed; top:0; right:-480px; width:440px; height:100vh; background:#fff; z-index:300; overflow-y:auto; padding:30px 24px; box-shadow:-4px 0 20px rgba(0,0,0,0.2); transition: right 0.35s ease;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <h5 style="font-weight:700; margin:0;">🥗 Dietary Settings</h5>
+    <button onclick="closeDietDrawer()" style="background:#f0f0f0; border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:16px;">✕</button>
+  </div>
+  <p style="color:#666; font-size:14px; margin-bottom:20px;">Your settings affect which recipes we recommend to you.</p>
+  <div id="drawer-alert" style="display:none; padding:12px 16px; border-radius:10px; margin-bottom:16px; font-size:14px;"></div>
+  <form id="diet-form">
+    <div style="margin-bottom:20px;">
+      <label style="font-weight:600; display:block; margin-bottom:6px;">🍽️ Diet Type</label>
+      <p style="color:#888; font-size:13px; margin-bottom:12px;">Choose the diet that best describes you.</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        {% set diet_options = [('omnivore','🍽️ No Restrictions','Eats everything'),('vegetarian','🥦 Vegetarian','No meat, dairy & eggs ok'),('vegan','🌱 Vegan','No animal products'),('halal','☪️ Halal','No pork & alcohol')] %}
+        {% for value, label, desc in diet_options %}
+        <label for="diet_{{ value }}" style="border:2px solid #e0e0e0; border-radius:12px; padding:10px 12px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.borderColor='#FF6B35'" onmouseout="updateBorderColors()">
+          <input type="radio" name="diet_type" id="diet_{{ value }}" value="{{ value }}" style="display:none;" {% if profile and profile.diet_type == value %}checked{% elif not profile and value == 'omnivore' %}checked{% endif %}>
+          <strong style="font-size:13px;">{{ label }}</strong><br><small style="color:#888;">{{ desc }}</small>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <hr style="margin:20px 0;">
+    <div style="margin-bottom:20px;">
+      <label style="font-weight:600; display:block; margin-bottom:6px;">⚠️ Allergies</label>
+      <input type="text" id="allergies" name="allergies" placeholder="e.g. peanuts, shellfish, gluten" value="{{ profile.allergies if profile and profile.allergies else '' }}" style="width:100%; padding:12px 16px; border:2px solid #e0e0e0; border-radius:12px; font-size:14px; outline:none; box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#e0e0e0'" oninput="renderTags('allergies','allergy-tags','#ff6b6b','white')">
+      <div id="allergy-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+    </div>
+    <hr style="margin:20px 0;">
+    <div style="margin-bottom:24px;">
+      <label style="font-weight:600; display:block; margin-bottom:6px;">🚫 Forbidden Ingredients</label>
+      <input type="text" id="forbidden_ingredients" name="forbidden_ingredients" placeholder="e.g. coriander, anchovies" value="{{ profile.forbidden_ingredients if profile and profile.forbidden_ingredients else '' }}" style="width:100%; padding:12px 16px; border:2px solid #e0e0e0; border-radius:12px; font-size:14px; outline:none; box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#e0e0e0'" oninput="renderTags('forbidden_ingredients','forbidden-tags','#fdcb6e','#333')">
+      <div id="forbidden-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+    </div>
+    {% if profile and profile.updated_at %}<p style="color:#aaa; font-size:12px; margin-bottom:16px;">🕐 Last saved: {{ profile.updated_at.strftime('%d %b %Y, %I:%M %p') }}</p>{% endif %}
+    <div style="display:flex; gap:10px;">
+      <button type="submit" style="flex:1; padding:13px; background:linear-gradient(135deg,#FF6B35,#F7931E); color:white; border:none; border-radius:25px; font-size:15px; font-weight:600; cursor:pointer;">💾 Save & Apply</button>
+      <button type="button" onclick="closeDietDrawer()" style="padding:13px 20px; background:#f0f0f0; border:none; border-radius:25px; font-size:15px; cursor:pointer;">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<!-- TASTE DRAWER -->
+<div id="taste-overlay" onclick="closeTasteDrawer()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200;"></div>
+<div id="taste-drawer" style="position:fixed; top:0; right:-480px; width:440px; height:100vh; background:#fff; z-index:300; overflow-y:auto; padding:30px 24px; box-shadow:-4px 0 20px rgba(0,0,0,0.2); transition: right 0.35s ease;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <h5 style="font-weight:700; margin:0;">🍽️ Taste Profile</h5>
+    <button onclick="closeTasteDrawer()" style="background:#f0f0f0; border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:16px;">✕</button>
+  </div>
+  <p style="color:#666; font-size:14px; margin-bottom:20px;">Based on your cooking history.</p>
+  <div id="tasteEmptyDrawer" style="display:none; text-align:center; padding:40px 20px; color:#aaa;">
+    <div style="font-size:48px; margin-bottom:12px;">🍳</div>
+    <h3 style="color:#666;">No taste data yet</h3>
+    <p>Start cooking recipes to see your flavour profile!</p>
+  </div>
+  <div id="tasteContentDrawer">
+    <div style="width:100%; margin-bottom:24px;"><canvas id="tasteRadarDrawer"></canvas></div>
+    <div id="tasteBarsDrawer"></div>
+  </div>
+</div>
 </html>

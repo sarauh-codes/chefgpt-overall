@@ -1,21 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Meal Planner - ChefGPT</title>
+{% extends "base.html" %}
+
+{% block title %}Weekly Meal Planner - ChefGPT{% endblock %}
+
+{% block extra_head %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/recommend.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/meal_planner.css') }}">
-</head>
-<body>
-    <div class="navbar">
-        <h1>🍳 ChefGPT</h1>
-        <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}">Home</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        </div>
-    </div>
+{% endblock %}
 
+{% block content %}
     <div class="container">
         <div class="meal-planner-panel">
             <h2>📅 Weekly Meal Planner</h2>
@@ -107,8 +99,8 @@
 
     <span id="meal-plan-valid-days" style="display:none">{{ meal_plan_valid_days }}</span>
     <script type="application/json" id="meal-plan-bootstrap">{{ meal_plan_bootstrap | tojson }}</script>
+{% endblock %}
 
+{% block extra_scripts %}
     <script src="{{ url_for('static', filename='js/meal_planner.js') }}"></script>
-    {% include 'partials/floating_chat.html' %}
-</body>
-</html>
+{% endblock %}

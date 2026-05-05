@@ -1,21 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Cooked Recipes - ChefGPT</title>
+{% extends "base.html" %}
+
+{% block title %}My Cooked Recipes - ChefGPT{% endblock %}
+
+{% block extra_head %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
-</head>
-<body>
-    <div class="navbar">
-        <h1>🍳 ChefGPT</h1>
-        <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}">Home</a>
-            <a href="{{ url_for('recommend_page') }}">Get Recipes</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        </div>
-    </div>
-    
+{% endblock %}
+
+{% block content %}
     <div class="container">
         <div class="page-header">
             <h2>📖 My Cooked Recipes History</h2>
@@ -58,6 +49,4 @@
             {% endfor %}
         {% endif %}
     </div>
-    {% include 'partials/floating_chat.html' %}
-</body>
-</html>
+{% endblock %}

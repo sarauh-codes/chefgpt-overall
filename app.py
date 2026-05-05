@@ -801,9 +801,10 @@ def is_saved(recipe_id):
 @app.route("/recommend")
 @login_required
 def recommend_page():
-    return render_template("recommend.html")
-
-
+    profile = DietaryProfile.query.filter_by(user_id=current_user.id).first()
+    return render_template("recommend.html",
+                           username=current_user.username,
+                           profile=profile)
 @app.route("/get-recommendations", methods=["POST"])
 @login_required
 def get_recommendations():

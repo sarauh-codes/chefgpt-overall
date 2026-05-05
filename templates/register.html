@@ -7,11 +7,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
-{% extends "base.html" %}
-
-{% block title %}Register Admin{% endblock %}
-
-{% block content %}
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages" style="text-align: center; margin-bottom: 15px;">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}" style="padding: 10px; border-radius: 5px; color: #fff; background-color: {% if category == 'success' %}#28a745{% else %}#dc3545{% endif %}; margin-bottom: 10px;">{{ message }}</div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 
     <div class="container">
         <h2>Create Account</h2> 
@@ -28,9 +33,5 @@
             <a href="{{ url_for('login') }}">Login here</a>
         </p>
     </div>
-
-        {% endblock %}
-
-
 </body>
 </html>

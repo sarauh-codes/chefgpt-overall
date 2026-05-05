@@ -1,18 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cooking: {{ recipe.recipe_name }} - ChefGPT</title>
+{% extends "base.html" %}
+
+{% block title %}Cooking: {{ recipe.recipe_name }} - ChefGPT{% endblock %}
+
+{% block extra_head %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cooking.css') }}">
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <input type="hidden" id="recipe-id" value="{{ recipe.recipe_id }}">
-    
-    <div class="navbar">
-        <h1>🍳 ChefGPT - Cooking Mode</h1>
-        <a href="{{ url_for('dashboard') }}">Exit Cooking</a>
-    </div>
     
     <div class="container">
         <div class="cooking-header">
@@ -47,8 +42,8 @@
             </div>
         </div>
     </div>
-    
+{% endblock %}
+
+{% block extra_scripts %}
     <script src="{{ url_for('static', filename='js/cooking.js') }}"></script>
-    {% include 'partials/floating_chat.html' %}
-</body>
-</html>
+{% endblock %}
