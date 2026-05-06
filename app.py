@@ -236,6 +236,103 @@ def singularize(word):
         return word[:-1]
     return word
 
+
+BASE_INGREDIENT_TERMS = {
+    "rice": ["rice", "jasmine rice", "basmati rice", "brown rice", "wild rice", "arborio"],
+    "pasta": ["pasta", "spaghetti", "penne", "fettuccine", "macaroni", "linguine", "fusilli"],
+    "noodles": ["noodles", "ramen", "udon", "soba", "vermicelli", "egg noodle"],
+    "potato": ["potato", "potatoes", "russet", "yam", "sweet potato"],
+    "bread": ["bread", "baguette", "sourdough", "pita", "brioche", "naan", "toast"],
+    "quinoa": ["quinoa"],
+}
+
+
+def _base_ingredient_mask(df, base_ingredient):
+    terms = BASE_INGREDIENT_TERMS.get(base_ingredient, [base_ingredient] if base_ingredient else [])
+    if not terms:
+        return pd.Series([True] * len(df), index=df.index)
+    pattern = r"\b(" + "|".join(re.escape(t.lower()) for t in terms) + r")\b"
+    ingredients_col = df["ingredients"].fillna("").astype(str).str.lower()
+    return ingredients_col.str.contains(pattern, regex=True, na=False)
+
+
+def _add_unique_rows(base_df, extra_df):
+    if extra_df.empty:
+        return base_df
+    merged = pd.concat([base_df, extra_df], ignore_index=False)
+    return merged.drop_duplicates(subset=["recipe_id"], keep="first")
+
+
+def _is_any_difficulty(value):
+    return not value or value == "any"
+
+
+def _best_match_pool(
+    df_all,
+    *,
+    cuisine="",
+    max_calories=None,
+    min_rating=None,
+    difficulty="any",
+    base_ingredient="",
+    using_base_mode=False,
+):
+    if df_all.empty:
+        return df_all, False
+
+    scored = df_all.copy()
+    score = pd.Series(0.0, index=scored.index)
+
+    calories_col = pd.to_numeric(scored["calories"], errors="coerce")
+    rating_col = pd.to_numeric(scored["rating"], errors="coerce")
+    difficulty_col = scored["difficulty"].fillna("medium").astype(str).str.lower()
+    cuisine_col = scored["cuisine"].fillna("").astype(str).str.lower()
+
+    cuisine_relaxed = False
+    cuisine_target = (cuisine or "").strip().lower()
+    if cuisine_target and not using_base_mode:
+        only_cuisine = scored[cuisine_col == cuisine_target]
+        if len(only_cuisine) >= 7:
+            scored = only_cuisine.copy()
+            score = pd.Series(0.0, index=scored.index)
+            calories_col = pd.to_numeric(scored["calories"], errors="coerce")
+            rating_col = pd.to_numeric(scored["rating"], errors="coerce")
+            difficulty_col = scored["difficulty"].fillna("medium").astype(str).str.lower()
+        else:
+            cuisine_relaxed = True
+
+    if using_base_mode and base_ingredient:
+        base_mask = _base_ingredient_mask(scored, base_ingredient)
+        score += base_mask.astype(float) * 5.0
+    else:
+        if cuisine_target:
+            cuisine_col_scored = scored["cuisine"].fillna("").astype(str).str.lower()
+            score += (cuisine_col_scored == cuisine_target).astype(float) * 20.0
+        if max_calories is not None:
+            within = calories_col <= max_calories
+            overflow = (calories_col - max_calories).clip(lower=0).fillna(9999)
+            score += within.astype(float) * 3.0
+            score -= (overflow / 250.0).clip(upper=6.0)
+        if min_rating is not None:
+            above = rating_col >= min_rating
+            deficit = (min_rating - rating_col).clip(lower=0).fillna(5)
+            score += above.astype(float) * 3.0
+            score -= (deficit * 1.5).clip(upper=6.0)
+        if not _is_any_difficulty(difficulty):
+            score += (difficulty_col == difficulty).astype(float) * 2.5
+
+    # Keep higher quality meals earlier when scores tie.
+    score += (rating_col.fillna(0) / 10.0)
+
+    scored["_match_score"] = score
+    ranked = scored.sort_values(
+        by=["_match_score", "rating", "calories"],
+        ascending=[False, False, True],
+        na_position="last",
+    )
+    return ranked, cuisine_relaxed
+
+
 def web_or_jwt_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -494,6 +591,7 @@ def meal_plan_week_api():
     data = request.get_json() or {}
     cuisine = (data.get("cuisine") or "").strip()
     difficulty = (data.get("difficulty") or "").strip().lower()
+    base_ingredient = (data.get("base_ingredient") or "").strip().lower()
     max_calories = data.get("max_calories")
     min_rating = data.get("min_rating")
 
@@ -506,37 +604,65 @@ def meal_plan_week_api():
     except (TypeError, ValueError):
         min_rating = None
 
-    df, _profile = base_recipes_for_user(uid)
+    df_all, _profile = base_recipes_for_user(uid)
+    relaxed_filters = []
 
-    if cuisine:
-        df = df[df["cuisine"].astype(str).str.lower() == cuisine.lower()]
+    using_base_mode = bool(base_ingredient)
+    using_other_mode = bool(cuisine or max_calories is not None or min_rating is not None or not _is_any_difficulty(difficulty))
 
-    if max_calories is not None:
-        df = df[df["calories"] <= max_calories]
+    if using_base_mode:
+        # Base ingredient mode is exclusive by design: ignore other filters.
+        df_final = df_all[_base_ingredient_mask(df_all, base_ingredient)]
+        if len(df_final) < 7:
+            df_final = _add_unique_rows(df_final, df_all)
+            relaxed_filters.append("base_ingredient")
+    else:
+        # Normal mode: only cuisine/calories/rating/difficulty filters apply.
+        df_stage_a = df_all
+        if cuisine:
+            df_stage_a = df_stage_a[df_stage_a["cuisine"].astype(str).str.lower() == cuisine.lower()]
+        if max_calories is not None:
+            df_stage_a = df_stage_a[df_stage_a["calories"] <= max_calories]
+        if min_rating is not None:
+            df_stage_a = df_stage_a[df_stage_a["rating"] >= min_rating]
 
-    if min_rating is not None:
-        df = df[df["rating"] >= min_rating]
+        df_final = df_stage_a
+        if not _is_any_difficulty(difficulty):
+            diff_col = df_stage_a["difficulty"].fillna("medium").astype(str).str.lower()
+            df_by_difficulty = df_stage_a[diff_col == difficulty]
+            if len(df_by_difficulty) >= 7:
+                df_final = df_by_difficulty
+            else:
+                df_final = _add_unique_rows(df_by_difficulty, df_stage_a)
+                relaxed_filters.append("difficulty")
 
-    df_before_difficulty = df
-    relaxed_difficulty = False
+    used_best_match_fallback = False
+    if len(df_final) < 7:
+        if len(df_all) < 7:
+            return jsonify(
+                {
+                    "error": "Not enough recipes are available for your dietary profile to build a full week yet.",
+                    "available": int(len(df_all)),
+                    "mode": "base_ingredient" if using_base_mode else ("other_filters" if using_other_mode else "none"),
+                }
+            ), 400
 
-    if difficulty and difficulty != "any":
-        diff_col = df_before_difficulty["difficulty"].fillna("medium").astype(str).str.lower()
-        df = df_before_difficulty[diff_col == difficulty]
+        ranked_pool, cuisine_relaxed = _best_match_pool(
+            df_all,
+            cuisine=cuisine,
+            max_calories=max_calories,
+            min_rating=min_rating,
+            difficulty=difficulty,
+            base_ingredient=base_ingredient,
+            using_base_mode=using_base_mode,
+        )
+        df_final = ranked_pool.head(7)
+        used_best_match_fallback = True
+        relaxed_filters.append("smart_fallback")
+        if cuisine_relaxed:
+            relaxed_filters.append("cuisine")
 
-        if len(df) < 7 <= len(df_before_difficulty):
-            relaxed_difficulty = True
-            df = df_before_difficulty
-
-    if len(df) < 7:
-        return jsonify(
-            {
-                "error": "Not enough recipes match your dietary settings and filters. Try widening your filters.",
-                "available": int(len(df)),
-            }
-        ), 400
-
-    picked = df.sample(n=7, replace=False)
+    picked = df_final.sample(n=7, replace=False) if len(df_final) > 7 else df_final
     days = [
         "Monday",
         "Tuesday",
@@ -578,11 +704,23 @@ def meal_plan_week_api():
     db.session.commit()
 
     api_payload = meal_plan_api_payload(plan, now)
-    if relaxed_difficulty:
+    if relaxed_filters:
+        names = {
+            "base_ingredient": "base ingredient focus",
+            "difficulty": "difficulty",
+            "cuisine": "cuisine",
+            "smart_fallback": "smart best-match fallback",
+        }
+        relaxed_display = ", ".join(names[k] for k in relaxed_filters if k in names)
         api_payload["notice"] = (
-            "Few recipes matched your chosen difficulty ("
-            + difficulty
-            + "). Filled the week using any difficulty that still matches your other filters."
+            "Could not fill 7 days with your exact filters. "
+            + "Relaxed "
+            + relaxed_display
+            + " to complete your week."
+        )
+    if used_best_match_fallback:
+        api_payload["popup_message"] = (
+            "Your exact filters had too few matches, so we filled your week with the closest-fit recipes."
         )
     return jsonify(api_payload)
 
