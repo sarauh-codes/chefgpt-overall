@@ -56,7 +56,22 @@
                         <option value="hard">Hard</option>
                     </select>
                 </label>
+                <label>
+                    Base ingredient focus
+                    <select id="filter-base-ingredient">
+                        <option value="">Any base</option>
+                        <option value="rice">Rice</option>
+                        <option value="pasta">Pasta</option>
+                        <option value="noodles">Noodles</option>
+                        <option value="potato">Potato</option>
+                        <option value="bread">Bread</option>
+                        <option value="quinoa">Quinoa</option>
+                    </select>
+                </label>
             </div>
+            <p class="meal-planner-sub" style="margin-top: 10px;">
+                Base ingredient mode and the other filters cannot be combined. Pick one approach for each weekly randomization.
+            </p>
 
             <div class="meal-plan-expiry-banner" id="meal-plan-expiry-banner" style="display:none;" role="status">
                 <span id="meal-plan-expiry-text"></span>
@@ -77,6 +92,16 @@
 
             <div class="meal-plan-grid" id="meal-plan-body">
                 <!-- Javascript will populate the day cards here -->
+            </div>
+        </div>
+    </div>
+
+    <div id="meal-planner-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2000; align-items:center; justify-content:center; padding:16px;">
+        <div style="max-width:520px; width:100%; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 12px 35px rgba(0,0,0,0.35);">
+            <h3 style="margin:0 0 8px 0; color:var(--text);">Weekly plan updated</h3>
+            <p id="meal-planner-modal-text" style="margin:0 0 16px 0; color:var(--muted); line-height:1.5;"></p>
+            <div style="display:flex; justify-content:flex-end;">
+                <button type="button" id="meal-planner-modal-close" class="btn-reset-plan">OK</button>
             </div>
         </div>
     </div>

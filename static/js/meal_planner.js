@@ -82,6 +82,42 @@
     el.style.display = "none";
   }
 
+  function showPopup(message) {
+    if (!message) return;
+    const modal = document.getElementById("meal-planner-modal");
+    const text = document.getElementById("meal-planner-modal-text");
+    if (!modal || !text) return;
+    text.textContent = message;
+    modal.style.display = "flex";
+  }
+
+  function hidePopup() {
+    const modal = document.getElementById("meal-planner-modal");
+    if (!modal) return;
+    modal.style.display = "none";
+  }
+
+  function hasOtherFilterValues() {
+    const cuisine = document.getElementById("filter-cuisine").value.trim();
+    const maxCalRaw = document.getElementById("filter-max-cal").value.trim();
+    const minRatingRaw = document.getElementById("filter-min-rating").value.trim();
+    const difficulty = document.getElementById("filter-difficulty").value;
+    return Boolean(cuisine || maxCalRaw || minRatingRaw || (difficulty && difficulty !== "any"));
+  }
+
+  function syncExclusiveFilterState() {
+    const baseSel = document.getElementById("filter-base-ingredient");
+    const usingBase = Boolean(baseSel.value.trim());
+    const usingOther = hasOtherFilterValues();
+
+    const otherIds = ["filter-cuisine", "filter-max-cal", "filter-min-rating", "filter-difficulty"];
+    otherIds.forEach((id) => {
+      const el = document.getElementById(id);
+      el.disabled = usingBase;
+    });
+    baseSel.disabled = usingOther;
+  }
+
   function renderPlan(plan) {
     const container = document.getElementById("meal-plan-body");
     container.innerHTML = "";
@@ -137,6 +173,22 @@
       resetRows();
       hideExpiryBanner();
     }
+
+    ["filter-cuisine", "filter-max-cal", "filter-min-rating", "filter-difficulty", "filter-base-ingredient"]
+      .forEach((id) => {
+        document.getElementById(id).addEventListener("change", syncExclusiveFilterState);
+        document.getElementById(id).addEventListener("input", syncExclusiveFilterState);
+      });
+    syncExclusiveFilterState();
+
+    const closeBtn = document.getElementById("meal-planner-modal-close");
+    const modal = document.getElementById("meal-planner-modal");
+    if (closeBtn) closeBtn.addEventListener("click", hidePopup);
+    if (modal) {
+      modal.addEventListener("click", (evt) => {
+        if (evt.target === modal) hidePopup();
+      });
+    }
   });
 
   document.getElementById("btn-randomize-week").addEventListener("click", async function () {
@@ -147,12 +199,15 @@
     const maxCalRaw = document.getElementById("filter-max-cal").value.trim();
     const minRatingRaw = document.getElementById("filter-min-rating").value.trim();
     const difficulty = document.getElementById("filter-difficulty").value;
+    const baseIngredient = document.getElementById("filter-base-ingredient").value.trim();
+    const usingBase = Boolean(baseIngredient);
 
     const payload = {
-      cuisine: cuisine || undefined,
-      max_calories: maxCalRaw ? parseInt(maxCalRaw, 10) : undefined,
-      min_rating: minRatingRaw ? parseFloat(minRatingRaw) : undefined,
-      difficulty: difficulty,
+      cuisine: usingBase ? undefined : (cuisine || undefined),
+      max_calories: usingBase ? undefined : (maxCalRaw ? parseInt(maxCalRaw, 10) : undefined),
+      min_rating: usingBase ? undefined : (minRatingRaw ? parseFloat(minRatingRaw) : undefined),
+      difficulty: usingBase ? "any" : difficulty,
+      base_ingredient: usingBase ? baseIngredient : undefined,
     };
 
     btn.disabled = true;
@@ -169,6 +224,9 @@
             ? " (" + data.available + " recipe(s) match.)"
             : "";
         showError((data.error || "Could not build a meal plan.") + extra);
+        if (data.popup_message) {
+          showPopup(data.popup_message);
+        }
         return;
       }
       if (data.plan && data.plan.length) {
@@ -178,6 +236,9 @@
         }
         if (data.notice) {
           showSuccessNotice(data.notice);
+        }
+        if (data.popup_message) {
+          showPopup(data.popup_message);
         }
       }
     } catch (e) {
