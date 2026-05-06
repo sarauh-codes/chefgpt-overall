@@ -1,64 +1,116 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Admin - Users</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/manage.css') }}">
-</head>
-<body>
+{% extends "admin/admin_base.html" %}
 
-<div class="wrapper">
+{% block title %}Manage Users - ChefGPT Admin{% endblock %}
 
-    <aside class="sidebar">
-        <h2>🍳 ChefGPT Admin</h2>
-        <nav>
-            <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('manage_user') }}" class="active">👤 Users</a>
-            <a href="{{ url_for('manage_feedback') }}">⭐ Feedbacks</a>
-            <a href="{{ url_for('manage_recipes') }}">🍳 Recipes</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        </nav>
-    </aside>
-
-    <main class="main-content">
-
-        <div class="section">
-            <h2>👤 Registered Users</h2>
-
-            <a href="{{ url_for('add_user') }}">➕ Add New User</a>
-
-            <table>
-                <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Created</th>
-                    <th>Action</th>
-                </tr>
-                {% for user in users %}
-                <tr>
-                    <td>{{ user.username }}</td>
-                    <td>{{ user.email }}</td>
-                    <td>
-                        <span class="badge {{ user.role }}">{{ user.role }}</span>
-                    </td>
-                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-                    <td>
-                        <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn edit">Edit</a>
-                        <form method="POST"
-                              action="{{ url_for('delete_user', user_id=user.id) }}"
-                              style="display:inline"
-                              onsubmit="return confirm('Delete user?');">
-                            <button class="btn delete">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </table>
+{% block admin_content %}
+    <header class="admin-header">
+        <div>
+            <h1>Manage Users</h1>
+            <p class="header-sub">View, edit, and delete user accounts.</p>
         </div>
+        <div class="header-actions">
+            <a href="{{ url_for('add_user') }}" class="btn-primary">➕ Add New User</a>
+        </div>
+    </header>
 
-    </main>
-</div>
+    <div class="admin-card">
+        <form action="{{ url_for('bulk_delete_users') }}" method="POST" id="bulkForm">
+            <div class="card-header-flex">
+                <button type="submit" class="btn-action delete" onclick="return confirm('Delete all selected users? This cannot be undone.')">
+                    🗑️ Delete Selected
+                </button>
+            </div>
 
-</body>
-</html>
+            <div class="table-container" style="padding-top: 10px;">
+                <table id="dataTable" class="admin-table display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td><input type="checkbox" name="selected_ids" value="{{ u.id }}"></td>
+                            <td><span class="badge badge-gray">#{{ u.id }}</span></td>
+                            <td class="font-medium">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <div class="avatar-small">{{ u.username[0]|upper }}</div>
+                                    {{ u.username }}
+                                </div>
+                            </td>
+                            <td>{{ u.email }}</td>
+                            <td>
+                                {% if u.role == 'admin' %}
+                                    <span class="badge badge-danger">Admin</span>
+                                {% else %}
+                                    <span class="badge badge-primary">User</span>
+                                {% endif %}
+                            </td>
+                            <td class="actions-cell">
+                                <a href="{{ url_for('edit_user', user_id=u.id) }}" class="btn-action edit">✎ Edit</a>
+                                <a href="{{ url_for('delete_user', user_id=u.id) }}" onclick="event.preventDefault(); if(confirm('Delete this user?')) document.getElementById('del-{{u.id}}').submit();" class="btn-action delete">🗑️</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+
+    <!-- Hidden standalone delete forms -->
+    {% for u in users %}
+    <form id="del-{{u.id}}" action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" style="display:none;"></form>
+    {% endfor %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        dom: '<"top"fB>rt<"bottom"lip><"clear">',
+        buttons: [
+            { 
+                extend: 'csv', 
+                className: 'btn-action edit', 
+                text: '📥 Export CSV',
+                exportOptions: { columns: ':not(:first-child):not(:last-child)' }
+            },
+            { 
+                extend: 'excel', 
+                className: 'btn-action edit', 
+                text: '📊 Export Excel',
+                exportOptions: { columns: ':not(:first-child):not(:last-child)' }
+            }
+        ],
+        pageLength: 25,
+        columnDefs: [ { orderable: false, targets: [0, 5] } ],
+        order: [[1, 'asc']]
+    });
+
+    $('#selectAll').click(function() {
+        $('input[name="selected_ids"]').prop('checked', this.checked);
+    });
+});
+</script>
+<style>
+    .dataTables_wrapper .dataTables_filter input {
+        border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 12px; margin-left: 10px; outline:none; font-family: 'Inter', sans-serif;
+    }
+    .dataTables_wrapper .dataTables_filter input:focus { border-color: #6366f1; }
+    .dataTables_wrapper .dt-buttons { margin-bottom: 15px; margin-left: 20px; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+        background: #FF6B35 !important; color: white !important; border: none; border-radius: 6px;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        background: #f1f5f9 !important; color: #0f172a !important; border: none;
+    }
+</style>
+{% endblock %}

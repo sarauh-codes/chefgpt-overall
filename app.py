@@ -1428,6 +1428,72 @@ def delete_feedback(feedback_id):
     return redirect(url_for('admin_dashboard'))
 
 
+@app.route('/admin/recipes/bulk_delete', methods=['POST'])
+@login_required
+def bulk_delete_recipes():
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+    selected_ids = request.form.getlist('selected_ids')
+    if not selected_ids:
+        flash('No recipes selected.', 'danger')
+        return redirect(url_for('manage_recipes'))
+    
+    selected_ids = [int(i) for i in selected_ids]
+    recipes = []
+    with open('RECIPES.csv', newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            recipes.append(row)
+    df = pd.DataFrame(recipes)
+    df.insert(0, 'recipe_id', range(1, len(df) + 1))
+    
+    df = df[~df['recipe_id'].isin(selected_ids)]
+    df.drop(columns=['recipe_id'], inplace=True)
+    df.to_csv('RECIPES.csv', index=False)
+    
+    flash(f"Deleted {len(selected_ids)} recipes successfully!", "success")
+    return redirect(url_for('manage_recipes'))
+
+@app.route('/admin/feedbacks/bulk_delete', methods=['POST'])
+@login_required
+def bulk_delete_feedbacks():
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+    selected_ids = request.form.getlist('selected_ids')
+    if not selected_ids:
+        flash('No feedbacks selected.', 'danger')
+        return redirect(url_for('manage_feedback'))
+    
+    Feedback.query.filter(Feedback.id.in_(selected_ids)).delete(synchronize_session=False)
+    db.session.commit()
+    flash(f"Deleted {len(selected_ids)} feedbacks successfully!", "success")
+    return redirect(url_for('manage_feedback'))
+
+@app.route('/admin/users/bulk_delete', methods=['POST'])
+@login_required
+def bulk_delete_users():
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+    selected_ids = request.form.getlist('selected_ids')
+    if not selected_ids:
+        flash('No users selected.', 'danger')
+        return redirect(url_for('manage_user'))
+        
+    for uid in selected_ids:
+        user_to_delete = User.query.get(uid)
+        if user_to_delete:
+            feedbacks = Feedback.query.filter_by(user_id=user_to_delete.id).all()
+            for fb in feedbacks:
+                fb.username_backup = user_to_delete.username
+                fb.user_id = None
+            WeeklyMealPlan.query.filter_by(user_id=user_to_delete.id).delete()
+            DietaryProfile.query.filter_by(user_id=user_to_delete.id).delete()
+            db.session.delete(user_to_delete)
+    
+    db.session.commit()
+    flash(f"Deleted {len(selected_ids)} users successfully!", "success")
+    return redirect(url_for('manage_user'))
+
 # ==================== MOBILE API ROUTES ====================
 @app.route('/api/login', methods=['POST'])
 def api_login():

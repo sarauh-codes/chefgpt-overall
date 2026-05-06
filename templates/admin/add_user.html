@@ -1,46 +1,49 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Add User</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
-</head>
-<body>
-{% extends "base.html" %}
+{% extends "admin/admin_base.html" %}
 
-{% block title %}Add User{% endblock %}
+{% block title %}Add New User - ChefGPT Admin{% endblock %}
 
-{% block content %}
-<div class="container">
-    <h2>Add New User</h2>
+{% block admin_content %}
+    <header class="admin-header">
+        <div>
+            <h1>Add New User</h1>
+            <p class="header-sub">Create a new user or administrator account.</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('manage_user') }}" class="btn-secondary">← Back to Users</a>
+        </div>
+    </header>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <form method="POST">
-        <label>Username</label>
-        <input type="text" name="username" required>
-
-        <label>Email</label>
-        <input type="email" name="email" required>
-
-        <label>Password</label>
-        <input type="password" name="password" required>
-
-        <label>Role</label>
-        <select name="role" required>
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-        </select>
-
-        <button type="submit" class="btn save">Add User</button>
-        <a href="{{ url_for('manage_user') }}" class="btn cancel">Cancel</a>
-    </form>
-</div>
+    <div class="admin-form-container">
+        <div class="admin-card">
+            <form action="{{ url_for('add_user') }}" method="POST" class="admin-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required placeholder="Enter username">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required placeholder="user@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="Enter password">
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">Account Role</label>
+                    <select id="role" name="role">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Create User</button>
+                    <a href="{{ url_for('manage_user') }}" class="btn-secondary" style="text-decoration:none;">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
 {% endblock %}
-</body>
-</html>
