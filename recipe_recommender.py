@@ -15,6 +15,85 @@ def clean_ingredients_for_ml(raw):
     raw = re.sub(r'\s+', ' ', raw).strip()
     return raw
 
+
+def ingredient_tokens(text):
+    """Tokenize a cleaned ingredient phrase into meaningful words."""
+    return {token for token in str(text).split() if len(token) > 2}
+
+
+INGREDIENT_CONTEXT = {
+    "milk": {"milk", "condensed", "evaporated", "whole", "skim", "buttermilk"},
+    "cream": {"cream", "creme", "crema", "whipping", "heavy", "half", "halfandhalf"},
+    "cheese": {"cheese", "cheddar", "mozzarella", "parmesan", "feta", "gouda"},
+    "butter": {"butter", "margarine", "ghee"},
+    "yogurt": {"yogurt", "yoghurt", "curd"},
+    "chicken": {"chicken", "thigh", "drumstick", "drumsticks", "breast", "wings", "wing"},
+    "beef": {"beef", "steak", "sirloin", "brisket", "mince", "groundbeef"},
+    "pork": {"pork", "ham", "bacon", "prosciutto"},
+    "fish": {"fish", "salmon", "tuna", "cod", "tilapia", "mackerel"},
+    "shellfish": {"shrimp", "prawn", "crab", "lobster", "mussel", "clams"},
+    "onion": {"onion", "shallot", "scallion", "spring", "leek"},
+    "garlic": {"garlic", "clove"},
+    "pepper": {"pepper", "capsicum", "jalapeno", "chili", "chilli"},
+    "tomato": {"tomato", "roma", "cherry", "plum", "passata"},
+    "potato": {"potato", "russet", "yam", "sweetpotato"},
+    "egg": {"egg", "eggs", "yolk", "white"},
+    "flour": {"flour", "allpurpose", "plain", "breadflour", "selfraising"},
+    "sugar": {"sugar", "brown", "caster", "granulated", "powdered", "icing"},
+    "oil": {"oil", "olive", "canola", "sunflower", "sesame", "vegetableoil"},
+    "rice": {"rice", "basmati", "jasmine", "arborio", "wildrice"},
+    "pasta": {"pasta", "spaghetti", "penne", "fusilli", "fettuccine", "macaroni"},
+}
+
+
+CONTEXT_BY_TOKEN = {
+    token: canonical
+    for canonical, tokens in INGREDIENT_CONTEXT.items()
+    for token in tokens
+}
+
+
+def contextual_tokens(text):
+    """
+    Expand ingredient tokens with canonical context terms.
+    Example: "condensed milk" -> {"condensed", "milk"} + {"milk"}
+    """
+    tokens = ingredient_tokens(text)
+    expanded = set(tokens)
+    for token in tokens:
+        compact = token.replace(" ", "")
+        canonical = CONTEXT_BY_TOKEN.get(token) or CONTEXT_BY_TOKEN.get(compact)
+        if canonical:
+            expanded.add(canonical)
+    return expanded
+
+
+def ingredients_match(user_item, recipe_item):
+    """
+    Flexible ingredient matching:
+    - exact phrase match
+    - token subset match (milk -> condensed milk, chicken -> chicken breast)
+    - token overlap fallback
+    """
+    user_clean = clean_ingredients_for_ml(user_item)
+    recipe_clean = clean_ingredients_for_ml(recipe_item)
+
+    if not user_clean or not recipe_clean:
+        return False
+
+    if user_clean == recipe_clean:
+        return True
+
+    user_tokens = contextual_tokens(user_clean)
+    recipe_tokens = contextual_tokens(recipe_clean)
+    if not user_tokens or not recipe_tokens:
+        return False
+
+    if user_tokens.issubset(recipe_tokens) or recipe_tokens.issubset(user_tokens):
+        return True
+
+    return bool(user_tokens & recipe_tokens)
+
 class RecipeRecommender:
     def __init__(self, csv_path='RECIPES.csv'):
         """Initialize the recommender with dataset and model"""
@@ -84,8 +163,11 @@ class RecipeRecommender:
             overlap_counts = []
 
             for ingredients in self.df['ingredients'].tolist():
-                recipe_ingredients = set(ingredients.lower().replace(',', ' ').split())
-                overlap = len(user_ingredients_set & recipe_ingredients)
+                recipe_ingredients = ingredients.lower().replace(',', ' ').split()
+                overlap = 0
+                for user_token in user_ingredients_set:
+                    if any(ingredients_match(user_token, recipe_token) for recipe_token in recipe_ingredients):
+                        overlap += 1
                 overlap_counts.append(overlap)
 
             # Set scores to -1 for recipes below minimum overlap
@@ -105,8 +187,11 @@ class RecipeRecommender:
 
             # Calculate ingredient overlap for display
             user_ingredients_set = set(tokenized_query)
-            recipe_ingredients = set(recipe['ingredients'].lower().replace(',', ' ').split())
-            overlap = len(user_ingredients_set & recipe_ingredients)
+            recipe_ingredients = recipe['ingredients'].lower().replace(',', ' ').split()
+            overlap = 0
+            for user_token in user_ingredients_set:
+                if any(ingredients_match(user_token, recipe_token) for recipe_token in recipe_ingredients):
+                    overlap += 1
 
             recommendations.append({
                 'recipe_id': int(recipe['recipe_id']),
@@ -158,8 +243,13 @@ class RecipeRecommender:
                     recipe_items.add(cleaned)
 
             total = len(recipe_items)
-            matched = len(user_items & recipe_items)
-            missing = list(recipe_items - user_items)
+            matched_recipe_items = set()
+            for recipe_item in recipe_items:
+                if any(ingredients_match(user_item, recipe_item) for user_item in user_items):
+                    matched_recipe_items.add(recipe_item)
+
+            matched = len(matched_recipe_items)
+            missing = list(recipe_items - matched_recipe_items)
             match_pct = round((matched / total) * 100) if total > 0 else 0
 
             results.append({
