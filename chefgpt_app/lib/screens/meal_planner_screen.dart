@@ -21,6 +21,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
 
   String? _selectedCuisine;
   String _difficulty = 'any';
+  String _baseIngredient = '';
 
   List<String> _cuisines = [];
   int _mealPlanValidDays = 7;
@@ -32,6 +33,16 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
   String _error = '';
 
   static const Color _accent = Color(0xFFFF6B35);
+
+  bool get _usingBaseMode => _baseIngredient.trim().isNotEmpty;
+
+  bool get _usingOtherMode {
+    final hasCuisine = _selectedCuisine != null && _selectedCuisine!.trim().isNotEmpty;
+    final hasMaxCal = _maxCalController.text.trim().isNotEmpty;
+    final hasMinRating = _minRatingController.text.trim().isNotEmpty;
+    final hasDifficulty = _difficulty != 'any';
+    return hasCuisine || hasMaxCal || hasMinRating || hasDifficulty;
+  }
 
   Future<String> _token() async {
     final prefs = await SharedPreferences.getInstance();
@@ -128,20 +139,27 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
     final token = await _token();
     try {
       final payload = <String, dynamic>{
-        'difficulty': _difficulty,
+        'difficulty': _usingBaseMode ? 'any' : _difficulty,
       };
-      if (_selectedCuisine != null && _selectedCuisine!.trim().isNotEmpty) {
+      if (!_usingBaseMode &&
+          _selectedCuisine != null &&
+          _selectedCuisine!.trim().isNotEmpty) {
         payload['cuisine'] = _selectedCuisine!.trim();
       }
       final mc = _maxCalController.text.trim();
-      if (mc.isNotEmpty) {
+      if (!_usingBaseMode && mc.isNotEmpty) {
         final c = int.tryParse(mc);
-        if (c != null) payload['max_calories'] = c;
+        if (c != null) {
+          payload['max_calories'] = c;
+        }
       }
       final mr = _minRatingController.text.trim();
-      if (mr.isNotEmpty) {
+      if (!_usingBaseMode && mr.isNotEmpty) {
         final r = double.tryParse(mr);
         if (r != null) payload['min_rating'] = r;
+      }
+      if (_usingBaseMode) {
+        payload['base_ingredient'] = _baseIngredient.trim();
       }
 
       final response = await http
@@ -345,12 +363,14 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                                           overflow: TextOverflow.ellipsis),
                                     )),
                               ],
-                              onChanged: (v) =>
-                                  setState(() => _selectedCuisine = v),
+                              onChanged: (_loadingAction || _usingBaseMode)
+                                  ? null
+                                  : (v) => setState(() => _selectedCuisine = v),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: _maxCalController,
+                              enabled: !_loadingAction && !_usingBaseMode,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
                                 labelText: 'Max calories per meal',
@@ -360,6 +380,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                             const SizedBox(height: 12),
                             TextField(
                               controller: _minRatingController,
+                              enabled: !_loadingAction && !_usingBaseMode,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
@@ -384,10 +405,43 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                                 DropdownMenuItem(
                                     value: 'hard', child: Text('Hard')),
                               ],
-                              onChanged: _loadingAction
+                              onChanged: (_loadingAction || _usingBaseMode)
                                   ? null
                                   : (v) => setState(
                                       () => _difficulty = v ?? 'any'),
+                            ),
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              decoration: const InputDecoration(
+                                labelText: 'Base ingredient focus',
+                                border: OutlineInputBorder(),
+                              ),
+                              value: _baseIngredient,
+                              items: const [
+                                DropdownMenuItem(
+                                    value: '', child: Text('Any base')),
+                                DropdownMenuItem(
+                                    value: 'rice', child: Text('Rice')),
+                                DropdownMenuItem(
+                                    value: 'pasta', child: Text('Pasta')),
+                                DropdownMenuItem(
+                                    value: 'noodles', child: Text('Noodles')),
+                                DropdownMenuItem(
+                                    value: 'potato', child: Text('Potato')),
+                                DropdownMenuItem(
+                                    value: 'bread', child: Text('Bread')),
+                                DropdownMenuItem(
+                                    value: 'quinoa', child: Text('Quinoa')),
+                              ],
+                              onChanged: (_loadingAction || _usingOtherMode)
+                                  ? null
+                                  : (v) => setState(
+                                      () => _baseIngredient = v ?? ''),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Base ingredient mode and the other filters cannot be combined.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                             ),
                           ],
                         ),
