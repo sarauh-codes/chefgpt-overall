@@ -21,6 +21,29 @@
   <div id="hero-chat-messages" style="width:100%; max-width:700px; margin:20px auto; text-align:left;"></div>
 </section>
 
+<div class="analytics-grid">
+  <div class="analytics-card">
+    <div class="analytics-card-label">👨‍🍳 Cooking Journey</div>
+    <div class="analytics-card-value">{{ analytics.cooked }}</div>
+    <div class="analytics-card-sub">Recipes Cooked</div>
+  </div>
+  <div class="analytics-card">
+    <div class="analytics-card-label">⭐ My Favorites</div>
+    <div class="analytics-card-value">{{ analytics.saved }}</div>
+    <div class="analytics-card-sub">Saved Recipes</div>
+  </div>
+  <div class="analytics-card">
+    <div class="analytics-card-label">👅 Top Cuisine</div>
+    <div class="analytics-card-value" style="font-size: 18px; margin-top: 6px;">{{ analytics.favorite_cuisine }}</div>
+    <div class="analytics-card-sub">Based on history</div>
+  </div>
+  <div class="analytics-card">
+    <div class="analytics-card-label">✍️ Community</div>
+    <div class="analytics-card-value">{{ analytics.reviews }}</div>
+    <div class="analytics-card-sub">Reviews Shared</div>
+  </div>
+</div>
+
 <section class="dashboard-lower">
   <div class="divider">
     <div class="divider-line"></div>
@@ -34,7 +57,8 @@
   </div>
 
   <div class="search-wrap">
-    <input type="text" id="recipe-search" placeholder="🔍 Search recipes, cuisine, ingredients..." oninput="searchRecipes()">
+    <input type="text" id="recipe-search" placeholder="🔍 Search recipes, cuisine, ingredients..."
+      oninput="searchRecipes()">
   </div>
 
   <div class="recipe-grid" id="recipe-catalog">
@@ -42,7 +66,8 @@
     <div class="recipe-card">
       <div class="recipe-card-img">
         {% if recipe.image_url %}
-        <img src="{{ recipe.image_url }}" alt="{{ recipe.recipe_name }}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">
+        <img src="{{ recipe.image_url }}" alt="{{ recipe.recipe_name }}" loading="lazy"
+          onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">
         {% else %}
         <div class="recipe-img-placeholder">🍽️</div>
         {% endif %}
@@ -76,7 +101,8 @@
     <div class="ideas-banner-icon">👨‍🍳</div>
     <div class="ideas-banner-text">
       <div class="ideas-banner-title">Need more ideas?</div>
-      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!</div>
+      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!
+      </div>
     </div>
     <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
   </div>

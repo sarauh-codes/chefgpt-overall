@@ -18,6 +18,7 @@ import tempfile
 import csv
 import re
 import os
+import time
 from dotenv import load_dotenv
 load_dotenv()
 from groq import Groq
@@ -483,13 +484,36 @@ def dashboard():
 
     df_shuffled = df.sample(n=min(12, len(df)), replace=False)
     recipes = df_shuffled.to_dict('records')
+    
+    # User Analytics
+    cooked_count = CookedRecipe.query.filter_by(user_id=current_user.id).count()
+    saved_count = SavedRecipe.query.filter_by(user_id=current_user.id).count()
+    feedback_count = Feedback.query.filter_by(user_id=current_user.id).count()
+    
+    # Calculate favorite cuisine from cooked recipes
+    favorite_cuisine = "None yet"
+    cooked_records = CookedRecipe.query.filter_by(user_id=current_user.id).all()
+    if cooked_records:
+        cooked_ids = [r.recipe_id for r in cooked_records]
+        # Map IDs to cuisines using the dataframe
+        cooked_df = recommender.df[recommender.df['recipe_id'].isin(cooked_ids)]
+        if not cooked_df.empty and 'cuisine' in cooked_df.columns:
+            favorite_cuisine = cooked_df['cuisine'].mode().iloc[0] if not cooked_df['cuisine'].mode().empty else "Various"
+
+    analytics = {
+        'cooked': cooked_count,
+        'saved': saved_count,
+        'reviews': feedback_count,
+        'favorite_cuisine': favorite_cuisine
+    }
     total_recipes = len(df)
 
     return render_template("dashboard.html",
         username=current_user.username,
         recipes=recipes,
-        total_recipes=total_recipes,
-        profile=profile)
+        analytics=analytics,
+        profile=profile,
+        total_recipes=total_recipes)
 
 
 @app.route('/load-more-recipes')
