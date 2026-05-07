@@ -133,6 +133,10 @@ function createRecipeCardHtml(recipe) {
 }
 
 // Track initial recipes
+const DASHBOARD_SEARCH_KEY = 'chefgpt_dashboard_recipe_search';
+const DASHBOARD_SCROLL_KEY = 'chefgpt_dashboard_scroll_y';
+const DASHBOARD_FROM_RECIPE = 'chefgpt_came_from_recipe';
+
 document.addEventListener('DOMContentLoaded', function () {
     const initialCards = document.querySelectorAll('.recipe-card');
     initialCards.forEach(card => {
@@ -144,11 +148,36 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const recipeCatalog = document.getElementById('recipe-catalog');
+    const searchBox = document.getElementById('recipe-search');
     originalRecipes = recipeCatalog.innerHTML;
+
+    // Only restore search if user is coming BACK from a recipe detail page
+    const cameFromRecipe = sessionStorage.getItem(DASHBOARD_FROM_RECIPE);
+    const savedSearch = sessionStorage.getItem(DASHBOARD_SEARCH_KEY);
+
+    if (cameFromRecipe && searchBox && savedSearch) {
+        searchBox.value = savedSearch;
+        searchRecipes(true);
+    }
+
+    // Clear the flag so next fresh visit starts clean
+    sessionStorage.removeItem(DASHBOARD_FROM_RECIPE);
+
+    // Save search + scroll and set flag when clicking View on a recipe
+    recipeCatalog.addEventListener('click', function (event) {
+        const viewLink = event.target.closest('a.recipe-view-btn');
+        if (!viewLink) return;
+
+        if (searchBox) {
+            sessionStorage.setItem(DASHBOARD_SEARCH_KEY, searchBox.value.trim());
+        }
+        sessionStorage.setItem(DASHBOARD_SCROLL_KEY, String(window.scrollY));
+        sessionStorage.setItem(DASHBOARD_FROM_RECIPE, '1');
+    });
 });
 
 // Search function
-function searchRecipes() {
+function searchRecipes(restoreScroll = false) {
     const searchInput = document.getElementById('recipe-search').value.trim();
     const recipeCatalog = document.getElementById('recipe-catalog');
     const noResults = document.getElementById('no-results');
@@ -157,6 +186,7 @@ function searchRecipes() {
     clearTimeout(searchTimeout);
 
     if (searchInput.length === 0) {
+        sessionStorage.removeItem(DASHBOARD_SEARCH_KEY);
         isSearching = false;
         recipeCatalog.innerHTML = originalRecipes;
         recipeCatalog.style.display = 'grid';
@@ -164,6 +194,9 @@ function searchRecipes() {
         if (loadMoreContainer) loadMoreContainer.style.display = 'block';
         return;
     }
+
+    // Save search immediately so browser back keeps same result state
+    sessionStorage.setItem(DASHBOARD_SEARCH_KEY, searchInput);
 
     isSearching = true;
     if (loadMoreContainer) loadMoreContainer.style.display = 'none';
@@ -190,12 +223,19 @@ function searchRecipes() {
                 data.recipes.forEach(recipe => {
                     recipeCatalog.insertAdjacentHTML('beforeend', createRecipeCardHtml(recipe));
                 });
+
+                if (restoreScroll) {
+                    const savedY = Number(sessionStorage.getItem(DASHBOARD_SCROLL_KEY) || 0);
+                    if (savedY > 0) {
+                        setTimeout(() => window.scrollTo(0, savedY), 50);
+                    }
+                }
             }
         } catch (error) {
             console.error('Search error:', error);
             recipeCatalog.innerHTML = '<p style="text-align:center; padding:40px;">Search failed. Please try again.</p>';
         }
-    }, 300);
+    }, restoreScroll ? 0 : 300);
 }
 
 // Load more function

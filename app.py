@@ -253,10 +253,8 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def _sync_recipe_csvs(df):
-    """Save the dataframe to both CSV files to keep them in sync."""
+    """Save the dataframe to the CSV file."""
     df.to_csv('RECIPES.csv', index=False, encoding='utf-8-sig')
-    if os.path.exists('recipespalinglatest22.csv'):
-        df.to_csv('recipespalinglatest22.csv', index=False, encoding='utf-8-sig')
 
 def _handle_recipe_image_upload(request, existing_url=None):
     """Handle image upload or URL from request. Return the final URL/path."""

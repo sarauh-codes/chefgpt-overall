@@ -11,6 +11,11 @@
     <input type="hidden" id="recipe-id" value="{{ recipe.recipe_id }}">
     
     <div class="container recipe-container">
+
+        <!-- Back Button -->
+        <a href="{{ url_for('dashboard') }}" class="recipe-back-btn no-print" onclick="event.preventDefault(); window.history.back();">
+            ← Back to recipes
+        </a>
         
         <!-- Print Header -->
         <div class="print-header print-only" style="text-align: center; margin-bottom: 30px;">
