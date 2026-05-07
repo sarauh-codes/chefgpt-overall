@@ -1,10 +1,10 @@
 const rotatingPrompts = [
-  "Find recipes using chicken and rice...",
-  "Plan a healthy dinner for tonight...",
-  "What can I cook with eggs?",
-  "Suggest a quick halal meal...",
-  "Make something spicy and cheap...",
-  "Use my leftovers creatively..."
+    "Find recipes using chicken and rice...",
+    "Plan a healthy dinner for tonight...",
+    "What can I cook with eggs?",
+    "Suggest a quick halal meal...",
+    "Make something spicy and cheap...",
+    "Use my leftovers creatively..."
 ];
 
 let promptIndex = 0;
@@ -12,48 +12,48 @@ let charIndex = 0;
 let deleting = false;
 
 function typePrompt() {
-  const input = document.getElementById("dashChatInput");
-  if (!input) return;
+    const input = document.getElementById("dashChatInput");
+    if (!input) return;
 
-  if (document.activeElement === input && input.value.trim() !== "") {
-    setTimeout(typePrompt, 800);
-    return;
-  }
-
-  const currentPrompt = rotatingPrompts[promptIndex];
-
-  if (!deleting) {
-    charIndex++;
-    input.setAttribute("placeholder", currentPrompt.substring(0, charIndex));
-
-    if (charIndex === currentPrompt.length) {
-      deleting = true;
-      setTimeout(typePrompt, 900);
-      return;
+    if (document.activeElement === input && input.value.trim() !== "") {
+        setTimeout(typePrompt, 800);
+        return;
     }
-  } else {
-    charIndex--;
-    input.setAttribute("placeholder", currentPrompt.substring(0, charIndex));
 
-    if (charIndex === 0) {
-      deleting = false;
-      promptIndex++;
+    const currentPrompt = rotatingPrompts[promptIndex];
 
-      if (promptIndex >= rotatingPrompts.length) {
-        promptIndex = 0;
-      }
+    if (!deleting) {
+        charIndex++;
+        input.setAttribute("placeholder", currentPrompt.substring(0, charIndex));
+
+        if (charIndex === currentPrompt.length) {
+            deleting = true;
+            setTimeout(typePrompt, 900);
+            return;
+        }
+    } else {
+        charIndex--;
+        input.setAttribute("placeholder", currentPrompt.substring(0, charIndex));
+
+        if (charIndex === 0) {
+            deleting = false;
+            promptIndex++;
+
+            if (promptIndex >= rotatingPrompts.length) {
+                promptIndex = 0;
+            }
+        }
     }
-  }
 
-  const speed = deleting ? 18 : 28;
-  setTimeout(typePrompt, speed);
+    const speed = deleting ? 18 : 28;
+    setTimeout(typePrompt, speed);
 }
 
 window.addEventListener("load", typePrompt);
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const input = document.getElementById('dashChatInput');
     if (input) {
-        input.addEventListener('keydown', function(e) {
+        input.addEventListener('keydown', function (e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
                 const placeholder = this.getAttribute('placeholder');
@@ -105,8 +105,35 @@ function hasRecipeImage(url) {
     return u.length > 0 && u !== 'nan' && u !== 'none';
 }
 
+// Helper to build a premium recipe card HTML
+function createRecipeCardHtml(recipe) {
+    const difficultyIcon = recipe.difficulty === 'easy' ? '✅' : recipe.difficulty === 'medium' ? '⚡' : '🔥';
+    const cookTime = recipe.cook_time != null ? String(recipe.cook_time) : '30';
+    
+    const imgInner = hasRecipeImage(recipe.image_url)
+        ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">`
+        : `<div class="recipe-img-placeholder">🍽️</div>`;
+
+    return `
+        <div class="recipe-card">
+            <div class="recipe-card-img">
+                ${imgInner}
+                <div class="recipe-time-badge">⏱ ${escapeHtml(cookTime)} min</div>
+            </div>
+            <div class="recipe-card-body">
+                <div class="recipe-card-name">${escapeHtml(recipe.recipe_name)}</div>
+                <div class="recipe-card-meta">${escapeHtml(recipe.cuisine)} · ${escapeHtml(String(recipe.calories))} cal</div>
+                <div class="recipe-card-footer">
+                    <span class="recipe-rating">⭐ ${escapeHtml(String(recipe.rating))}</span>
+                    <a href="/recipe/${recipe.recipe_id}" class="recipe-view-btn">View</a>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 // Track initial recipes
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const initialCards = document.querySelectorAll('.recipe-card');
     initialCards.forEach(card => {
         const link = card.querySelector('a.recipe-view-btn');
@@ -115,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
             displayedRecipeIds.add(recipeId);
         }
     });
-    
+
     const recipeCatalog = document.getElementById('recipe-catalog');
     originalRecipes = recipeCatalog.innerHTML;
 });
@@ -126,9 +153,9 @@ function searchRecipes() {
     const recipeCatalog = document.getElementById('recipe-catalog');
     const noResults = document.getElementById('no-results');
     const loadMoreContainer = document.getElementById('load-more-container');
-    
+
     clearTimeout(searchTimeout);
-    
+
     if (searchInput.length === 0) {
         isSearching = false;
         recipeCatalog.innerHTML = originalRecipes;
@@ -137,51 +164,31 @@ function searchRecipes() {
         if (loadMoreContainer) loadMoreContainer.style.display = 'block';
         return;
     }
-    
+
     isSearching = true;
     if (loadMoreContainer) loadMoreContainer.style.display = 'none';
-    
+
     searchTimeout = setTimeout(async () => {
         try {
             const response = await fetch('/search-recipes?q=' + encodeURIComponent(searchInput));
-            
+
             if (!response.ok) {
                 throw new Error('Search failed');
             }
-            
+
             const data = await response.json();
-            
+
             recipeCatalog.innerHTML = '';
-            
+
             if (data.recipes.length === 0) {
                 recipeCatalog.style.display = 'none';
                 noResults.style.display = 'block';
             } else {
                 recipeCatalog.style.display = 'grid';
                 noResults.style.display = 'none';
-                
+
                 data.recipes.forEach(recipe => {
-                    const difficultyIcon = recipe.difficulty === 'easy' ? '✅' : recipe.difficulty === 'medium' ? '⚡' : '🔥';
-                    const difficultyText = recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1);
-                    
-                    const card = `
-                        <div class="recipe-card">
-                            <div class="recipe-header">
-                                <h3>${recipe.recipe_name}</h3>
-                            </div>
-                            <div class="recipe-info">
-                                <span class="info-tag">🍽️ ${recipe.cuisine}</span>
-                                <span class="info-tag">🔥 ${recipe.calories} cal</span>
-                                <span class="info-tag">⭐ ${recipe.rating}/5</span>
-                                <span class="info-tag difficulty-${recipe.difficulty}">${difficultyIcon} ${difficultyText}</span>
-                            </div>
-                            <div class="ingredients-list">
-                                <strong>Ingredients:</strong> ${recipe.ingredients}
-                            </div>
-                            <a href="/recipe/${recipe.recipe_id}" class="view-recipe-btn">View Full Recipe</a>
-                        </div>
-                    `;
-                    recipeCatalog.insertAdjacentHTML('beforeend', card);
+                    recipeCatalog.insertAdjacentHTML('beforeend', createRecipeCardHtml(recipe));
                 });
             }
         } catch (error) {
@@ -194,13 +201,13 @@ function searchRecipes() {
 // Load more function
 async function loadMoreRecipes() {
     if (isSearching) return;
-    
+
     const btn = document.getElementById('load-more-btn');
     const catalog = document.getElementById('recipe-catalog');
-    
+
     btn.disabled = true;
     btn.textContent = 'Loading...';
-    
+
     try {
         const response = await fetch(`/load-more-recipes?offset=${currentOffset}`);
         const data = await response.json();
@@ -213,33 +220,11 @@ async function loadMoreRecipes() {
 
                 displayedRecipeIds.add(String(recipe.recipe_id));
                 addedCount++;
-
-                const cookTime = recipe.cook_time != null ? String(recipe.cook_time) : '30';
-                const imgInner = hasRecipeImage(recipe.image_url)
-                    ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" loading="lazy" onerror="var d=document.createElement('div');d.className='recipe-img-placeholder';d.textContent='🍽️';this.replaceWith(d);">`
-                    : `<div class="recipe-img-placeholder">🍽️</div>`;
-
-                const card = `
-                    <div class="recipe-card">
-                        <div class="recipe-card-img">
-                            ${imgInner}
-                            <div class="recipe-time-badge">⏱ ${escapeHtml(cookTime)} min</div>
-                        </div>
-                        <div class="recipe-card-body">
-                            <div class="recipe-card-name">${escapeHtml(recipe.recipe_name)}</div>
-                            <div class="recipe-card-meta">${escapeHtml(recipe.cuisine)} · ${escapeHtml(String(recipe.calories))} cal</div>
-                            <div class="recipe-card-footer">
-                                <span class="recipe-rating">⭐ ${escapeHtml(String(recipe.rating))}</span>
-                                <a href="/recipe/${recipe.recipe_id}" class="recipe-view-btn">View</a>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                catalog.insertAdjacentHTML('beforeend', card);
+                catalog.insertAdjacentHTML('beforeend', createRecipeCardHtml(recipe));
             });
-            
+
             currentOffset += data.recipes.length;
-            
+
             if (!data.has_more || addedCount === 0) {
                 btn.style.display = 'none';
             }
@@ -330,18 +315,18 @@ document.addEventListener('DOMContentLoaded', function () {
 // ==================== TASTE PROFILE ====================
 
 const AXIS_COLORS = {
-    Spicy:     "#e05d44",
-    Sweet:     "#f0a500",
-    Savory:    "#4f98a3",
-    Healthy:   "#6daa45",
+    Spicy: "#e05d44",
+    Sweet: "#f0a500",
+    Savory: "#4f98a3",
+    Healthy: "#6daa45",
     Indulgent: "#bb65a0"
 };
 const AXIS_EMOJIS = {
-    Spicy:"🌶️", Sweet:"🍬", Savory:"🧄", Healthy:"🥗", Indulgent:"🧁"
+    Spicy: "🌶️", Sweet: "🍬", Savory: "🧄", Healthy: "🥗", Indulgent: "🧁"
 };
 
 
-    // ==================== TASTE DRAWER ====================
+// ==================== TASTE DRAWER ====================
 
 function openTasteDrawer() {
     document.getElementById('taste-drawer').style.right = '0';
@@ -390,11 +375,11 @@ function renderTasteDrawer() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio:1.2,
+                    aspectRatio: 1.2,
                     scales: {
                         r: {
                             min: 0, max: 100,
-                            ticks: { display: false , stepSize:20 },
+                            ticks: { display: false, stepSize: 20 },
                             pointLabels: { font: { size: 12, weight: "600" }, color: "#333" },
                             grid: { color: "rgba(0,0,0,0.25)" },
                             angleLines: { color: "rgba(0,0,0,0.25)" }
@@ -428,13 +413,13 @@ function renderTasteDrawer() {
 async function sendMessage(source = 'floating') {
     // Identify if the request is coming from the Hero (Center) section
     const isHero = (source === 'hero');
-    
+
     // Select the appropriate input field based on the source
     const input = document.getElementById(isHero ? 'dashChatInput' : 'chat-input');
-    
+
     // Select the appropriate message container based on the source
     const messages = document.getElementById(isHero ? 'hero-chat-messages' : 'chat-messages');
-    
+
     // Sanitize user input by trimming whitespace
     const text = input.value.trim();
     if (!text) return;
@@ -454,7 +439,7 @@ async function sendMessage(source = 'floating') {
         color:white; padding:10px 14px; border-radius:14px; border-bottom-right-radius:4px;
         font-size:13px; max-width:75%;">${text}</div>`;
     messages.appendChild(userRow);
-    
+
     // Reset input field and disable it while waiting for the AI response
     input.value = '';
     input.disabled = true;
@@ -470,13 +455,13 @@ async function sendMessage(source = 'floating') {
 
     try {
         // Send the user message to the backend API
-        const res = await fetch('/api/chat', { 
+        const res = await fetch('/api/chat', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({message: text})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
         });
         const data = await res.json();
-        
+
         // Remove the 'Thinking' indicator once the response is received
         document.getElementById(typingId).remove();
 
@@ -504,37 +489,37 @@ async function sendMessage(source = 'floating') {
     messages.scrollTop = messages.scrollHeight;
 }
 function applyTheme(theme) {
-  const icon = document.getElementById("themeIcon");
-  const text = document.getElementById("themeText");
+    const icon = document.getElementById("themeIcon");
+    const text = document.getElementById("themeText");
 
-  if (theme === "dark") {
-    document.body.classList.add("dark-theme");
-    if (icon) icon.textContent = "🌙";
-    if (text) text.textContent = "Dark";
-  } else {
-    document.body.classList.remove("dark-theme");
-    if (icon) icon.textContent = "☀️";
-    if (text) text.textContent = "Light";
-  }
+    if (theme === "dark") {
+        document.body.classList.add("dark-theme");
+        if (icon) icon.textContent = "🌙";
+        if (text) text.textContent = "Dark";
+    } else {
+        document.body.classList.remove("dark-theme");
+        if (icon) icon.textContent = "☀️";
+        if (text) text.textContent = "Light";
+    }
 
-  localStorage.setItem("theme", theme);
+    localStorage.setItem("theme", theme);
 }
 
 function toggleTheme() {
-  const isDark = document.body.classList.contains("dark-theme");
-  applyTheme(isDark ? "light" : "dark");
+    const isDark = document.body.classList.contains("dark-theme");
+    applyTheme(isDark ? "light" : "dark");
 }
 
 window.addEventListener("load", () => {
-  const savedTheme = localStorage.getItem("theme");
+    const savedTheme = localStorage.getItem("theme");
 
-  if (savedTheme) {
-    applyTheme(savedTheme);
-    return;
-  }
+    if (savedTheme) {
+        applyTheme(savedTheme);
+        return;
+    }
 
-  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  applyTheme(systemDark ? "dark" : "light");
+    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(systemDark ? "dark" : "light");
 });
 
 // ==================== TOAST NOTIFICATIONS ====================
@@ -548,15 +533,15 @@ function showToast(message, type = 'success') {
     }
 
     const toast = document.createElement('div');
-    
+
     // Style based on type
     const isDarkTheme = document.body.classList.contains('dark-theme');
-    
+
     // Make toasts look great in both light and dark modes
     const bgColor = type === 'success' ? '#1a3a2a' : '#3a1a1a';
     const textColor = type === 'success' ? '#68d391' : '#fc8181';
     const borderColor = type === 'success' ? '#276749' : '#9b2c2c';
-    
+
     toast.style.cssText = `
         background: ${bgColor};
         color: ${textColor};
@@ -571,16 +556,16 @@ function showToast(message, type = 'success') {
         transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         pointer-events: auto;
     `;
-    
+
     toast.textContent = message;
     container.appendChild(toast);
-    
+
     // Animate in
     requestAnimationFrame(() => {
         toast.style.transform = 'translateY(0) scale(1)';
         toast.style.opacity = '1';
     });
-    
+
     // Animate out and remove
     setTimeout(() => {
         toast.style.transform = 'translateY(20px) scale(0.9)';

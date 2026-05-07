@@ -12,3 +12,6 @@ class Config:
 
     # Whisper model
     WHISPER_MODEL = "openai/whisper-small"
+    # Uploads
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/images/recipes')
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}

@@ -6,9 +6,10 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import json
-from recipe_recommender import get_recommender
+from recipe_recommender import get_recommender, reload_recommender_data
 from config import Config
 from transformers import pipeline
 from functools import wraps
@@ -246,6 +247,31 @@ BASE_INGREDIENT_TERMS = {
     "quinoa": ["quinoa"],
 }
 
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+def _sync_recipe_csvs(df):
+    """Save the dataframe to both CSV files to keep them in sync."""
+    df.to_csv('RECIPES.csv', index=False, encoding='utf-8-sig')
+    if os.path.exists('recipespalinglatest22.csv'):
+        df.to_csv('recipespalinglatest22.csv', index=False, encoding='utf-8-sig')
+
+def _handle_recipe_image_upload(request, existing_url=None):
+    """Handle image upload or URL from request. Return the final URL/path."""
+    if 'image_file' in request.files:
+        file = request.files['image_file']
+        if file and file.filename != '' and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            # Add timestamp to filename to avoid collisions
+            filename = f"{int(time.time())}_{filename}"
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            return f"/static/images/recipes/{filename}"
+    
+    # If no file uploaded, use the URL provided
+    return request.form.get('image_url', existing_url or '')
 
 def _base_ingredient_mask(df, base_ingredient):
     terms = BASE_INGREDIENT_TERMS.get(base_ingredient, [base_ingredient] if base_ingredient else [])
@@ -1319,6 +1345,9 @@ def add_recipe():
         if 'recipe_id' not in df.columns:
             df.insert(0, 'recipe_id', range(1, len(df) + 1))
         new_id = df['recipe_id'].max() + 1 if len(df) > 0 else 1
+        
+        image_url = _handle_recipe_image_upload(request)
+        
         new_row = {
             'recipe_id': new_id,
             'recipe_name': request.form['recipe_name'],
@@ -1328,14 +1357,121 @@ def add_recipe():
             'rating': request.form['rating'],
             'difficulty': request.form['difficulty'],
             'instructions': request.form.get('instructions', ''),
-            'image_url': request.form.get('image_url', ''),
+            'image_url': image_url,
         }
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        df.drop(columns=['recipe_id'], inplace=True)
-        df.to_csv('RECIPES.csv', index=False, encoding='utf-8-sig')
+        # Check if we should preserve IDs or drop them
+        if 'recipe_id' in df.columns:
+             # Just keep it as is
+             pass
+        _sync_recipe_csvs(df)
+        reload_recommender_data()  # Instantly push changes to user-facing pages
         flash("Recipe added successfully!", "success")
         return redirect(url_for('manage_recipes'))
     return render_template('admin/add_recipe.html')
+
+
+@app.route('/admin/search-photos', methods=['GET'])
+@login_required
+def admin_search_photos():
+    """Search for food photos using Wikipedia Commons API which has good Malay dish coverage."""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Access denied'}), 403
+
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({'photos': []})
+
+    # Curated lookup for common Malay dishes that Wikipedia doesn't index well
+    MALAY_IMAGE_MAP = {
+        'nasi lemak': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Nasi_lemak_on_banana_leaf.jpg/960px-Nasi_lemak_on_banana_leaf.jpg',
+        'rendang ayam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+        'rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+        'ayam rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+        'laksa': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Nyonya_Laksa.jpg/960px-Nyonya_Laksa.jpg',
+        'laksa penang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Assam_laksa.jpg/960px-Assam_laksa.jpg',
+        'char kway teow': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Char_Kway_Teow.jpg/960px-Char_Kway_Teow.jpg',
+        'mee goreng': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Fried_noodles_%281%29.jpg/960px-Fried_noodles_%281%29.jpg',
+        'nasi goreng': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Fried_rice.jpg/960px-Fried_rice.jpg',
+        'satay': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Satay_%28Malaysian%29.jpg/960px-Satay_%28Malaysian%29.jpg',
+        'tom yam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Tom_yam_kung.jpg/960px-Tom_yam_kung.jpg',
+        'tom yum': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Tom_yam_kung.jpg/960px-Tom_yam_kung.jpg',
+        'ayam percik': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Ayam_percik_1.jpg/960px-Ayam_percik_1.jpg',
+        'ayam masak merah': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Ayam_masak_merah.jpg/960px-Ayam_masak_merah.jpg',
+        'kari ayam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Curry_chicken_Malaysia.jpg/960px-Curry_chicken_Malaysia.jpg',
+        'kari': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Curry_chicken_Malaysia.jpg/960px-Curry_chicken_Malaysia.jpg',
+        'sambal': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sambal.jpg/960px-Sambal.jpg',
+        'ikan bakar': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Ikan_bakar_%28Malay%29.jpg/960px-Ikan_bakar_%28Malay%29.jpg',
+        'asam pedas': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Asam_Pedas.jpg/960px-Asam_Pedas.jpg',
+        'bubur': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Bubur_ayam.jpg/960px-Bubur_ayam.jpg',
+        'kuih': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Kuih.jpg/960px-Kuih.jpg',
+        'kuih keria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Kuih_keria.jpg/960px-Kuih_keria.jpg',
+        'laksam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Laksam.jpg/960px-Laksam.jpg',
+        'apam balik': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Apam_balik.jpg/960px-Apam_balik.jpg',
+        'roti canai': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Roti_canai.jpg/960px-Roti_canai.jpg',
+        'nasi kandar': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Nasi_kandar.jpg/960px-Nasi_kandar.jpg',
+        'beef rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+        'kangkung': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Stir-fried_water_spinach.jpg/960px-Stir-fried_water_spinach.jpg',
+        'kerabu': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Kerabu.jpg/960px-Kerabu.jpg',
+        'kurma': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Chicken_kurma.jpg/960px-Chicken_kurma.jpg',
+        'gulai': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Gulai.jpg/960px-Gulai.jpg',
+    }
+
+    photos = []
+    query_lower = query.lower()
+    # Remove common Malay prefixes for better matching
+    clean_query = query_lower.replace('resepi ', '').replace('recipe ', '').strip()
+
+    # Step 1: Check curated map
+    for key, url in MALAY_IMAGE_MAP.items():
+        if key in clean_query or clean_query in key:
+            photos.append({'url': url, 'thumb': url, 'label': key.title(), 'source': 'Curated'})
+
+    # Step 2: Wikipedia API search using English dish name
+    try:
+        import requests as req
+        headers = {'User-Agent': 'ChefGPT-Admin/1.0 (admin@chefgpt.local)'}
+        search_terms = [clean_query, clean_query + ' dish', clean_query + ' food Malaysia']
+
+        for term in search_terms:
+            if len(photos) >= 6:
+                break
+            search_url = 'https://en.wikipedia.org/w/api.php'
+            search_params = {
+                'action': 'query', 'list': 'search', 'srsearch': term,
+                'format': 'json', 'srlimit': 3
+            }
+            s_res = req.get(search_url, params=search_params, headers=headers, timeout=5).json()
+            results = s_res.get('query', {}).get('search', [])
+
+            for result in results:
+                page_title = result['title']
+                img_params = {
+                    'action': 'query', 'titles': page_title, 'prop': 'pageimages',
+                    'format': 'json', 'pithumbsize': 800
+                }
+                i_res = req.get(search_url, params=img_params, headers=headers, timeout=5).json()
+                pages = i_res.get('query', {}).get('pages', {})
+                for pg in pages.values():
+                    if 'thumbnail' in pg:
+                        img_url = pg['thumbnail']['source']
+                        # Avoid duplicates
+                        if not any(p['url'] == img_url for p in photos):
+                            photos.append({'url': img_url, 'thumb': img_url, 'label': page_title, 'source': 'Wikipedia'})
+    except Exception:
+        pass
+
+    # Deduplicate and limit
+    seen = set()
+    unique = []
+    for p in photos:
+        if p['url'] not in seen:
+            seen.add(p['url'])
+            unique.append(p)
+        if len(unique) >= 6:
+            break
+
+    return jsonify({'photos': unique, 'query': query})
 
 
 @app.route('/admin/edit_recipe/<int:recipe_id>', methods=['GET', 'POST'])
@@ -1353,6 +1489,8 @@ def edit_recipe(recipe_id):
         flash("Recipe not found", "danger")
         return redirect(url_for('manage_recipes'))
     if request.method == 'POST':
+        image_url = _handle_recipe_image_upload(request, existing_url=df.loc[idx[0], 'image_url'])
+        
         df.loc[idx, 'recipe_name'] = request.form['recipe_name']
         df.loc[idx, 'ingredients'] = request.form['ingredients']
         df.loc[idx, 'cuisine'] = request.form['cuisine']
@@ -1360,8 +1498,9 @@ def edit_recipe(recipe_id):
         df.loc[idx, 'rating'] = request.form['rating']
         df.loc[idx, 'difficulty'] = request.form['difficulty']
         df.loc[idx, 'instructions'] = request.form.get('instructions', '')
-        df.loc[idx, 'image_url'] = request.form.get('image_url', '')
-        df.to_csv('RECIPES.csv', index=False, encoding='utf-8-sig')
+        df.loc[idx, 'image_url'] = image_url
+        _sync_recipe_csvs(df)
+        reload_recommender_data()  # Instantly push changes to user-facing pages
         flash("Recipe updated successfully!", "success")
         return redirect(url_for('manage_recipes'))
     recipe = df.loc[idx[0]].to_dict()
@@ -1386,7 +1525,8 @@ def delete_recipe(recipe_id):
         return redirect(url_for('manage_recipes'))
     df = df[df['recipe_id'] != recipe_id]
     df.drop(columns=['recipe_id'], inplace=True)
-    df.to_csv('RECIPES.csv', index=False)
+    _sync_recipe_csvs(df)
+    reload_recommender_data()  # Instantly remove from user-facing pages
     flash("Recipe deleted successfully!", "success")
     return redirect(url_for('manage_recipes'))
 

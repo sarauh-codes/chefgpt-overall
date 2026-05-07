@@ -215,3 +215,34 @@ def get_recommender():
     if recommender is None:
         recommender = RecipeRecommender()
     return recommender
+
+
+def reset_recommender():
+    """
+    Invalidate the cached recommender so next request reloads from disk.
+    Call this after any admin edit/delete/add to ensure users see updated data.
+    """
+    global recommender
+    recommender = None
+
+
+def reload_recommender_data():
+    """
+    Fast reload: re-reads CSV data into an existing recommender instance
+    WITHOUT re-training the ML model. This is much faster than a full reset
+    and is sufficient for image URL / text field changes.
+    """
+    global recommender
+    if recommender is not None:
+        try:
+            fresh_df = pd.read_csv('RECIPES.csv', encoding='utf-8-sig')
+            fresh_df.columns = fresh_df.columns.str.strip()
+            if 'recipe_id' not in fresh_df.columns:
+                fresh_df.insert(0, 'recipe_id', range(1, len(fresh_df) + 1))
+            recommender.df = fresh_df
+        except Exception:
+            # If reload fails, fall back to full reset on next request
+            recommender = None
+    else:
+        # No instance yet — will be created fresh on next request
+        pass
