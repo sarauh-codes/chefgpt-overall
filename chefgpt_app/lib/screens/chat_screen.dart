@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
+import '../widgets/neo_glass_container.dart';
 import '../constants.dart';
 
 class ChatScreen extends StatefulWidget {
-    final bool isEmbedded;
-     const ChatScreen({super.key, this.isEmbedded = false});
+  final bool isEmbedded;
+  const ChatScreen({super.key, this.isEmbedded = false});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -15,7 +17,6 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
   final List<Map<String, String>> _messages = [];
   bool _isTyping = false;
 
@@ -65,8 +66,10 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.add({'role': 'bot', 'text': 'Cannot connect to server.'});
       });
     } finally {
-      setState(() => _isTyping = false);
-      _scrollToBottom();
+      if (mounted) {
+        setState(() => _isTyping = false);
+        _scrollToBottom();
+      }
     }
   }
 
@@ -85,53 +88,22 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAF7),
-      appBar: widget.isEmbedded ? null : AppBar(
-        title: const Row(
-          children: [
-            Text('🍳', style: TextStyle(fontSize: 20)),
-            SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ChefGPT Assistant',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700)),
-                Text('Ask me anything about recipes!',
-                    style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11)),
-              ],
+      backgroundColor: widget.isEmbedded ? Colors.transparent : AppColors.background,
+      appBar: widget.isEmbedded 
+        ? null 
+        : AppBar(
+            backgroundColor: AppColors.surface,
+            elevation: 0,
+            title: Text('ChefGPT Assistant', style: AppStyles.h2.copyWith(fontSize: 18)),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              onPressed: () => Navigator.pop(context),
             ),
-          ],
-        ),
-        backgroundColor: const Color(0xFFFF6B35),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+          ),
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 20),
-                    itemCount: _messages.length + (_isTyping ? 1 : 0),
-                    itemBuilder: (_, i) {
-                      if (_isTyping && i == _messages.length) {
-                        return _buildTypingIndicator();
-                      }
-                      final msg = _messages[i];
-                      return _buildBubble(
-                        text: msg['text']!,
-                        isUser: msg['role'] == 'user',
-                      );
-                    },
-                  ),
+            child: _messages.isEmpty ? _buildEmptyState() : _buildMessageList(),
           ),
           _buildInputBar(),
         ],
@@ -144,146 +116,119 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('🍽️', style: TextStyle(fontSize: 56)),
-          const SizedBox(height: 16),
-          const Text('Hi! I\'m your ChefGPT Assistant',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A))),
+          _buildAnimatedLogo(),
+          const SizedBox(height: 24),
+          Text('How can I help you?', style: AppStyles.h1.copyWith(fontSize: 24)),
           const SizedBox(height: 8),
-          Text('Ask me about recipes, ingredients,\nor cooking tips!',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 28),
-          // Quick suggestion chips
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              '🍝 Easy pasta recipe',
-              '🥗 Healthy dinner ideas',
-              '🍗 Chicken with garlic',
-            ].map((suggestion) => GestureDetector(
-              onTap: () {
-                _inputController.text = suggestion.substring(3);
-                _sendMessage();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFFFE0D0), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                        color: const Color(0xFFFF6B35).withOpacity(0.08),
-                        blurRadius: 8),
-                  ],
-                ),
-                child: Text(suggestion,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF1A1A1A))),
-              ),
-            )).toList(),
-          ),
+          Text('Ask me anything about cooking!', style: AppStyles.bodyMedium),
+          const SizedBox(height: 32),
+          _buildSuggestions(),
         ],
       ),
     );
   }
 
-  Widget _buildBubble({required String text, required bool isUser}) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: 12,
-        left: isUser ? 48 : 0,
-        right: isUser ? 0 : 48,
+  Widget _buildAnimatedLogo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.accent.withOpacity(0.1),
+        border: Border.all(color: AppColors.accent.withOpacity(0.2)),
       ),
+      child: const Icon(Icons.auto_awesome_rounded, size: 48, color: AppColors.accent),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    final suggestions = ['🍝 Quick Pasta', '🥗 Healthy Salad', '🥩 Steak Tips'];
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.center,
+      children: suggestions.map((s) => GestureDetector(
+        onTap: () {
+          _inputController.text = s;
+          _sendMessage();
+        },
+        child: NeoGlassContainer(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          borderRadius: BorderRadius.circular(20),
+          child: Text(s, style: AppStyles.caption.copyWith(color: Colors.white)),
+        ),
+      )).toList(),
+    );
+  }
+
+  Widget _buildMessageList() {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      itemCount: _messages.length + (_isTyping ? 1 : 0),
+      itemBuilder: (_, i) {
+        if (_isTyping && i == _messages.length) return _buildTypingIndicator();
+        final msg = _messages[i];
+        return _buildChatBubble(msg['text']!, msg['role'] == 'user');
+      },
+    );
+  }
+
+  Widget _buildChatBubble(String text, bool isUser) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            Container(
-              width: 32,
-              height: 32,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFFFF6B35), Color(0xFFF7931E)]),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: const Center(
-                child: Text('🍳', style: TextStyle(fontSize: 16)),
-              ),
-            ),
-          ],
+          if (!isUser) _avatar(),
+          const SizedBox(width: 12),
           Flexible(
-            child: Container(
+            child: NeoGlassContainer(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isUser ? const Color(0xFFFF6B35) : Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isUser ? 18 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 18),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2)),
-                ],
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomLeft: Radius.circular(isUser ? 20 : 4),
+                bottomRight: Radius.circular(isUser ? 4 : 20),
               ),
-              child: Text(text,
-                  style: TextStyle(
-                      fontSize: 14,
-                      color: isUser ? Colors.white : const Color(0xFF1A1A1A),
-                      height: 1.5)),
+              borderColor: isUser ? AppColors.accent.withOpacity(0.3) : AppColors.glassBorder,
+              child: Text(text, style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
             ),
           ),
+          const SizedBox(width: 12),
+          if (isUser) _avatar(isUser: true),
         ],
+      ),
+    );
+  }
+
+  Widget _avatar({bool isUser = false}) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: isUser ? AppColors.primaryGradient : null,
+        color: isUser ? null : AppColors.surface,
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Icon(
+        isUser ? Icons.person_rounded : Icons.smart_toy_rounded,
+        size: 16,
+        color: Colors.white,
       ),
     );
   }
 
   Widget _buildTypingIndicator() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, right: 48),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFFFF6B35), Color(0xFFF7931E)]),
-              borderRadius: BorderRadius.circular(99),
-            ),
-            child: const Center(child: Text('🍳', style: TextStyle(fontSize: 16))),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withOpacity(0.06), blurRadius: 8),
-              ],
-            ),
-            child: const Row(
-              children: [
-                _TypingDot(delay: 0),
-                SizedBox(width: 4),
-                _TypingDot(delay: 200),
-                SizedBox(width: 4),
-                _TypingDot(delay: 400),
-              ],
-            ),
+          _avatar(),
+          const SizedBox(width: 12),
+          const NeoGlassContainer(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Text('...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -292,119 +237,48 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildInputBar() {
     return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
-      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, -4)),
-        ],
+        color: AppColors.surface.withOpacity(0.8),
+        border: const Border(top: BorderSide(color: Colors.white10)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFAF7),
+                color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(25),
-                border:
-                    Border.all(color: const Color(0xFFFFE0D0), width: 1.5),
               ),
               child: TextField(
                 controller: _inputController,
                 onSubmitted: (_) => _sendMessage(),
-                maxLines: null,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+                style: AppStyles.bodyMedium.copyWith(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Ask about recipes...',
-                  hintStyle:
-                      TextStyle(color: Colors.grey[400], fontSize: 13),
+                  hintText: 'Type a message...',
+                  hintStyle: AppStyles.bodyMedium.copyWith(color: AppColors.textTertiary),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           GestureDetector(
             onTap: _sendMessage,
             child: Container(
-              width: 46,
-              height: 46,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFFFF6B35), Color(0xFFF7931E)]),
-                borderRadius: BorderRadius.circular(99),
+                shape: BoxShape.circle,
+                gradient: AppColors.primaryGradient,
                 boxShadow: [
-                  BoxShadow(
-                      color: const Color(0xFFFF6B35).withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4)),
+                  BoxShadow(color: AppColors.accent.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
-              child: const Icon(Icons.send_rounded,
-                  color: Colors.white, size: 20),
+              child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Animated typing dots
-class _TypingDot extends StatefulWidget {
-  final int delay;
-  const _TypingDot({required this.delay});
-
-  @override
-  State<_TypingDot> createState() => _TypingDotState();
-}
-
-class _TypingDotState extends State<_TypingDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _controller.repeat(reverse: true);
-    });
-    _animation = Tween(begin: 0.4, end: 1.0).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: Container(
-        width: 7,
-        height: 7,
-        decoration: BoxDecoration(
-          color: Colors.grey[400],
-          shape: BoxShape.circle,
-        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,13 +16,12 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+        scaffoldBackgroundColor: AppColors.background,
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFF6B35),
-          secondary: Color(0xFFF7931E),
-          surface: Color(0xFF140A00),
+          primary: AppColors.accent,
+          secondary: AppColors.secondary,
+          surface: AppColors.surface,
         ),
-        fontFamily: 'Poppins',
         useMaterial3: true,
       ),
       home: const LoginScreen(),

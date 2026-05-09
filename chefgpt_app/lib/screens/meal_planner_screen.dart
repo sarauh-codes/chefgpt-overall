@@ -1,10 +1,11 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../constants.dart';
+import '../theme/app_theme.dart';
+import '../widgets/neo_glass_container.dart';
+import '../widgets/dashboard/aurora_painter.dart';
 import 'login_screen.dart';
 import 'recipe_detail_screen.dart';
 
@@ -15,7 +16,7 @@ class MealPlannerScreen extends StatefulWidget {
   State<MealPlannerScreen> createState() => _MealPlannerScreenState();
 }
 
-class _MealPlannerScreenState extends State<MealPlannerScreen> {
+class _MealPlannerScreenState extends State<MealPlannerScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _maxCalController = TextEditingController();
   final TextEditingController _minRatingController = TextEditingController();
 
@@ -31,11 +32,9 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
   bool _loadingMeta = true;
   bool _loadingAction = false;
   String _error = '';
-
-  static const Color _accent = Color(0xFFFF6B35);
+  late AnimationController _auroraController;
 
   bool get _usingBaseMode => _baseIngredient.trim().isNotEmpty;
-
   bool get _usingOtherMode {
     final hasCuisine = _selectedCuisine != null && _selectedCuisine!.trim().isNotEmpty;
     final hasMaxCal = _maxCalController.text.trim().isNotEmpty;
@@ -44,26 +43,19 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
     return hasCuisine || hasMaxCal || hasMinRating || hasDifficulty;
   }
 
-  Future<String> _token() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token') ?? '';
-  }
-
-  Map<String, String> _authHeaders(String token) {
-    return {
-      'Content-Type': 'application/json',
-      if (token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
-
   @override
   void initState() {
     super.initState();
+    _auroraController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 16),
+    )..repeat();
     _loadMeta();
   }
 
   @override
   void dispose() {
+    _auroraController.dispose();
     _maxCalController.dispose();
     _minRatingController.dispose();
     super.dispose();
@@ -74,22 +66,20 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
       _loadingMeta = true;
       _error = '';
     });
-    final token = await _token();
-    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
     try {
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/api/meal-plan-week'),
-            headers: _authHeaders(token),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/meal-plan-week'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
         }
         return;
       }
@@ -99,29 +89,22 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
         return;
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final cuisines = List<String>.from(data['cuisines'] ?? []);
+      final data = jsonDecode(response.body);
       final saved = data['saved_plan'];
       List<Map<String, dynamic>> rows = [];
-      String? expiry;
-      if (saved != null &&
-          saved is Map &&
-          saved['plan'] is List &&
-          (saved['plan'] as List).length == 7) {
+      if (saved != null && saved is Map && saved['plan'] is List) {
         rows = List<Map<String, dynamic>>.from(
-          (saved['plan'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+          (saved['plan'] as List).map((e) => Map<String, dynamic>.from(e as Map))
         );
-        expiry = saved['expires_display'] as String?;
       }
 
       setState(() {
-        _cuisines = cuisines;
-        _mealPlanValidDays = data['meal_plan_valid_days'] is int
-            ? data['meal_plan_valid_days'] as int
-            : 7;
+        _cuisines = List<String>.from(data['cuisines'] ?? []);
+        _mealPlanValidDays = data['meal_plan_valid_days'] ?? 7;
         _days = rows;
-        _expiryBanner =
-            expiry != null && expiry.isNotEmpty ? 'Clears on $expiry.' : null;
+        _expiryBanner = (saved != null && saved is Map && saved['expires_display'] != null) 
+            ? 'Clears on ${saved['expires_display']}' 
+            : null;
       });
     } catch (e) {
       setState(() => _error = 'Cannot connect to server.');
@@ -136,81 +119,48 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
       _error = '';
       _notice = null;
     });
-    final token = await _token();
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
     try {
       final payload = <String, dynamic>{
         'difficulty': _usingBaseMode ? 'any' : _difficulty,
       };
-      if (!_usingBaseMode &&
-          _selectedCuisine != null &&
-          _selectedCuisine!.trim().isNotEmpty) {
-        payload['cuisine'] = _selectedCuisine!.trim();
-      }
-      final mc = _maxCalController.text.trim();
-      if (!_usingBaseMode && mc.isNotEmpty) {
-        final c = int.tryParse(mc);
-        if (c != null) {
-          payload['max_calories'] = c;
-        }
-      }
-      final mr = _minRatingController.text.trim();
-      if (!_usingBaseMode && mr.isNotEmpty) {
-        final r = double.tryParse(mr);
-        if (r != null) payload['min_rating'] = r;
-      }
-      if (_usingBaseMode) {
-        payload['base_ingredient'] = _baseIngredient.trim();
+      
+      if (!_usingBaseMode) {
+        if (_selectedCuisine != null) payload['cuisine'] = _selectedCuisine;
+        
+        final maxCal = int.tryParse(_maxCalController.text);
+        if (maxCal != null) payload['max_calories'] = maxCal;
+        
+        final minRating = double.tryParse(_minRatingController.text);
+        if (minRating != null) payload['min_rating'] = minRating;
+      } else {
+        payload['base_ingredient'] = _baseIngredient;
       }
 
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/api/meal-plan-week'),
-            headers: _authHeaders(token),
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 25));
-
-      if (response.statusCode == 401) {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-        }
-        return;
-      }
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/meal-plan-week'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(payload),
+      );
 
       final data = jsonDecode(response.body);
-      if (response.statusCode == 400) {
-        final err = data is Map ? (data['error'] ?? '') : '';
-        final avail = data is Map && data['available'] != null
-            ? ' (${data['available']} recipe(s) match.)'
-            : '';
-        setState(() => _error = '$err$avail'.trim());
-        return;
+      if (response.statusCode == 200 && data is Map && data['plan'] is List) {
+        setState(() {
+          _days = List<Map<String, dynamic>>.from(
+            (data['plan'] as List).map((e) => Map<String, dynamic>.from(e as Map))
+          );
+          _expiryBanner = data['expires_display'] != null ? 'Clears on ${data['expires_display']}' : null;
+          _notice = data['notice'];
+        });
+      } else {
+        setState(() => _error = data['error'] ?? 'Could not build meal plan.');
       }
-
-      if (response.statusCode != 200 ||
-          data is! Map ||
-          data['plan'] is! List) {
-        setState(() => _error = 'Could not build a meal plan.');
-        return;
-      }
-
-      final plan = List<Map<String, dynamic>>.from(
-        (data['plan'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
-      );
-      setState(() {
-        _days = plan;
-        _expiryBanner = data['expires_display'] != null
-            ? 'Clears on ${data['expires_display']}.'
-            : _expiryBanner;
-        _notice =
-            data['notice'] is String ? data['notice'] as String : null;
-      });
-
     } catch (e) {
-      setState(() => _error = 'Network error. Try again.');
+      setState(() => _error = 'Network error.');
     } finally {
       if (mounted) setState(() => _loadingAction = false);
     }
@@ -221,22 +171,16 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
       _loadingAction = true;
       _error = '';
     });
-    final token = await _token();
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/api/meal-plan-week'),
-        headers: _authHeaders(token),
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 401) {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-        }
-        return;
-      }
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
       if (response.statusCode == 200) {
         setState(() {
@@ -257,404 +201,341 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAF7),
-      appBar: AppBar(
-        title: const Text('Weekly Meal Planner'),
-        foregroundColor: Colors.white,
-        backgroundColor: _accent,
-        elevation: 0,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadMeta,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Plans respect your dietary settings (edit from the dashboard drawer). Saved for $_mealPlanValidDays days.',
-                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-              ),
-              const SizedBox(height: 16),
-              if (_notice != null && _notice!.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0FFF4),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF9AE6B4)),
-                  ),
-                  child: Text(
-                    _notice!,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.35,
-                      color: Color(0xFF14532D),
-                    ),
-                  ),
-                ),
-              if (_expiryBanner != null && _expiryBanner!.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F4FC),
-                    borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: Colors.blue.withOpacity(0.35)),
-                  ),
-                  child: Text(
-                    _expiryBanner!,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.35,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                ),
-              if (_error.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF5F5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _error,
-                    style: const TextStyle(
-                        fontSize: 13, color: Color(0xFF9B2C2C)),
-                  ),
-                ),
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.orange.withOpacity(0.12)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: _loadingMeta
-                      ? const Center(
-                          child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(color: _accent),
-                        ))
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            DropdownButtonFormField<String?>(
-                              decoration: const InputDecoration(
-                                  labelText: 'Cuisine', border: OutlineInputBorder()),
-                              isExpanded: true,
-                              hint: const Text('Any cuisine'),
-                              value: _selectedCuisine,
-                              items: [
-                                const DropdownMenuItem<String?>(
-                                    value: null, child: Text('Any cuisine')),
-                                ..._cuisines.map((c) => DropdownMenuItem<String?>(
-                                      value: c,
-                                      child: Text(c,
-                                          overflow: TextOverflow.ellipsis),
-                                    )),
-                              ],
-                              onChanged: (_loadingAction || _usingBaseMode)
-                                  ? null
-                                  : (v) => setState(() => _selectedCuisine = v),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _maxCalController,
-                              enabled: !_loadingAction && !_usingBaseMode,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Max calories per meal',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _minRatingController,
-                              enabled: !_loadingAction && !_usingBaseMode,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              decoration: const InputDecoration(
-                                labelText: 'Min rating (0–5)',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              decoration: const InputDecoration(
-                                  labelText: 'Difficulty',
-                                  border: OutlineInputBorder()),
-                              value: _difficulty,
-                              items: const [
-                                DropdownMenuItem(
-                                    value: 'any', child: Text('Any')),
-                                DropdownMenuItem(
-                                    value: 'easy', child: Text('Easy')),
-                                DropdownMenuItem(
-                                    value: 'medium', child: Text('Medium')),
-                                DropdownMenuItem(
-                                    value: 'hard', child: Text('Hard')),
-                              ],
-                              onChanged: (_loadingAction || _usingBaseMode)
-                                  ? null
-                                  : (v) => setState(
-                                      () => _difficulty = v ?? 'any'),
-                            ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              decoration: const InputDecoration(
-                                labelText: 'Base ingredient focus',
-                                border: OutlineInputBorder(),
-                              ),
-                              value: _baseIngredient,
-                              items: const [
-                                DropdownMenuItem(
-                                    value: '', child: Text('Any base')),
-                                DropdownMenuItem(
-                                    value: 'rice', child: Text('Rice')),
-                                DropdownMenuItem(
-                                    value: 'pasta', child: Text('Pasta')),
-                                DropdownMenuItem(
-                                    value: 'noodles', child: Text('Noodles')),
-                                DropdownMenuItem(
-                                    value: 'potato', child: Text('Potato')),
-                                DropdownMenuItem(
-                                    value: 'bread', child: Text('Bread')),
-                                DropdownMenuItem(
-                                    value: 'quinoa', child: Text('Quinoa')),
-                              ],
-                              onChanged: (_loadingAction || _usingOtherMode)
-                                  ? null
-                                  : (v) => setState(
-                                      () => _baseIngredient = v ?? ''),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Base ingredient mode and the other filters cannot be combined.',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: (_loadingMeta || _loadingAction)
-                          ? null
-                          : _randomizeWeek,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _accent,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      icon: _loadingAction
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.casino_outlined),
-                      label:
-                          Text(_loadingAction ? 'Working…' : 'Randomize week'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: (_loadingMeta || _loadingAction)
-                          ? null
-                          : _clearPlan,
-                      child: const Text('Clear'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Your week',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 17,
-                  color: Color(0xFF1A1A1A),
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (_loadingMeta)
-                const SizedBox.shrink()
-              else ..._days.isEmpty ? _placeholderRows() : _dayTiles(),
-            ],
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _auroraController,
+              builder: (context, child) => CustomPaint(painter: AuroraPainter(_auroraController.value)),
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _placeholderRows() {
-    const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    return days.map((d) => _tile(d, null)).toList();
-  }
-
-  List<Widget> _dayTiles() {
-    return _days
-        .map((m) => _tile(m['day']?.toString() ?? '', m))
-        .toList();
-  }
-
-  int? _recipeId(Map<String, dynamic> item) {
-    final raw = item['recipe_id'];
-    if (raw is int) return raw;
-    if (raw is double) return raw.round();
-    if (raw is String) return int.tryParse(raw);
-    return null;
-  }
-
-  String _recipeDisplayName(Map<String, dynamic> item) {
-    for (final key in const ['recipe_name', 'recipeName', 'name']) {
-      final v = item[key];
-      if (v != null) {
-        final s = v.toString().trim();
-        if (s.isNotEmpty) return s;
-      }
-    }
-    return 'Untitled recipe';
-  }
-
-  Widget _thumbPlaceholder56() {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(Icons.restaurant, color: Colors.grey[400]),
-    );
-  }
-
-  Widget _mealThumbnail(Map<String, dynamic> item) {
-    final url = (item['image_url'] ?? '').toString().trim();
-    final Widget thumb;
-    if (url.isNotEmpty) {
-      thumb = ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Image.network(
-          url,
-          width: 56,
-          height: 56,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _thumbPlaceholder56(),
-        ),
-      );
-    } else {
-      thumb = _thumbPlaceholder56();
-    }
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: thumb,
-    );
-  }
-
-  Widget _tile(String dayLabel, Map<String, dynamic>? item) {
-    final empty = item == null;
-    final rid = empty ? null : _recipeId(item!);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.white,
-        elevation: 1,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: empty || rid == null
-              ? null
-              : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RecipeDetailScreen(recipeId: rid),
-                    ),
-                  ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+          SafeArea(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  dayLabel,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    color: Colors.grey[800],
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (!empty) _mealThumbnail(item!),
-                    Expanded(
-                      child: empty
-                          ? Text(
-                              '—',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _recipeDisplayName(item),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    height: 1.25,
-                                    color: Color(0xFF1A1A1A),
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${item['cuisine'] ?? ''} · ${item['calories']} cal · ★ ${item['rating']}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
+                _buildAppBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFilterSection(),
+                        const SizedBox(height: 32),
+                        _buildSectionTitle('Your Weekly Plan'),
+                        const SizedBox(height: 16),
+                        if (_error.isNotEmpty) _buildErrorBanner(),
+                        if (_notice != null) _buildNoticeBanner(),
+                        if (_expiryBanner != null) _buildExpiryBanner(),
+                        const SizedBox(height: 16),
+                        ..._buildDayTiles(),
+                      ],
                     ),
-                    const Icon(Icons.chevron_right, color: Colors.black26),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
+  }
+
+  Widget _buildAppBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const SizedBox(width: 8),
+          Text('Meal Planner', style: AppStyles.h2),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSection() {
+    return NeoGlassContainer(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildCuisineDropdown(),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _buildTextField('Max Calories', _maxCalController, Icons.local_fire_department_rounded, enabled: !_usingBaseMode)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildTextField('Min Rating', _minRatingController, Icons.star_rounded, enabled: !_usingBaseMode)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildDifficultyDropdown(),
+          const SizedBox(height: 16),
+          _buildBaseIngredientDropdown(),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(child: _buildActionButton('RANDOMIZE', _randomizeWeek, isPrimary: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildActionButton('CLEAR', _clearPlan, isPrimary: false)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCuisineDropdown() {
+    return Opacity(
+      opacity: _usingBaseMode ? 0.4 : 1.0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Cuisine', style: AppStyles.caption),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: _selectedCuisine,
+                isExpanded: true,
+                dropdownColor: AppColors.surface,
+                hint: Text('Any Cuisine', style: AppStyles.bodyMedium.copyWith(color: Colors.white38)),
+                style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('Any Cuisine')),
+                  ..._cuisines.map((c) => DropdownMenuItem<String?>(value: c, child: Text(c))),
+                ],
+                onChanged: _usingBaseMode ? null : (v) => setState(() => _selectedCuisine = v),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDifficultyDropdown() {
+    return Opacity(
+      opacity: _usingBaseMode ? 0.4 : 1.0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Difficulty', style: AppStyles.caption),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _difficulty,
+                isExpanded: true,
+                dropdownColor: AppColors.surface,
+                style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+                items: ['any', 'easy', 'medium', 'hard'].map((i) => DropdownMenuItem(value: i, child: Text(i.toUpperCase()))).toList(),
+                onChanged: _usingBaseMode ? null : (v) => setState(() => _difficulty = v ?? 'any'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBaseIngredientDropdown() {
+    return Opacity(
+      opacity: _usingOtherMode ? 0.4 : 1.0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Base Ingredient Focus', style: AppStyles.caption),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _baseIngredient,
+                isExpanded: true,
+                dropdownColor: AppColors.surface,
+                style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+                items: ['', 'rice', 'pasta', 'noodles', 'potato', 'bread', 'quinoa'].map((i) => DropdownMenuItem(value: i, child: Text(i.isEmpty ? 'Any Base' : i.toUpperCase()))).toList(),
+                onChanged: _usingOtherMode ? null : (v) => setState(() => _baseIngredient = v ?? ''),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {bool enabled = true}) {
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppStyles.caption),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: TextField(
+              controller: controller,
+              enabled: enabled,
+              keyboardType: TextInputType.number,
+              style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+              decoration: InputDecoration(
+                prefixIcon: Icon(icon, color: AppColors.accent, size: 18),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String label, VoidCallback onTap, {required bool isPrimary}) {
+    return GestureDetector(
+      onTap: _loadingAction ? null : onTap,
+      child: Container(
+        height: 48,
+        decoration: isPrimary ? AppDecorations.primaryButton : BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white24),
+        ),
+        alignment: Alignment.center,
+        child: _loadingAction && isPrimary
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+            : Text(label, style: AppStyles.buttonText.copyWith(fontSize: 13)),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(title, style: AppStyles.h2.copyWith(fontSize: 20));
+  }
+
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+      child: Text(_error, style: AppStyles.caption.copyWith(color: Colors.redAccent)),
+    );
+  }
+
+  Widget _buildNoticeBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+      child: Text(_notice!, style: AppStyles.caption.copyWith(color: Colors.greenAccent)),
+    );
+  }
+
+  Widget _buildExpiryBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.timer_rounded, color: AppColors.accent, size: 16),
+          const SizedBox(width: 12),
+          Text(_expiryBanner!, style: AppStyles.caption.copyWith(color: AppColors.accent)),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildDayTiles() {
+    if (_days.isEmpty) {
+      final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return days.map((d) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: NeoGlassContainer(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Text(d, style: AppStyles.bodyLarge.copyWith(color: Colors.white38)),
+              const Spacer(),
+              const Icon(Icons.remove_circle_outline_rounded, color: Colors.white12, size: 16),
+            ],
+          ),
+        ),
+      )).toList();
+    }
+    return _days.map((day) => Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: () {
+          final ridRaw = day['recipe_id'];
+          final rid = int.tryParse(ridRaw.toString()) ?? 0;
+          if (rid > 0) Navigator.push(context, MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeId: rid)));
+        },
+        child: NeoGlassContainer(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // Recipe Thumbnail
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
+                  child: day['image_url'] != null && day['image_url'].toString().isNotEmpty
+                      ? Image.network(day['image_url'].toString(), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.restaurant_rounded, color: Colors.white24))
+                      : const Icon(Icons.restaurant_rounded, color: Colors.white24),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(day['day']?.toString().toUpperCase() ?? '', style: AppStyles.caption.copyWith(fontWeight: FontWeight.bold, color: AppColors.accent, fontSize: 10)),
+                    const SizedBox(height: 4),
+                    Text(day['recipe_name'] ?? 'No Recipe', style: AppStyles.bodyLarge.copyWith(fontSize: 14), overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text('${day['cuisine'] ?? 'Any'} · ${day['calories'] ?? '---'} cal', style: AppStyles.caption.copyWith(fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white24, size: 14),
+            ],
+          ),
+        ),
+      ),
+    )).toList();
   }
 }

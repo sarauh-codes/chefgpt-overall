@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
+import '../theme/app_theme.dart';
+import '../widgets/neo_glass_container.dart';
 
 class ChatFab extends StatelessWidget {
   const ChatFab({super.key});
@@ -24,16 +26,24 @@ class ChatFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton(
-      backgroundColor: const Color(0xFFFF6B35),
-      onPressed: () {
-        if (_isOpen) {
-          hide();
-        } else {
-          show(context);
-        }
-      },
-      child: const Icon(Icons.chat_bubble_rounded, color: Colors.white),
+    return GestureDetector(
+      onTap: () => _isOpen ? hide() : show(context),
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: AppColors.primaryGradient,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.forum_rounded, color: Colors.white, size: 28),
+      ),
     );
   }
 }
@@ -46,8 +56,7 @@ class _ChatPanel extends StatefulWidget {
   State<_ChatPanel> createState() => _ChatPanelState();
 }
 
-class _ChatPanelState extends State<_ChatPanel>
-    with SingleTickerProviderStateMixin {
+class _ChatPanelState extends State<_ChatPanel> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
@@ -57,14 +66,14 @@ class _ChatPanelState extends State<_ChatPanel>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 400),
     );
     _slideAnimation = Tween<Offset>(
       begin: const Offset(1.0, 0.0),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 0.4).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutQuart));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
     _controller.forward();
   }
@@ -83,23 +92,19 @@ class _ChatPanelState extends State<_ChatPanel>
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    final panelWidth = screenSize.width * 0.85 > 380 ? 380.0 : screenSize.width * 0.85;
+    final panelWidth = screenSize.width * 0.85 > 400 ? 400.0 : screenSize.width * 0.85;
 
     return Stack(
       children: [
-        // Dim background
+        // Backdrop
         FadeTransition(
           opacity: _fadeAnimation,
           child: GestureDetector(
             onTap: _close,
-            child: Container(
-              width: screenSize.width,
-              height: screenSize.height,
-              color: Colors.black,
-            ),
+            child: Container(color: Colors.black.withOpacity(0.6)),
           ),
         ),
-        // Slide-in panel from right
+        // Side Panel
         Positioned(
           right: 0,
           top: 0,
@@ -108,59 +113,12 @@ class _ChatPanelState extends State<_ChatPanel>
           child: SlideTransition(
             position: _slideAnimation,
             child: Material(
-              elevation: 16,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                bottomLeft: Radius.circular(20),
-              ),
+              color: AppColors.surface,
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(32), bottomLeft: Radius.circular(32)),
               clipBehavior: Clip.hardEdge,
               child: Column(
                 children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 48, 8, 12),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFFF6B35), Color(0xFFFF9A5C)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.25),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.restaurant_menu,
-                              color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 10),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Ask ChefGPT',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16)),
-                            Text('AI Cooking Assistant',
-                                style: TextStyle(
-                                    color: Colors.white70, fontSize: 12)),
-                          ],
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: _close,
-                          icon: const Icon(Icons.close, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Chat content
+                  _buildHeader(),
                   const Expanded(child: ChatScreen(isEmbedded: true)),
                 ],
               ),
@@ -168,6 +126,42 @@ class _ChatPanelState extends State<_ChatPanel>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 60, 16, 20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: const Border(bottom: BorderSide(color: Colors.white10)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.accent.withOpacity(0.1),
+            ),
+            child: const Icon(Icons.auto_awesome_rounded, color: AppColors.accent, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ChefGPT AI', style: AppStyles.h2.copyWith(fontSize: 18)),
+                Text('Online Assistant', style: AppStyles.caption.copyWith(color: Colors.greenAccent)),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _close,
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+          ),
+        ],
+      ),
     );
   }
 }

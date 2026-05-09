@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/neo_glass_container.dart';
 
 class DietaryDrawer extends StatefulWidget {
   const DietaryDrawer({super.key});
@@ -134,13 +137,11 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF22c55e), Color(0xFF16a34a)],
-                ),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.green.withOpacity(0.35),
+                    color: AppColors.accent.withOpacity(0.35),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
@@ -182,23 +183,29 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
       initialChildSize: 0.85,
       minChildSize: 0.5,
       maxChildSize: 0.95,
-      builder: (_, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            _buildHandle(),
-            _buildHeader(),
-            const Divider(height: 1),
-            Expanded(
-              child: _isLoadingProfile
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFFFF6B35)))
-                  : _buildContent(scrollController),
+      builder: (_, scrollController) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.background.withOpacity(0.85),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              border: const Border(top: BorderSide(color: AppColors.glassBorder, width: 1.5)),
             ),
-          ],
+            child: Column(
+              children: [
+                _buildHandle(),
+                _buildHeader(),
+                Expanded(
+                  child: _isLoadingProfile
+                      ? const Center(
+                          child: CircularProgressIndicator(color: AppColors.accent))
+                      : _buildContent(scrollController),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -211,7 +218,7 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
         width: 40,
         height: 4,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          color: Colors.white10,
           borderRadius: BorderRadius.circular(99),
         ),
       ),
@@ -220,23 +227,14 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('🥗 Dietary Settings',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F0F0),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: const Icon(Icons.close_rounded, size: 18, color: Colors.black54),
-            ),
+          Text('🥗 Dietary Settings', style: AppStyles.h2.copyWith(fontSize: 20)),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: Colors.white54),
           ),
         ],
       ),
@@ -246,47 +244,40 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
   Widget _buildContent(ScrollController scrollController) {
     return ListView(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
       children: [
         Text(
           'Your settings affect which recipes we recommend to you.',
-          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          style: AppStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         if (_alertMessage.isNotEmpty) _buildAlert(),
         _sectionLabel('🍽️ Diet Type'),
-        const SizedBox(height: 6),
-        Text('Choose the diet that best describes you.',
-            style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 2.5,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 2.2,
           children: _dietOptions.map((opt) => _dietOption(opt)).toList(),
         ),
-        const SizedBox(height: 20),
-        const Divider(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 32),
         _sectionLabel('⚠️ Allergies'),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Text('Will be filtered out from recommendations.',
-            style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        const SizedBox(height: 10),
+            style: AppStyles.caption.copyWith(color: AppColors.textTertiary)),
+        const SizedBox(height: 12),
         _inputField(_allergiesController, 'e.g. peanuts, shellfish, gluten'),
-        const SizedBox(height: 20),
-        const Divider(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 32),
         _sectionLabel('🚫 Forbidden Ingredients'),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Text('Personal dislikes — not allergies.',
-            style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        const SizedBox(height: 10),
+            style: AppStyles.caption.copyWith(color: AppColors.textTertiary)),
+        const SizedBox(height: 12),
         _inputField(_forbiddenController, 'e.g. coriander, anchovies'),
-        const SizedBox(height: 28),
+        const SizedBox(height: 40),
         _buildButtons(),
       ],
     );
@@ -294,28 +285,16 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
 
   Widget _buildAlert() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _alertSuccess
-            ? const Color(0xFF4ade80).withOpacity(0.12)
-            : const Color(0xFFf87171).withOpacity(0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: _alertSuccess
-              ? const Color(0xFF4ade80).withOpacity(0.3)
-              : const Color(0xFFf87171).withOpacity(0.3),
-        ),
+        color: _alertSuccess ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _alertSuccess ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3)),
       ),
       child: Text(
         _alertMessage,
-        style: TextStyle(
-          fontSize: 13,
-          color: _alertSuccess
-              ? const Color(0xFF276749)
-              : const Color(0xFF9B2C2C),
-          fontWeight: FontWeight.w500,
-        ),
+        style: TextStyle(color: _alertSuccess ? Colors.greenAccent : Colors.redAccent, fontSize: 13),
       ),
     );
   }
@@ -327,46 +306,33 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
           child: GestureDetector(
             onTap: _isSaving ? null : _saveDietaryProfile,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFFFF6B35), Color(0xFFF7931E)]),
-                borderRadius: BorderRadius.circular(25),
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF6B35).withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 4),
-                  ),
+                  BoxShadow(color: AppColors.accent.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 4)),
                 ],
               ),
               child: Center(
                 child: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Text('💾 Save & Apply',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600)),
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text('Save & Apply', style: AppStyles.h3.copyWith(color: Colors.white)),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         GestureDetector(
           onTap: () => Navigator.pop(context),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F0F0),
-              borderRadius: BorderRadius.circular(25),
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.glassBorder),
             ),
-            child: const Text('Cancel',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            child: Text('Cancel', style: AppStyles.bodyMedium.copyWith(color: Colors.white70)),
           ),
         ),
       ],
@@ -374,38 +340,28 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
   }
 
   Widget _sectionLabel(String text) {
-    return Text(text,
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700));
+    return Text(text, style: AppStyles.h3);
   }
 
   Widget _dietOption(Map<String, String> opt) {
     final selected = _selectedDiet == opt['value'];
     return GestureDetector(
       onTap: () => setState(() => _selectedDiet = opt['value']!),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFF3EE) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? const Color(0xFFFF6B35) : const Color(0xFFFFE0D0),
-            width: selected ? 2 : 1.5,
-          ),
-        ),
+      child: NeoGlassContainer(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        borderColor: selected ? AppColors.accent : AppColors.glassBorder,
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(opt['label']!,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: selected
-                        ? const Color(0xFFFF6B35)
-                        : const Color(0xFF1A1A1A))),
+                style: AppStyles.caption.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: selected ? Colors.white : AppColors.textSecondary)),
+            const SizedBox(height: 4),
             Text(opt['desc']!,
-                style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                style: AppStyles.caption.copyWith(fontSize: 10, color: AppColors.textTertiary)),
           ],
         ),
       ),
@@ -413,31 +369,22 @@ class _DietaryDrawerState extends State<DietaryDrawer> {
   }
 
   Widget _inputField(TextEditingController controller, String hint) {
-    return Focus(
-      child: Builder(builder: (ctx) {
-        final focused = Focus.of(ctx).hasFocus;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: focused ? const Color(0xFFFF6B35) : const Color(0xFFE0E0E0),
-              width: 2,
-            ),
-          ),
-          child: TextField(
-            controller: controller,
-            style: const TextStyle(fontSize: 14),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-              border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-          ),
-        );
-      }),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: TextField(
+        controller: controller,
+        style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: AppStyles.bodyMedium.copyWith(color: AppColors.textTertiary),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        ),
+      ),
     );
   }
 }
