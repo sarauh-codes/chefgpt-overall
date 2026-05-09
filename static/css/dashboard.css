@@ -316,55 +316,183 @@ body.dark-theme .theme-switch {
   transition: all 0.3s;
 }
 
-/* ===== ANALYTICS ===== */
-.analytics-grid {
+/* ===== COMPACT ANALYTICS SYSTEM ===== */
+.compact-dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin: 0 auto 48px;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 20px;
+  margin: 0 auto 24px;
   max-width: 1180px;
 }
 
-.analytics-card {
+.compact-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 20px;
+  padding: 18px;
+  height: 100%;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.02);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }
 
-.analytics-card-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
-.analytics-card-value {
-  font-size: 24px;
+.compact-card h3 {
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
 }
 
-.analytics-card-sub {
-  font-size: 12px;
-  color: var(--brand);
-  font-weight: 500;
+.trend-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 99px;
+  text-transform: uppercase;
 }
+.trend-badge.community { background: rgba(255, 107, 53, 0.1); color: var(--brand); }
+.trend-badge.premium { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+
+.mini-recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mini-recipe-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px;
+  background: var(--panel-2);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mini-recipe-item:hover {
+  background: var(--brand-soft);
+  transform: translateX(4px);
+}
+
+.mini-recipe-item img {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.mini-recipe-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.mini-recipe-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.mini-recipe-meta {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* VISUAL ANALYTICS */
+.analytics-visual {
+  background: linear-gradient(135deg, var(--panel) 0%, #fcfcfc 100%);
+}
+
+.growth-indicator {
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.growth-indicator.up { color: #10b981; }
+.growth-indicator.down { color: #ef4444; }
+.growth-indicator span { color: var(--muted); font-weight: 400; font-size: 9px; }
+
+.chart-container {
+  flex: 1;
+  min-height: 80px;
+  max-height: 100px;
+  margin: 10px 0;
+}
+
+.behavior-insight-text {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+/* STATS ROW FOOTER */
+.stats-row-footer {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  max-width: 1180px;
+  margin: 0 auto 48px;
+  background: var(--panel);
+  padding: 12px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.stat-bubble {
+  display: flex;
+  flex-direction: column;
+}
+
+.bubble-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.bubble-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.chef-tip-inline {
+  flex: 1;
+  background: var(--brand-soft);
+  padding: 6px 16px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 107, 53, 0.1);
+}
+
+.tip-icon { font-size: 14px; }
+.tip-text { font-size: 11px; color: var(--text); }
 
 @media (max-width: 900px) {
-  .analytics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 500px) {
-  .analytics-grid {
+  .compact-dashboard-grid {
     grid-template-columns: 1fr;
+  }
+  .stats-row-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

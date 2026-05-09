@@ -486,25 +486,148 @@ def dashboard():
     recipes = df_shuffled.to_dict('records')
     
     # User Analytics
-    cooked_count = CookedRecipe.query.filter_by(user_id=current_user.id).count()
+    cooked_records = CookedRecipe.query.filter_by(user_id=current_user.id).order_by(CookedRecipe.cooked_at.desc()).all()
+    cooked_count = len(cooked_records)
     saved_count = SavedRecipe.query.filter_by(user_id=current_user.id).count()
     feedback_count = Feedback.query.filter_by(user_id=current_user.id).count()
     
-    # Calculate favorite cuisine from cooked recipes
+    # User-Specific Stats
+    cooked_records = CookedRecipe.query.filter_by(user_id=current_user.id).order_by(CookedRecipe.cooked_at.desc()).all()
+    cooked_count = len(cooked_records)
+    saved_count = SavedRecipe.query.filter_by(user_id=current_user.id).count()
+    feedback_count = Feedback.query.filter_by(user_id=current_user.id).count()
+    
     favorite_cuisine = "None yet"
-    cooked_records = CookedRecipe.query.filter_by(user_id=current_user.id).all()
+    cuisine_diversity = 0
+    avg_calories = 0
+    recent_cooked = []
+    
     if cooked_records:
         cooked_ids = [r.recipe_id for r in cooked_records]
-        # Map IDs to cuisines using the dataframe
         cooked_df = recommender.df[recommender.df['recipe_id'].isin(cooked_ids)]
-        if not cooked_df.empty and 'cuisine' in cooked_df.columns:
-            favorite_cuisine = cooked_df['cuisine'].mode().iloc[0] if not cooked_df['cuisine'].mode().empty else "Various"
+        if not cooked_df.empty:
+            if 'cuisine' in cooked_df.columns:
+                favorite_cuisine = cooked_df['cuisine'].mode().iloc[0] if not cooked_df['cuisine'].mode().empty else "Various"
+                unique_cuisines_cooked = cooked_df['cuisine'].nunique()
+                total_cuisines = recommender.df['cuisine'].nunique()
+                cuisine_diversity = round((unique_cuisines_cooked / total_cuisines) * 100) if total_cuisines > 0 else 0
+            if 'calories' in cooked_df.columns:
+                avg_calories = round(cooked_df['calories'].mean())
+        
+        seen_ids = set()
+        for r in cooked_records:
+            if r.recipe_id not in seen_ids:
+                recent_cooked.append({'id': r.recipe_id, 'name': r.recipe_name, 'date': r.cooked_at.strftime("%b %d")})
+                seen_ids.add(r.recipe_id)
+                if len(recent_cooked) >= 3: break
+
+    cooking_level = "Kitchen Novice"
+    if cooked_count >= 15: cooking_level = "Master Chef"
+    elif cooked_count >= 5: cooking_level = "Sous Chef"
+    elif cooked_count > 0: cooking_level = "Rising Star"
+
+    # Advanced Behavior Analytics & Trends
+    now = datetime.utcnow()
+    last_7_days = now - timedelta(days=7)
+    prev_7_days = now - timedelta(days=14)
+    
+    # 1. Weekly Activity Trends (User-specific)
+    current_week_count = CookedRecipe.query.filter(
+        CookedRecipe.user_id == current_user.id,
+        CookedRecipe.cooked_at >= last_7_days
+    ).count()
+    
+    previous_week_count = CookedRecipe.query.filter(
+        CookedRecipe.user_id == current_user.id,
+        CookedRecipe.cooked_at >= prev_7_days,
+        CookedRecipe.cooked_at < last_7_days
+    ).count()
+    
+    # Growth Calculation
+    growth_pct = 0
+    if previous_week_count > 0:
+        growth_pct = round(((current_week_count - previous_week_count) / previous_week_count) * 100)
+    elif current_week_count > 0:
+        growth_pct = 100 # First week activity
+
+    # 2. Daily Pattern (for Activity Chart)
+    # Get count per weekday for the last 30 days
+    last_30_days = now - timedelta(days=30)
+    activity_query = db.session.query(
+        db.func.strftime('%w', CookedRecipe.cooked_at).label('weekday'),
+        db.func.count(CookedRecipe.id).label('count')
+    ).filter(
+        CookedRecipe.user_id == current_user.id,
+        CookedRecipe.cooked_at >= last_30_days
+    ).group_by('weekday').all()
+    
+    # Initialize weekday map (0=Sun, 6=Sat)
+    weekday_data = [0] * 7
+    for row in activity_query:
+        try:
+            day_idx = int(row.weekday)
+            weekday_data[day_idx] = row.count
+        except: continue
+
+    # 3. Informational Recipe Analytics (Existing Community Trends)
+    global_favorites = []
+    top_gems = []
+    community_stats = {'total': 0, 'popular_cuisine': 'Various', 'avg_rating': 0}
+    
+    try:
+        # Global Favorites
+        most_cooked_query = db.session.query(
+            CookedRecipe.recipe_id, 
+            CookedRecipe.recipe_name,
+            db.func.count(CookedRecipe.id).label('cook_count')
+        ).group_by(CookedRecipe.recipe_id, CookedRecipe.recipe_name).order_by(db.func.count(CookedRecipe.id).desc()).limit(3).all()
+        
+        for mc in most_cooked_query:
+            recipe_row = recommender.df[recommender.df['recipe_id'] == mc.recipe_id]
+            img_url = ""
+            if not recipe_row.empty:
+                img_url = str(recipe_row['image_url'].iloc[0]) if 'image_url' in recipe_row.columns else ""
+            global_favorites.append({'id': mc.recipe_id, 'name': mc.recipe_name, 'count': mc.cook_count, 'image': img_url})
+
+        # Top Rated Gems
+        temp_df = recommender.df.copy()
+        temp_df['rating_num'] = pd.to_numeric(temp_df['rating'], errors='coerce')
+        top_rated_df = temp_df.sort_values(by='rating_num', ascending=False).head(3)
+        
+        for _, row in top_rated_df.iterrows():
+            top_gems.append({
+                'id': int(row['recipe_id']),
+                'name': row['recipe_name'],
+                'rating': row['rating_num'],
+                'cuisine': row['cuisine'],
+                'image': str(row.get('image_url', ''))
+            })
+
+        # Community Stats
+        community_stats['total'] = len(recommender.df)
+        if not recommender.df.empty:
+            community_stats['popular_cuisine'] = recommender.df['cuisine'].mode().iloc[0] if not recommender.df['cuisine'].mode().empty else "Various"
+            community_stats['avg_rating'] = round(temp_df['rating_num'].mean(), 1)
+    except Exception as e:
+        print(f"Error calculating analytics: {e}")
 
     analytics = {
         'cooked': cooked_count,
         'saved': saved_count,
         'reviews': feedback_count,
-        'favorite_cuisine': favorite_cuisine
+        'favorite_cuisine': favorite_cuisine,
+        'cuisine_diversity': cuisine_diversity,
+        'avg_calories': avg_calories,
+        'recent_activity': recent_cooked,
+        'cooking_level': cooking_level,
+        'global_favorites': global_favorites,
+        'top_gems': top_gems,
+        'community_stats': community_stats,
+        'trends': {
+            'this_week': current_week_count,
+            'growth': growth_pct,
+            'weekday_activity': weekday_data
+        }
     }
     total_recipes = len(df)
 
