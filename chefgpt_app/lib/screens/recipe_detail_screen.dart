@@ -19,6 +19,7 @@ import 'dart:typed_data';
 import '../widgets/recipe/feedback_sheet.dart';
 import 'chat_screen.dart';
 import 'chat_fab.dart';
+import 'recipe_print_preview_screen.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -181,7 +182,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
             _buildMainContent(),
 
           // ── Top Glass Navigation ──
-          _buildTopNav(),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildTopNav(),
+          ),
         ],
       ),
     );
@@ -196,6 +202,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
           children: [
             GestureDetector(
               onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
               child: NeoGlassContainer(
                 padding: const EdgeInsets.all(10),
                 borderRadius: BorderRadius.circular(50),
@@ -206,6 +213,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
               children: [
                 GestureDetector(
                   onTap: _shareRecipe,
+                  behavior: HitTestBehavior.opaque,
                   child: NeoGlassContainer(
                     padding: const EdgeInsets.all(10),
                     borderRadius: BorderRadius.circular(50),
@@ -214,7 +222,18 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(
+                  onTap: _printRecipe,
+                  behavior: HitTestBehavior.opaque,
+                  child: NeoGlassContainer(
+                    padding: const EdgeInsets.all(10),
+                    borderRadius: BorderRadius.circular(50),
+                    child: const Icon(Icons.print_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
                   onTap: _isSaving ? null : _toggleSave,
+                  behavior: HitTestBehavior.opaque,
                   child: NeoGlassContainer(
                     padding: const EdgeInsets.all(10),
                     borderRadius: BorderRadius.circular(50),
@@ -235,7 +254,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   Widget _buildMainContent() {
-    final recipe = _recipe!;
+    final recipe = _recipe ?? {};
     final imgUrl = recipe['image_url']?.toString() ?? '';
 
     return Column(
@@ -410,7 +429,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
         NeoGlassContainer(
           padding: const EdgeInsets.all(20),
           child: Text(
-            'This premium ${(_recipe!['cuisine'] ?? 'general').toLowerCase()} dish is meticulously crafted for the best flavour experience. Follow the steps carefully to achieve chef-quality results.',
+            'This premium ${(_recipe?['cuisine'] ?? 'general').toLowerCase()} dish is meticulously crafted for the best flavour experience. Follow the steps carefully to achieve chef-quality results.',
             style: AppStyles.bodyMedium.copyWith(color: Colors.white70, height: 1.6),
           ),
         ),
@@ -421,11 +440,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   Widget _buildIngredientsTab() {
-    return _buildIngredientsList(_recipe!['ingredients'] ?? '');
+    return _buildIngredientsList(_recipe?['ingredients'] ?? '');
   }
 
   Widget _buildStepsTab() {
-    final raw = _recipe!['instructions'] ?? '';
+    final raw = _recipe?['instructions'] ?? '';
     final steps = splitRecipeInstructions(raw).where((s) => s.trim().isNotEmpty).toList();
     final visibleSteps = steps.take(3).toList();
     final hasMore = steps.length > 3;
@@ -472,7 +491,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
         if (hasMore) ...[
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CookingModeScreen(recipeId: widget.recipeId, recipe: _recipe!))),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CookingModeScreen(recipeId: widget.recipeId, recipe: _recipe ?? {}))),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20),
@@ -555,7 +574,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
 
   Widget _actionTile(IconData icon, String label, Color color, VoidCallback onTap, {bool isFull = false}) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        debugPrint('ChefGPT: $label button tapped');
+        onTap();
+      },
+      behavior: HitTestBehavior.opaque,
       child: NeoGlassContainer(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
         borderColor: color.withOpacity(0.3),
@@ -580,7 +603,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
 
   Widget _buildStartCookingBtn() {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CookingModeScreen(recipeId: widget.recipeId, recipe: _recipe!))),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CookingModeScreen(recipeId: widget.recipeId, recipe: _recipe ?? {}))),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 18),
@@ -622,7 +645,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
             const SizedBox(height: 16),
             Row(
               children: [
-                Text('${_recipe!['rating'] ?? '5.0'}', style: AppStyles.h1.copyWith(fontSize: 40)),
+                Text('${_recipe?['rating'] ?? '5.0'}', style: AppStyles.h1.copyWith(fontSize: 40)),
                 const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -698,43 +721,153 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   Future<void> _shareRecipe() async {
-    final recipe = _recipe!;
+    final recipe = _recipe ?? {};
     final shareUrl = '$baseUrl/recipe/${widget.recipeId}';
-    final text = '🍳 Check out this recipe: ${recipe['recipe_name']}!\n\n'
-        '🍽️ Cuisine: ${recipe['cuisine']}\n'
-        '🔥 Calories: ${recipe['calories']} cal\n'
-        '⭐ Rating: ${recipe['rating']}/5\n\n'
+    final text = '🍳 Check out this recipe: ${recipe['recipe_name'] ?? 'Recipe'}!\n\n'
+        '🍽️ Cuisine: ${recipe['cuisine'] ?? 'General'}\n'
+        '🔥 Calories: ${recipe['calories'] ?? 'N/A'} cal\n'
+        '⭐ Rating: ${recipe['rating'] ?? '5.0'}/5\n\n'
         'View the full recipe here:\n$shareUrl\n\n'
         'Shared from ChefGPT 👨‍🍳';
     
-    await Share.share(text, subject: recipe['recipe_name']);
+    await Share.share(text, subject: recipe['recipe_name']?.toString() ?? 'Recipe');
   }
 
   Future<void> _printRecipe() async {
-    final doc = await _buildPdfDocument();
-    await Printing.layoutPdf(onLayout: (_) async => doc.save());
+    final recipeData = _recipe;
+    if (recipeData == null) {
+      _showSnack('Recipe data is not ready.', isError: true);
+      return;
+    }
+    try {
+      _showSnack('Opening full preview...', isError: false);
+      final doc = await _buildPdfDocument(format: PdfPageFormat.a4);
+      
+      if (!mounted) return;
+      
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipePrintPreviewScreen(
+            doc: doc,
+            recipeName: recipeData['recipe_name']?.toString() ?? 'Recipe',
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Printing Error: $e');
+      _showSnack('Could not open preview: $e', isError: true);
+    }
   }
 
   Future<void> _downloadPdf() async {
-    final doc = await _buildPdfDocument();
-    await Printing.sharePdf(bytes: await doc.save(), filename: '${_recipe!['recipe_name']}.pdf');
+    final recipeData = _recipe;
+    if (recipeData == null) {
+      _showSnack('Recipe data is not ready.', isError: true);
+      return;
+    }
+    try {
+      _showSnack('Generating PDF...', isError: false);
+      final doc = await _buildPdfDocument(format: PdfPageFormat.a4);
+      final bytes = await doc.save();
+      await Printing.sharePdf(
+        bytes: bytes, 
+        filename: '${(recipeData['recipe_name']?.toString() ?? 'Recipe').replaceAll(' ', '_')}.pdf'
+      );
+    } catch (e) {
+      debugPrint('PDF Error: $e');
+      _showSnack('Could not generate PDF: $e', isError: true);
+    }
   }
 
-  Future<pw.Document> _buildPdfDocument() async {
-    final recipe = _recipe!;
-    final doc = pw.Document();
-    final ingredients = recipe['ingredients'].toString().split(',');
-    final steps = splitRecipeInstructions(recipe['instructions']);
+  String _stripEmojis(String text) {
+    return text.replaceAll(RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]', unicode: true), '');
+  }
 
-    doc.addPage(pw.MultiPage(build: (context) => [
-      pw.Text(recipe['recipe_name'], style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-      pw.SizedBox(height: 20),
-      pw.Text('Ingredients', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-      ...ingredients.map((i) => pw.Text('• ${i.trim()}')),
-      pw.SizedBox(height: 20),
-      pw.Text('Instructions', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-      ...steps.asMap().entries.map((e) => pw.Text('${e.key + 1}. ${e.value.trim()}')),
-    ]));
+  Future<pw.Document> _buildPdfDocument({PdfPageFormat format = PdfPageFormat.a4}) async {
+    final recipe = _recipe ?? {};
+    final doc = pw.Document();
+    
+    final name = _stripEmojis(recipe['recipe_name']?.toString() ?? 'Recipe');
+    final cuisine = _stripEmojis(recipe['cuisine']?.toString() ?? 'General');
+    final calories = recipe['calories']?.toString() ?? 'N/A';
+    
+    final ingList = (recipe['ingredients'] ?? '').toString()
+        .split(',')
+        .map((s) => _stripEmojis(s.trim()))
+        .where((s) => s.isNotEmpty)
+        .toList();
+        
+    final stepList = splitRecipeInstructions(recipe['instructions'])
+        .map((s) => _stripEmojis(s))
+        .toList();
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.all(40),
+        build: (pw.Context context) => [
+          pw.Container(
+            padding: const pw.EdgeInsets.only(bottom: 10),
+            decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.deepPurple, width: 2))),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(name, style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.deepPurple900)),
+                    pw.SizedBox(height: 4),
+                    pw.Row(
+                      children: [
+                        pw.Text(cuisine.toUpperCase(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                        pw.SizedBox(width: 15),
+                        pw.Text('$calories CALORIES', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.red700)),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.Text('ChefGPT', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.deepPurple)),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 20),
+          pw.Text('Ingredients', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 10),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: ingList.map((ing) => pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 4),
+              child: pw.Row(
+                children: [
+                  pw.Container(width: 4, height: 4, decoration: const pw.BoxDecoration(color: PdfColors.grey700, shape: pw.BoxShape.circle)),
+                  pw.SizedBox(width: 8),
+                  pw.Text(ing, style: const pw.TextStyle(fontSize: 11)),
+                ],
+              ),
+            )).toList(),
+          ),
+          pw.SizedBox(height: 25),
+          pw.Text('Instructions', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 10),
+          ...stepList.asMap().entries.map((e) => pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 12),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('${e.key + 1}. ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+                pw.Expanded(
+                  child: pw.Text(e.value, style: const pw.TextStyle(fontSize: 11, lineSpacing: 2)),
+                ),
+              ],
+            ),
+          )),
+          pw.SizedBox(height: 30),
+          pw.Divider(color: PdfColors.grey300),
+          pw.Text('Generated by ChefGPT AI Personal Assistant', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
+        ],
+      ),
+    );
     return doc;
   }
 

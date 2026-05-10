@@ -71,20 +71,9 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> with SingleTick
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      floatingActionButton: const ChatFab(),
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // ── Deep Immersive Background ──
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _auroraController,
-              builder: (context, child) => CustomPaint(
-                painter: AuroraPainter(_auroraController.value),
-              ),
-            ),
-          ),
-          
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,6 +109,8 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> with SingleTick
   }
 
   Widget _buildAppBar() {
+    final canPop = Navigator.canPop(context);
+    if (!canPop) return const SizedBox(height: 16);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: IconButton(

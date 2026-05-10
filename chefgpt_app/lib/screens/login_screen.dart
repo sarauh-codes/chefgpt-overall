@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_screen.dart';
+import 'main_screen.dart';
 import 'register_screen.dart';
 import '../theme/app_theme.dart';
 import '../constants.dart';
@@ -82,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
+            MaterialPageRoute(builder: (_) => const MainScreen()),
           );
         }
       } else {

@@ -316,14 +316,9 @@ class _RecommendScreenState extends State<RecommendScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: const ChatFab(),
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          Positioned.fill(child: AnimatedBuilder(
-            animation: _auroraController,
-            builder: (context, _) => CustomPaint(painter: AuroraPainter(_auroraController.value)),
-          )),
           SafeArea(
             child: Column(
               children: [
@@ -387,14 +382,16 @@ class _RecommendScreenState extends State<RecommendScreen>
   }
 
   Widget _buildHeader() {
+    final canPop = Navigator.canPop(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
+          if (canPop)
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
           const SizedBox(width: 8),
           Text('Recommendation', style: AppStyles.h2),
           const Spacer(),

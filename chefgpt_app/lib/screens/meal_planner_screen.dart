@@ -201,15 +201,9 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _auroraController,
-              builder: (context, child) => CustomPaint(painter: AuroraPainter(_auroraController.value)),
-            ),
-          ),
           SafeArea(
             child: Column(
               children: [
@@ -243,14 +237,16 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with SingleTicker
   }
 
   Widget _buildAppBar() {
+    final canPop = Navigator.canPop(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-            onPressed: () => Navigator.pop(context),
-          ),
+          if (canPop)
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
           const SizedBox(width: 8),
           Text('Meal Planner', style: AppStyles.h2),
         ],

@@ -1,12 +1,12 @@
-import '../constants.dart';
-import '../utils/recipe_format.dart';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants.dart';
+import '../utils/recipe_format.dart';
 import '../widgets/dashboard/aurora_painter.dart';
 import '../widgets/neo_glass_container.dart';
 import '../theme/app_theme.dart';
-import 'dart:ui';
 import 'chat_fab.dart';
 
 class CookingModeScreen extends StatefulWidget {
@@ -30,6 +30,7 @@ class _CookingModeScreenState extends State<CookingModeScreen>
   int _currentIndex = 0;
   bool _isMarkingCooked = false;
   bool _isDone = false;
+
 
   @override
   void initState() {
@@ -75,11 +76,12 @@ class _CookingModeScreenState extends State<CookingModeScreen>
     }
   }
 
-  void _showSnack(String msg) {
+  void _showSnack(String msg, {Color color = Colors.redAccent}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: Colors.redAccent,
+      backgroundColor: color,
       behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
   }
 
@@ -154,6 +156,7 @@ class _CookingModeScreenState extends State<CookingModeScreen>
     );
   }
 
+
   Widget _buildProgressBar() {
     final progress = (_currentIndex + 1) / _steps.length;
     return Padding(
@@ -213,15 +216,6 @@ class _CookingModeScreenState extends State<CookingModeScreen>
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.mic_none_rounded, color: Colors.white30, size: 16),
-                const SizedBox(width: 8),
-                Text('SAY "NEXT" TO CONTINUE', style: AppStyles.caption.copyWith(color: Colors.white24, letterSpacing: 1)),
-              ],
             ),
           ],
         ),

@@ -17,6 +17,8 @@ import 'cooking_history_screen.dart';
 import 'meal_planner_screen.dart';
 import 'chat_screen.dart';
 import 'chat_fab.dart';
+import 'recipe_detail_screen.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../constants.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -40,6 +42,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   bool _isLoadingTaste = true;
   bool _showTastePanel = false;
 
+  Map<String, dynamic> _userStats = {};
+  bool _isLoadingStats = true;
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     _loadUser();
     _loadRecipes();
     _fetchTasteProfile();
+    _fetchUserStats();
   }
 
   @override
@@ -115,6 +121,25 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     }
   }
 
+  Future<void> _fetchUserStats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/user-stats'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          _userStats = jsonDecode(response.body);
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoadingStats = false);
+    }
+  }
+
   void _searchRecipes(String query) {
     if (query.trim().isEmpty) {
       setState(() => _filteredRecipes = List.from(_allRecipes));
@@ -139,20 +164,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      floatingActionButton: const ChatFab(),
+      backgroundColor: Colors.transparent, // Let background show through
       body: Stack(
         children: [
-          // ── Animated Background ──
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _auroraController,
-              builder: (context, child) => CustomPaint(
-                painter: AuroraPainter(_auroraController.value),
-              ),
-            ),
-          ),
-
           // ── Main Content ──
           SafeArea(
             child: Column(
@@ -170,10 +184,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           const SizedBox(height: 12),
                           _buildEliteHero(),
                           const SizedBox(height: 32),
-                          _buildSectionHeader('Explore Culinary Excellence'),
-                          const SizedBox(height: 16),
-                          _buildCategories(),
-                          const SizedBox(height: 24),
+                          _buildCommunityTrends(),
+                          const SizedBox(height: 32),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: _buildSearchBar(),
@@ -268,43 +280,164 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     );
   }
 
+  Widget _buildCommunityTrends() {
+    if (_isLoadingStats) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTrendingSection(),
+        const SizedBox(height: 32),
+        _buildTopGemsSection(),
+      ],
+    );
+  }
+
+  Widget _buildTrendingSection() {
+    final trending = _userStats['global_favorites'] as List? ?? [];
+    if (trending.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              const Icon(Icons.trending_up_rounded, color: AppColors.accent, size: 20),
+              const SizedBox(width: 10),
+              Text('Trending Now', style: AppStyles.h3.copyWith(fontSize: 18)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 180,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: trending.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemBuilder: (_, i) => _trendCard(trending[i], isTrending: true),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopGemsSection() {
+    final gems = _userStats['top_gems'] as List? ?? [];
+    if (gems.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, color: Colors.amber, size: 20),
+              const SizedBox(width: 10),
+              Text('Top Rated Gems', style: AppStyles.h3.copyWith(fontSize: 18)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 180,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: gems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemBuilder: (_, i) => _trendCard(gems[i], isTrending: false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _trendCard(dynamic data, {required bool isTrending}) {
+    return GestureDetector(
+      onTap: () {
+        final rawId = data['id'];
+        if (rawId == null) return;
+        final id = rawId is int ? rawId : int.tryParse(rawId.toString()) ?? 0;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeId: id)),
+        );
+      },
+      child: NeoGlassContainer(
+        width: 150,
+        padding: EdgeInsets.zero,
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Image or Placeholder
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: (data['image'] != null && data['image'].toString().isNotEmpty)
+                  ? Image.network(
+                      data['image'],
+                      height: double.infinity,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: Colors.white10),
+                    )
+                  : Container(color: Colors.white10),
+            ),
+            // Gradient Overlay
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                ),
+              ),
+            ),
+            // Info
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data['name'] ?? '',
+                    style: AppStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (isTrending) ...[
+                        const Icon(Icons.people_rounded, size: 12, color: Colors.white70),
+                        const SizedBox(width: 4),
+                        Text('${data['count']} cooked', style: AppStyles.caption.copyWith(fontSize: 10)),
+                      ] else ...[
+                        const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                        const SizedBox(width: 4),
+                        Text('${data['rating']}', style: AppStyles.caption.copyWith(fontSize: 10)),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Text(title, style: AppStyles.h3.copyWith(fontSize: 18, color: Colors.white)),
-    );
-  }
-
-  Widget _buildCategories() {
-    final actions = [
-      {'title': 'Discovery', 'icon': Icons.auto_awesome_rounded, 'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => RecommendScreen()))},
-      {'title': 'Meal Plans', 'icon': Icons.calendar_today_rounded, 'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MealPlannerScreen()))},
-      {'title': 'Saved', 'icon': Icons.bookmark_rounded, 'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedRecipesScreen()))},
-      {'title': 'Journal', 'icon': Icons.history_rounded, 'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => CookingHistoryScreen()))},
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: actions.map((act) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: GestureDetector(
-            onTap: act['onTap'] as VoidCallback,
-            child: NeoGlassContainer(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              borderRadius: BorderRadius.circular(20),
-              child: Row(
-                children: [
-                  Icon(act['icon'] as IconData, color: AppColors.accent, size: 18),
-                  const SizedBox(width: 10),
-                  Text(act['title'] as String, style: AppStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-          ),
-        )).toList(),
-      ),
     );
   }
 
