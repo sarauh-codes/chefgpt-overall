@@ -45,6 +45,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   Map<String, dynamic> _userStats = {};
   bool _isLoadingStats = true;
 
+  Timer? _searchDebounce;
+  bool _isAiLoading = false;
+  List<Map<String, dynamic>> _aiSuggestions = [];
+
   @override
   void initState() {
     super.initState();
@@ -141,15 +145,75 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   void _searchRecipes(String query) {
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    
     if (query.trim().isEmpty) {
-      setState(() => _filteredRecipes = List.from(_allRecipes));
+      setState(() {
+        _filteredRecipes = List.from(_allRecipes);
+        _aiSuggestions = [];
+        _isAiLoading = false;
+      });
       return;
     }
-    setState(() {
-      _filteredRecipes = _allRecipes.where((recipe) {
-        final name = (recipe['name'] ?? '').toString().toLowerCase();
-        return name.contains(query.toLowerCase());
-      }).toList();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () async {
+      if (query.trim().length < 3) return;
+
+      setState(() {
+        _isLoadingRecipes = true;
+        _recipeError = '';
+        _aiSuggestions = [];
+      });
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('token') ?? '';
+        
+        // Stage 1: Local Search
+        final response = await http.get(
+          Uri.parse('$baseUrl/search-recipes?q=${Uri.encodeComponent(query)}'),
+          headers: {
+            if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          setState(() {
+            _filteredRecipes = List<Map<String, dynamic>>.from(data['recipes'] ?? []);
+            _isLoadingRecipes = false;
+            if (data['trigger_ai'] == true) {
+              _isAiLoading = true;
+            }
+          });
+
+          // Stage 2: AI Suggestions
+          if (data['trigger_ai'] == true) {
+            final aiRes = await http.get(
+              Uri.parse('$baseUrl/api/ai-search-suggestions?q=${Uri.encodeComponent(query)}'),
+              headers: {
+                if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+              },
+            );
+            
+            if (aiRes.statusCode == 200) {
+              final aiData = jsonDecode(aiRes.body);
+              setState(() {
+                _aiSuggestions = List<Map<String, dynamic>>.from(aiData['suggestions'] ?? []);
+                _isAiLoading = false;
+              });
+            } else {
+              setState(() => _isAiLoading = false);
+            }
+          }
+        }
+      } catch (e) {
+        setState(() {
+          _isLoadingRecipes = false;
+          _isAiLoading = false;
+          _recipeError = 'Search failed.';
+        });
+      }
     });
   }
 
@@ -533,19 +597,72 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
       );
     }
-    if (_filteredRecipes.isEmpty) {
+    
+    if (_filteredRecipes.isEmpty && !_isAiLoading && _aiSuggestions.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 60),
         child: Center(child: Text('No recipes found', style: AppStyles.bodyMedium.copyWith(color: Colors.white30))),
       );
     }
-    return ListView.separated(
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _filteredRecipes.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 20),
-      itemBuilder: (_, i) => RecipeCard(recipe: _filteredRecipes[i]),
+
+    return Column(
+      children: [
+        // Local Results
+        ListView.separated(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _filteredRecipes.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 20),
+          itemBuilder: (_, i) => RecipeCard(recipe: _filteredRecipes[i]),
+        ),
+
+        // AI Loader
+        if (_isAiLoading)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Column(
+              children: [
+                const Icon(Icons.smart_toy_rounded, color: Color(0xFF8B5CF6), size: 40),
+                const SizedBox(height: 16),
+                Text(
+                  'ChefGPT is cooking up new ideas...',
+                  style: AppStyles.caption.copyWith(color: const Color(0xFFA78BFA)),
+                ),
+                const SizedBox(height: 24),
+                const SizedBox(
+                  width: 100,
+                  child: LinearProgressIndicator(
+                    backgroundColor: Colors.white10,
+                    color: Color(0xFF8B5CF6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // AI Suggestions
+        if (_aiSuggestions.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6), size: 18),
+                const SizedBox(width: 8),
+                Text('CREATIVE IDEAS', style: AppStyles.h3.copyWith(color: const Color(0xFFA78BFA), fontSize: 14)),
+              ],
+            ),
+          ),
+          ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _aiSuggestions.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 20),
+            itemBuilder: (_, i) => RecipeCard(recipe: _aiSuggestions[i]),
+          ),
+        ],
+      ],
     );
   }
 

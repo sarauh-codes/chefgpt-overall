@@ -2470,19 +2470,45 @@ SUBSTITUTES = {
 @app.route("/get-substitute", methods=["POST"])
 @login_required
 def get_substitute():
-    data = request.get_json()
-    ingredient = data.get('ingredient', '').strip().lower()
-    subs = SUBSTITUTES.get(ingredient, [])
-    return jsonify({'ingredient': ingredient, 'substitutes': subs})
+    try:
+        data = request.get_json()
+        ingredient = data.get('ingredient', '').strip().lower()
+        
+        # 1. Check static list first for speed
+        static_subs = SUBSTITUTES.get(ingredient, [])
+        if static_subs:
+            return jsonify({'ingredient': ingredient, 'substitutes': static_subs})
+
+        # 2. If not in static, use AI magic
+        prompt = (
+            f"As a master chef, suggest 2-3 best culinary substitutes for '{ingredient}'. "
+            "For each substitute, provide a short reason or tip (max 10 words). "
+            "Return ONLY a JSON list of lists, like: [['sub1', 'tip1'], ['sub2', 'tip2']]"
+        )
+        
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=200
+        )
+        
+        content = response.choices[0].message.content
+        ai_data = json.loads(content)
+        # Handle different possible JSON structures from AI
+        subs = ai_data.get('substitutes', ai_data.get('results', list(ai_data.values())[0]))
+        
+        return jsonify({'ingredient': ingredient, 'substitutes': subs})
+    except Exception as e:
+        print(f"Sub Error: {e}")
+        return jsonify({'ingredient': ingredient, 'substitutes': []})
 
 # Mobile API version
 @app.route("/api/get-substitute", methods=["POST"])
 @jwt_required()
 def api_get_substitute():
-    data = request.get_json()
-    ingredient = data.get('ingredient', '').strip().lower()
-    subs = SUBSTITUTES.get(ingredient, [])
-    return jsonify({'ingredient': ingredient, 'substitutes': subs})
+    # Re-use the same logic for mobile
+    return get_substitute()
 
 # ==================== RUN ====================
 if __name__ == "__main__":

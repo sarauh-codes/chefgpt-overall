@@ -515,45 +515,151 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
 
   Widget _buildIngredientsList(String raw) {
     final list = raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final swappableKeywords = ['pork', 'wine', 'alcohol', 'beer', 'beef', 'chicken', 'meat', 'bacon', 'ham', 'lard', 'shrimp', 'crab', 'prawn', 'fish', 'tofu', 'cheese', 'milk', 'cream', 'butter', 'rum', 'brandy', 'vodka', 'whiskey', 'sauce'];
+
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: list.map((ing) {
         final isChecked = _checkedIngredients.contains(ing);
-        return GestureDetector(
-          onTap: () => setState(() {
-            if (isChecked) _checkedIngredients.remove(ing);
-            else _checkedIngredients.add(ing);
-          }),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            child: NeoGlassContainer(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              borderRadius: BorderRadius.circular(16),
-              borderColor: isChecked ? AppColors.accent : AppColors.glassBorder,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isChecked ? Icons.check_circle_rounded : Icons.circle_outlined,
-                    color: isChecked ? AppColors.accent : Colors.white30,
-                    size: 20,
+        final isSwappable = swappableKeywords.any((k) => ing.toLowerCase().contains(k));
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () => setState(() {
+                if (isChecked) _checkedIngredients.remove(ing);
+                else _checkedIngredients.add(ing);
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                child: NeoGlassContainer(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  borderRadius: BorderRadius.circular(16),
+                  borderColor: isChecked ? AppColors.accent : AppColors.glassBorder,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isChecked ? Icons.check_circle_rounded : Icons.circle_outlined,
+                        color: isChecked ? AppColors.accent : Colors.white30,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          ing,
+                          style: AppStyles.bodyMedium.copyWith(
+                            color: isChecked ? Colors.white : Colors.white70,
+                            decoration: isChecked ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ),
+                      if (isSwappable) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _showSwapSuggestions(ing),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+                            ),
+                            child: const Text(
+                              '✨ swap',
+                              style: TextStyle(color: AppColors.accent, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    ing,
-                    style: AppStyles.bodyMedium.copyWith(
-                      color: isChecked ? Colors.white : Colors.white70,
-                      decoration: isChecked ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         );
       }).toList(),
     );
+  }
+
+  void _showSwapSuggestions(String ingredient) async {
+    // Clean ingredient name
+    final cleanIngredient = ingredient.toLowerCase()
+        .replaceAll(RegExp(r'^\d+\s*(cup|tsp|tbsp|g|kg|ml|l|oz|lb|piece|clove|stalk|slice|can|jar|bottle|pack|bunch)\s+'), '')
+        .replaceAll(RegExp(r'[^a-z\s]'), '')
+        .trim();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => NeoGlassContainer(
+        padding: const EdgeInsets.all(24),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+        child: FutureBuilder(
+          future: _fetchAISubstitutes(cleanIngredient),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
+              );
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return const SizedBox(height: 100, child: Center(child: Text("No suggestions found")));
+            }
+
+            final subs = snapshot.data as List;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Substitutes for '$cleanIngredient'", style: AppStyles.h3),
+                const SizedBox(height: 20),
+                ...subs.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, color: AppColors.accent, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(s[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            Text(s[1], style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+                const SizedBox(height: 20),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<List> _fetchAISubstitutes(String ingredient) async {
+    final token = await _getToken();
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/get-substitute'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        body: jsonEncode({'ingredient': ingredient}),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['substitutes'] ?? [];
+      }
+    } catch (_) {}
+    return [];
   }
 
   Widget _buildModernActionButtons() {

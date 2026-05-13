@@ -95,16 +95,20 @@ function displayResults(recommendations) {
             if (pct >= 70) barColor = '#00b894';
             else if (pct >= 40) barColor = '#fdcb6e';
 
+            const swappableKeywords = ['pork', 'wine', 'alcohol', 'beer', 'beef', 'chicken', 'meat', 'bacon', 'ham', 'lard', 'shrimp', 'crab', 'prawn', 'fish', 'tofu', 'cheese', 'milk', 'cream', 'butter', 'rum', 'brandy', 'vodka', 'whiskey', 'sauce'];
+
             const missingHTML = missing.length > 0
                 ? `<div class="missing-info">
                     🛒 <strong>Still need:</strong>
-                    ${missing.map(m => `
-                        <span class="missing-tag-wrap">
+                    ${missing.map(m => {
+                        const isSwappable = swappableKeywords.some(k => m.toLowerCase().includes(k));
+                        return `
+                        <span class="missing-tag-wrap" style="display:inline-flex; align-items:center; gap:5px; margin-bottom:5px;">
                             <span class="missing-tag-item">${m}</span>
-                            <button class="swap-btn" onclick="getSubstitute('${m}', this)">swap?</button>
+                            ${isSwappable ? `<button class="swap-btn" onclick="getSubstitute('${m}', this)">swap?</button>` : ''}
                             <span class="sub-result"></span>
-                        </span>
-                    `).join('')}
+                        </span>`;
+                    }).join('')}
                    </div>`
                 : `<div class="missing-info all-good">✅ You have all ingredients!</div>`;
 
