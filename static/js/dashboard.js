@@ -28,7 +28,7 @@ function typePrompt() {
 
         if (charIndex === currentPrompt.length) {
             deleting = true;
-            setTimeout(typePrompt, 900);
+            setTimeout(typePrompt, 1500); // Wait longer at the end
             return;
         }
     } else {
@@ -37,19 +37,17 @@ function typePrompt() {
 
         if (charIndex === 0) {
             deleting = false;
-            promptIndex++;
-
-            if (promptIndex >= rotatingPrompts.length) {
-                promptIndex = 0;
-            }
+            promptIndex = (promptIndex + 1) % rotatingPrompts.length;
+            setTimeout(typePrompt, 500); // Brief pause before next
+            return;
         }
     }
 
-    const speed = deleting ? 18 : 28;
+    const speed = deleting ? 20 : 40;
     setTimeout(typePrompt, speed);
 }
 
-window.addEventListener("load", typePrompt);
+document.addEventListener("DOMContentLoaded", typePrompt);
 document.addEventListener('DOMContentLoaded', function () {
     const input = document.getElementById('dashChatInput');
     if (input) {
@@ -71,6 +69,8 @@ let displayedRecipeIds = new Set();
 let searchTimeout;
 let isSearching = false;
 let originalRecipes = '';
+let currentAiSuggestions = []; // Store AI results for quick view
+let searchController = null; // To abort previous requests
 
 // Wait 3 seconds, then hide all flash messages
 document.addEventListener("DOMContentLoaded", () => {
@@ -101,31 +101,57 @@ function safeAttr(s) {
 }
 
 function hasRecipeImage(url) {
-    const u = String(url ?? '').trim().toLowerCase();
-    return u.length > 0 && u !== 'nan' && u !== 'none';
+    const u = String(url ?? '').trim();
+    return u.length > 0 && u.toLowerCase() !== 'nan' && u.toLowerCase() !== 'none' && u !== 'AI_PLACEHOLDER';
 }
 
 // Helper to build a premium recipe card HTML
 function createRecipeCardHtml(recipe) {
     const difficultyIcon = recipe.difficulty === 'easy' ? '✅' : recipe.difficulty === 'medium' ? '⚡' : '🔥';
     const cookTime = recipe.cook_time != null ? String(recipe.cook_time) : '30';
-    
-    const imgInner = hasRecipeImage(recipe.image_url)
+
+    const imgInner = (hasRecipeImage(recipe.image_url) && !recipe.is_ai)
         ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">`
-        : `<div class="recipe-img-placeholder">🍽️</div>`;
+        : `<div class="recipe-img-placeholder"></div>`;
 
     return `
-        <div class="recipe-card">
+        <div class="recipe-card ${recipe.is_ai ? 'ai-suggestion-card' : ''}">
+            ${recipe.is_ai ? '<div class="ai-badge">AI Suggested</div>' : ''}
             <div class="recipe-card-img">
                 ${imgInner}
                 <div class="recipe-time-badge">⏱ ${escapeHtml(cookTime)} min</div>
             </div>
             <div class="recipe-card-body">
                 <div class="recipe-card-name">${escapeHtml(recipe.recipe_name)}</div>
-                <div class="recipe-card-meta">${escapeHtml(recipe.cuisine)} · ${escapeHtml(String(recipe.calories))} cal</div>
+                <div class="recipe-card-meta">${escapeHtml(recipe.cuisine)} ${recipe.calories !== '---' ? '· ' + escapeHtml(String(recipe.calories)) + ' cal' : ''}</div>
                 <div class="recipe-card-footer">
                     <span class="recipe-rating">⭐ ${escapeHtml(String(recipe.rating))}</span>
-                    <a href="/recipe/${recipe.recipe_id}" class="recipe-view-btn">View</a>
+                    ${recipe.is_ai
+            ? `<button onclick="viewAiRecipe('${recipe.recipe_id}')" class="recipe-view-btn" id="btn-${recipe.recipe_id}">View</button>`
+            : `<a href="/recipe/${recipe.recipe_id}" class="recipe-view-btn">View</a>`}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function createChatRecipeCardHtml(recipe) {
+    const cookTime = recipe.cook_time != null ? String(recipe.cook_time) : '30';
+    const imgInner = hasRecipeImage(recipe.image_url)
+        ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\' style=\'width:80px;height:80px;font-size:24px;\'>🍽️</div>'">`
+        : `<div class="recipe-img-placeholder" style="width:80px; height:80px; font-size:24px;">🍽️</div>`;
+
+    return `
+        <div class="chat-recipe-card" onclick="window.location.href='/recipe/${recipe.recipe_id}'" style="display: flex; gap: 12px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; transition: all 0.2s;">
+            <div class="chat-recipe-img" style="flex-shrink: 0;">
+                ${imgInner}
+            </div>
+            <div class="chat-recipe-info" style="flex-grow: 1; overflow: hidden;">
+                <div style="font-weight: 600; font-size: 14px; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(recipe.recipe_name)}</div>
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 6px;">${escapeHtml(recipe.cuisine)} · ${escapeHtml(String(recipe.calories))} cal · ⭐ ${escapeHtml(String(recipe.rating))}</div>
+                <div style="font-size: 11px; display: flex; align-items: center; gap: 4px; color: #ff6b35; font-weight: 600;">
+                    <span>View Recipe</span>
+                    <span style="font-size: 14px;">→</span>
                 </div>
             </div>
         </div>
@@ -163,9 +189,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Clear the flag so next fresh visit starts clean
     sessionStorage.removeItem(DASHBOARD_FROM_RECIPE);
 
-    // Save search + scroll and set flag when clicking View on a recipe
+    // Save search + scroll and set flag when clicking View on any recipe (regular or AI)
     recipeCatalog.addEventListener('click', function (event) {
-        const viewLink = event.target.closest('a.recipe-view-btn');
+        const viewLink = event.target.closest('.recipe-view-btn');
         if (!viewLink) return;
 
         if (searchBox) {
@@ -198,40 +224,108 @@ function searchRecipes(restoreScroll = false) {
     // Save search immediately so browser back keeps same result state
     sessionStorage.setItem(DASHBOARD_SEARCH_KEY, searchInput);
 
-    isSearching = true;
-    if (loadMoreContainer) loadMoreContainer.style.display = 'none';
+    // Show loader IMMEDIATELY on first keystroke if not already visible
+    if (!recipeCatalog.querySelector('.pan-loader-container')) {
+        recipeCatalog.innerHTML = `
+            <div class="pan-loader-container">
+                <div class="pan-loader">
+                    <div class="loader-food"></div>
+                    <div class="loader-pan-container">
+                        <div class="loader-pan"></div>
+                        <div class="loader-handle"></div>
+                    </div>
+                </div>
+                <div class="loader-text">ChefGPT is cooking</div>
+            </div>
+        `;
+    }
+    noResults.style.display = 'none';
 
     searchTimeout = setTimeout(async () => {
+        // Abort previous request if it's still running
+        if (searchController) {
+            searchController.abort();
+        }
+        searchController = new AbortController();
+        const signal = searchController.signal;
+
         try {
-            const response = await fetch('/search-recipes?q=' + encodeURIComponent(searchInput));
-
-            if (!response.ok) {
-                throw new Error('Search failed');
-            }
-
+            // STEP 1: Fetch local results (Instant)
+            const response = await fetch('/search-recipes?q=' + encodeURIComponent(searchInput), { signal });
+            if (!response.ok) throw new Error('Search failed');
             const data = await response.json();
 
-            recipeCatalog.innerHTML = '';
+            // Only clear and show if this is still the active search
+            if (signal.aborted) return;
 
-            if (data.recipes.length === 0) {
-                recipeCatalog.style.display = 'none';
-                noResults.style.display = 'block';
-            } else {
+            recipeCatalog.innerHTML = '';
+            const hasRecipes = data.recipes && data.recipes.length > 0;
+
+            if (hasRecipes) {
                 recipeCatalog.style.display = 'grid';
                 noResults.style.display = 'none';
-
                 data.recipes.forEach(recipe => {
                     recipeCatalog.insertAdjacentHTML('beforeend', createRecipeCardHtml(recipe));
                 });
+            } else if (!data.trigger_ai) {
+                // Truly no results and AI won't run
+                recipeCatalog.style.display = 'none';
+                noResults.style.display = 'block';
+            }
 
-                if (restoreScroll) {
-                    const savedY = Number(sessionStorage.getItem(DASHBOARD_SCROLL_KEY) || 0);
-                    if (savedY > 0) {
-                        setTimeout(() => window.scrollTo(0, savedY), 50);
+            // STEP 2: Trigger AI suggestions
+            if (data.trigger_ai) {
+                const loaderContainer = document.createElement('div');
+                loaderContainer.id = 'ai-loader-wrap';
+                loaderContainer.style.cssText = 'grid-column: 1 / -1; margin-top: 40px;';
+                loaderContainer.innerHTML = `
+                    <div class="pan-loader-container" style="padding: 20px 0;">
+                        <div class="pan-loader" style="transform: scale(0.6);">
+                            <div class="loader-food"></div>
+                            <div class="loader-pan-container">
+                                <div class="loader-pan"></div>
+                                <div class="loader-handle"></div>
+                            </div>
+                        </div>
+                        <div class="loader-text" style="font-size: 11px; opacity: 0.8;">ChefGPT is thinking of more ideas</div>
+                    </div>
+                `;
+                recipeCatalog.appendChild(loaderContainer);
+                recipeCatalog.style.display = 'grid';
+                noResults.style.display = 'none';
+
+                try {
+                    const aiRes = await fetch('/api/ai-search-suggestions?q=' + encodeURIComponent(searchInput), { signal });
+                    if (signal.aborted) return;
+                    const aiData = await aiRes.json();
+                    
+                    loaderContainer.remove();
+
+                    if (aiData.suggestions && aiData.suggestions.length > 0) {
+                        currentAiSuggestions = aiData.suggestions;
+                        const divider = document.createElement('div');
+                        divider.style.cssText = 'grid-column: 1 / -1; margin: 40px 0 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;';
+                        divider.innerHTML = '<h3 style="color: #8b5cf6; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">✨ ChefGPT\'s Creative Ideas</h3>';
+                        recipeCatalog.appendChild(divider);
+
+                        aiData.suggestions.forEach(recipe => {
+                            recipeCatalog.insertAdjacentHTML('beforeend', createRecipeCardHtml(recipe));
+                        });
+                    } else if (!hasRecipes) {
+                        recipeCatalog.style.display = 'none';
+                        noResults.style.display = 'block';
+                    }
+                } catch (aiErr) {
+                    if (aiErr.name === 'AbortError') return;
+                    loaderContainer.remove();
+                    if (!hasRecipes) {
+                        recipeCatalog.style.display = 'none';
+                        noResults.style.display = 'block';
                     }
                 }
             }
         } catch (error) {
+            if (error.name === 'AbortError') return;
             console.error('Search error:', error);
             recipeCatalog.innerHTML = '<p style="text-align:center; padding:40px;">Search failed. Please try again.</p>';
         }
@@ -485,7 +579,6 @@ async function sendMessage(source = 'floating') {
     input.disabled = true;
     messages.scrollTop = messages.scrollHeight;
 
-    // Create a temporary 'Thinking' indicator for visual feedback
     const typingId = 'typing-' + Date.now();
     const typing = document.createElement('div');
     typing.id = typingId;
@@ -494,7 +587,6 @@ async function sendMessage(source = 'floating') {
     messages.appendChild(typing);
 
     try {
-        // Send the user message to the backend API
         const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -502,32 +594,28 @@ async function sendMessage(source = 'floating') {
         });
         const data = await res.json();
 
-        // Remove the 'Thinking' indicator once the response is received
-        document.getElementById(typingId).remove();
+        if (document.getElementById(typingId)) document.getElementById(typingId).remove();
 
-        // Create and display the AI Bot response bubble
         const aiRow = document.createElement('div');
         aiRow.style.cssText = 'display:flex; align-items:flex-end; gap:8px; margin-bottom:12px;';
         aiRow.innerHTML = `
             <div style="width:26px; height:26px; background:linear-gradient(135deg,#ff6b35,#f7931e);
                 border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;">🍳</div>
             <div style="background:#2e2e2e; padding:10px 14px; border-radius:14px; border-bottom-left-radius:4px;
-    font-size:13px; max-width:75%; color:#f0f0f0; line-height:1.4;">${data.reply}</div>`;
+                font-size:13px; max-width:75%; color:#f0f0f0; line-height:1.4;">${data.reply}</div>`;
         messages.appendChild(aiRow);
-        // scroll to show reply
-        messages.scrollTop = messages.scrollHeight;
 
+        messages.scrollTop = messages.scrollHeight;
     } catch (e) {
         const typingEl = document.getElementById(typingId);
-        // Handle connection errors gracefully
         if (typingEl) typingEl.textContent = 'Oops! Something went wrong 😅';
     }
 
-    // Re-enable input and return focus to the user
     input.disabled = false;
     input.focus();
     messages.scrollTop = messages.scrollHeight;
 }
+
 function applyTheme(theme) {
     const icon = document.getElementById("themeIcon");
     const text = document.getElementById("themeText");
@@ -612,4 +700,95 @@ function showToast(message, type = 'success') {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 400);
     }, 3000);
+}
+
+// ==================== AI MODAL ====================
+
+function openAiModal(recipeId) {
+    const recipe = currentAiSuggestions.find(r => r.recipe_id === recipeId);
+    if (!recipe) return;
+
+    document.getElementById('ai-modal-title').textContent = recipe.recipe_name;
+    const content = document.getElementById('ai-modal-content');
+
+    content.innerHTML = `
+        <div style="margin-bottom: 24px; color: #aaa; font-style: italic; line-height: 1.6;">
+            ${escapeHtml(recipe.description)}
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <h3 style="color: #ff6b35; font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                🥗 Ingredients
+            </h3>
+            <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 12px; color: #eee; line-height: 1.6;">
+                ${recipe.ingredients.split(',').map(i => `• ${i.trim()}`).join('<br>')}
+            </div>
+        </div>
+
+        <div>
+            <h3 style="color: #ff6b35; font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                🔥 Instructions
+            </h3>
+            <div style="color: #eee; line-height: 1.8;">
+                ${recipe.instructions.replace(/\n/g, '<br>')}
+            </div>
+        </div>
+
+        <div style="margin-top: 32px; padding: 16px; background: rgba(255,107,53,0.1); border-radius: 12px; border: 1px dashed #ff6b35; color: #ff6b35; font-size: 12px; text-align: center;">
+            Note: This is an AI-generated idea and is not currently saved in your permanent database.
+        </div>
+    `;
+
+    document.getElementById('ai-modal-overlay').style.display = 'block';
+    document.getElementById('ai-drawer').style.right = '0';
+}
+
+function closeAiModal() {
+    document.getElementById('ai-modal-overlay').style.display = 'none';
+    document.getElementById('ai-drawer').style.right = '-480px';
+}
+
+async function viewAiRecipe(tempId) {
+    const recipe = currentAiSuggestions.find(r => r.recipe_id === tempId);
+    if (!recipe) return;
+
+    const btn = document.getElementById(`btn-${tempId}`);
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+    }
+
+    // Prepare session storage so 'Back' works
+    const searchBox = document.getElementById('recipe-search');
+    if (searchBox) {
+        sessionStorage.setItem(DASHBOARD_SEARCH_KEY, searchBox.value.trim());
+    }
+    sessionStorage.setItem(DASHBOARD_SCROLL_KEY, String(window.scrollY));
+    sessionStorage.setItem(DASHBOARD_FROM_RECIPE, '1');
+
+    try {
+        const res = await fetch('/api/confirm-ai-recipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(recipe)
+        });
+        const data = await res.json();
+
+        if (data.recipe_id) {
+            window.location.href = `/recipe/${data.recipe_id}`;
+        } else {
+            alert('Could not save AI recipe. Please try again.');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'View';
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        alert('An error occurred while saving the recipe.');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'View';
+        }
+    }
 }

@@ -143,6 +143,7 @@
             </div>
             <div class="meal-plan-meta" style="color: var(--muted); font-size: 13px; font-weight:500; margin-bottom: 20px; display:flex; gap:12px; flex-wrap:wrap;">
                 <span>🍽️ ${item.cuisine}</span>
+                <span>⏱ ${item.cook_time || '45'} min</span>
                 <span>🔥 ${item.calories} cal</span>
                 <span>⭐ ${item.rating}/5</span>
             </div>

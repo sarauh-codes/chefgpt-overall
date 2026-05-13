@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 import json
 from recipe_recommender import get_recommender, reload_recommender_data
 from config import Config
-from transformers import pipeline
 from functools import wraps
 import pandas as pd
 import tempfile
@@ -24,6 +23,41 @@ load_dotenv()
 from groq import Groq
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# Curated lookup for common Malay dishes that Wikipedia doesn't index well
+MALAY_IMAGE_MAP = {
+    'nasi lemak': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Nasi_lemak_on_banana_leaf.jpg/960px-Nasi_lemak_on_banana_leaf.jpg',
+    'rendang ayam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+    'rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+    'ayam rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+    'laksa': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Nyonya_Laksa.jpg/960px-Nyonya_Laksa.jpg',
+    'laksa penang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Assam_laksa.jpg/960px-Assam_laksa.jpg',
+    'char kway teow': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Char_Kway_Teow.jpg/960px-Char_Kway_Teow.jpg',
+    'mee goreng': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Fried_noodles_%281%29.jpg/960px-Fried_noodles_%281%29.jpg',
+    'nasi goreng': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Fried_rice.jpg/960px-Fried_rice.jpg',
+    'satay': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Satay_%28Malaysian%29.jpg/960px-Satay_%28Malaysian%29.jpg',
+    'tom yam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Tom_yam_kung.jpg/960px-Tom_yam_kung.jpg',
+    'tom yum': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Tom_yam_kung.jpg/960px-Tom_yam_kung.jpg',
+    'ayam percik': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Ayam_percik_1.jpg/960px-Ayam_percik_1.jpg',
+    'ayam masak merah': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Ayam_masak_merah.jpg/960px-Ayam_masak_merah.jpg',
+    'kari ayam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Curry_chicken_Malaysia.jpg/960px-Curry_chicken_Malaysia.jpg',
+    'kari': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Curry_chicken_Malaysia.jpg/960px-Curry_chicken_Malaysia.jpg',
+    'sambal': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sambal.jpg/960px-Sambal.jpg',
+    'ikan bakar': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Ikan_bakar_%28Malay%29.jpg/960px-Ikan_bakar_%28Malay%29.jpg',
+    'asam pedas': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Asam_Pedas.jpg/960px-Asam_Pedas.jpg',
+    'bubur': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Bubur_ayam.jpg/960px-Bubur_ayam.jpg',
+    'kuih': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Kuih.jpg/960px-Kuih.jpg',
+    'kuih keria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Kuih_keria.jpg/960px-Kuih_keria.jpg',
+    'laksam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Laksam.jpg/960px-Laksam.jpg',
+    'apam balik': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Apam_balik.jpg/960px-Apam_balik.jpg',
+    'roti canai': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Roti_canai.jpg/960px-Roti_canai.jpg',
+    'nasi kandar': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Nasi_kandar.jpg/960px-Nasi_kandar.jpg',
+    'beef rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
+    'kangkung': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Stir-fried_water_spinach.jpg/960px-Stir-fried_water_spinach.jpg',
+    'kerabu': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Kerabu.jpg/960px-Kerabu.jpg',
+    'kurma': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Chicken_kurma.jpg/960px-Chicken_kurma.jpg',
+    'gulai': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Gulai.jpg/960px-Gulai.jpg',
+}
 
 # ==================== APP INIT ====================
 app = Flask(__name__)
@@ -40,11 +74,19 @@ login_manager.login_view = "login"
 ADMIN_ACCESS_CODE = app.config['ADMIN_ACCESS_CODE']
 
 
-# ==================== AI MODELS ====================
-whisper_model = pipeline(
-    "automatic-speech-recognition",
-    model=app.config.get("WHISPER_MODEL", "openai/whisper-small")
-)
+_whisper_model = None
+
+def get_whisper_model():
+    """Lazy load Whisper model to speed up server startup."""
+    global _whisper_model
+    if _whisper_model is None:
+        print("Loading Whisper voice model... (This only happens once)")
+        from transformers import pipeline
+        _whisper_model = pipeline(
+            "automatic-speech-recognition",
+            model=app.config.get("WHISPER_MODEL", "openai/whisper-small")
+        )
+    return _whisper_model
 
 # Image analysis now handled by Groq vision (see analyze_image route)
 
@@ -164,6 +206,21 @@ def apply_dietary_filter(df, profile):
 
     return df
 
+
+def get_cook_time(recipe_row):
+    """Helper to get cook time with difficulty-based fallback."""
+    cook = recipe_row.get("cook_time")
+    if cook is not None and not pd.isna(cook) and str(cook).strip() not in ("", "nan"):
+        try:
+            return str(int(float(cook)))
+        except:
+            pass
+    
+    # Fallback based on difficulty
+    diff = str(recipe_row.get('difficulty', 'medium')).lower()
+    if diff == 'easy': return '20'
+    if diff == 'hard': return '75'
+    return '45'
 
 def base_recipes_for_user(user_id):
     """Deduplicated recipe dataframe with the user's dietary profile applied."""
@@ -435,7 +492,7 @@ def chat_page():
     username = session.get('username', 'User')
     return render_template('chat.html', username=username)
 
-@app.route('/api/chat', methods=['GET','POST'])
+@app.route('/api/chat', methods=['POST'])
 @login_required
 def chat():
     data = request.get_json()
@@ -448,7 +505,7 @@ def chat():
         return jsonify({'error': 'Message too long. Please keep it under 1000 characters.'}), 400
 
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",
         messages=[
             {
                 "role": "system",
@@ -459,7 +516,7 @@ def chat():
                     "If the user asks about anything unrelated to food or cooking, politely decline "
                     "and redirect them back to food-related topics. "
                     "Keep your answers practical, friendly, and concise. "
-                    "When suggesting recipes, always mention the key ingredients needed."
+                    "When suggesting recipes, ALWAYS include exact measurements for every ingredient (e.g., 200g, 1 cup, 2 tbsp)."
                 )
             },
             {"role": "user", "content": user_message}
@@ -474,24 +531,22 @@ def chat():
 @login_required
 def dashboard():
     recommender = get_recommender()
-    df = recommender.df.copy()
-    df = df.drop_duplicates(subset=['recipe_id'], keep='first')
-    df = df.drop_duplicates(subset=['recipe_name'], keep='first')
-
+    df = recommender.df
+    
+    # Apply dietary filter if profile exists
+    filtered_df = df.drop_duplicates(subset=['recipe_name'], keep='first')
     profile = DietaryProfile.query.filter_by(user_id=current_user.id).first()
     if profile:
-        df = apply_dietary_filter(df, profile)
+        filtered_df = apply_dietary_filter(filtered_df, profile)
 
-    df_shuffled = df.sample(n=min(12, len(df)), replace=False)
-    recipes = df_shuffled.to_dict('records')
+    df_shuffled = filtered_df.sample(n=min(12, len(filtered_df)), replace=False)
+    recipes = []
+    for _, row in df_shuffled.iterrows():
+        r_dict = row.to_dict()
+        r_dict['cook_time'] = get_cook_time(row)
+        recipes.append(r_dict)
     
-    # User Analytics
-    cooked_records = CookedRecipe.query.filter_by(user_id=current_user.id).order_by(CookedRecipe.cooked_at.desc()).all()
-    cooked_count = len(cooked_records)
-    saved_count = SavedRecipe.query.filter_by(user_id=current_user.id).count()
-    feedback_count = Feedback.query.filter_by(user_id=current_user.id).count()
-    
-    # User-Specific Stats
+    # User Analytics - Fetch once
     cooked_records = CookedRecipe.query.filter_by(user_id=current_user.id).order_by(CookedRecipe.cooked_at.desc()).all()
     cooked_count = len(cooked_records)
     saved_count = SavedRecipe.query.filter_by(user_id=current_user.id).count()
@@ -512,7 +567,9 @@ def dashboard():
                 total_cuisines = recommender.df['cuisine'].nunique()
                 cuisine_diversity = round((unique_cuisines_cooked / total_cuisines) * 100) if total_cuisines > 0 else 0
             if 'calories' in cooked_df.columns:
-                avg_calories = round(cooked_df['calories'].mean())
+                # Use pd.to_numeric to handle non-numeric values safely
+                cal_data = pd.to_numeric(cooked_df['calories'], errors='coerce')
+                avg_calories = round(cal_data.mean()) if not cal_data.dropna().empty else 0
         
         seen_ids = set()
         for r in cooked_records:
@@ -589,10 +646,8 @@ def dashboard():
                 img_url = str(recipe_row['image_url'].iloc[0]) if 'image_url' in recipe_row.columns else ""
             global_favorites.append({'id': mc.recipe_id, 'name': mc.recipe_name, 'count': mc.cook_count, 'image': img_url})
 
-        # Top Rated Gems
-        temp_df = recommender.df.copy()
-        temp_df['rating_num'] = pd.to_numeric(temp_df['rating'], errors='coerce')
-        top_rated_df = temp_df.sort_values(by='rating_num', ascending=False).head(3)
+        # Top Rated Gems - Use pre-calculated rating_num
+        top_rated_df = recommender.df.sort_values(by='rating_num', ascending=False).head(3)
         
         for _, row in top_rated_df.iterrows():
             top_gems.append({
@@ -607,7 +662,7 @@ def dashboard():
         community_stats['total'] = len(recommender.df)
         if not recommender.df.empty:
             community_stats['popular_cuisine'] = recommender.df['cuisine'].mode().iloc[0] if not recommender.df['cuisine'].mode().empty else "Various"
-            community_stats['avg_rating'] = round(temp_df['rating_num'].mean(), 1)
+            community_stats['avg_rating'] = round(recommender.df['rating_num'].mean(), 1)
     except Exception as e:
         print(f"Error calculating analytics: {e}")
 
@@ -629,7 +684,7 @@ def dashboard():
             'weekday_activity': weekday_data
         }
     }
-    total_recipes = len(df)
+    total_recipes = len(filtered_df)
 
     return render_template("dashboard.html",
         username=current_user.username,
@@ -662,14 +717,7 @@ def load_more_recipes():
             img = str(img).strip()
             if img.lower() in ("nan", "none", ""):
                 img = ""
-        cook = row.get("cook_time", None)
-        if pd.isna(cook) if cook is not None else False:  # type: ignore[truthy-function]
-            cook = None
-        cook_time_disp = (
-            str(int(cook))
-            if cook is not None and not pd.isna(cook) and str(cook).strip() not in ("", "nan")  # type: ignore[truthy-function]
-            else "30"
-        )
+        cook_time_disp = get_cook_time(row)
 
         recipes_list.append({
             'recipe_id': int(row['recipe_id']),
@@ -703,21 +751,159 @@ def search_recipes():
         df['cuisine'].str.lower().str.contains(query, na=False) |
         df['ingredients'].str.lower().str.contains(query, na=False)
     )
+    
+    matched_df = df[mask].head(20)
+    local_results = []
+    
+    for _, row in matched_df.iterrows():
+        # Get cook time with fallback
+        cook_time_disp = get_cook_time(row)
+        
+        # Image logic
+        img = row.get('image_url', '')
+        if not img or str(img).lower() == 'nan':
+            img = "/static/images/recipe-placeholder.jpg"
 
-    recipes_list = []
-    for _, row in df[mask].iterrows():
-        recipes_list.append({
-            'recipe_id': int(row['recipe_id']),
-            'recipe_name': str(row['recipe_name']),
-            'ingredients': str(row['ingredients']),
-            'cuisine': str(row['cuisine']),
-            'calories': int(row['calories']),
-            'rating': float(row['rating']),
-            'difficulty': str(row['difficulty']),
-            'image_url': str(row.get('image_url', '')) or '',
+        local_results.append({
+            'recipe_id': str(row['recipe_id']),
+            'recipe_name': row['recipe_name'],
+            'ingredients': row['ingredients'],
+            'cuisine': row['cuisine'],
+            'calories': row['calories'],
+            'rating': row['rating'],
+            'difficulty': str(row.get('difficulty', 'medium')),
+            'image_url': img,
+            'cook_time': cook_time_disp,
         })
+    
+    # Return local results immediately + always trigger AI if query is meaningful
+    return jsonify({
+        'recipes': local_results,
+        'trigger_ai': len(query) >= 3
+    })
 
-    return jsonify({'recipes': recipes_list})
+
+@app.route('/api/ai-search-suggestions', methods=['GET'])
+@login_required
+def ai_search_suggestions():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({'suggestions': []})
+
+    ai_suggestions = []
+    try:
+        suggest_prompt = (
+            "You are a master chef. Return a JSON object with a 'recipes' key containing 5 creative recipe objects for: {query}. "
+            "Each object must have: recipe_name, description, ingredients (comma separated with measurements), instructions (numbered list), cuisine, calories (number). "
+            "Ensure measurements like '200g', '1 cup' are included. "
+            "Return ONLY valid JSON."
+        ).format(query=query)
+        
+        suggestions = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": suggest_prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=1500,
+            temperature=0.7
+        )
+            
+        data = json.loads(suggestions.choices[0].message.content)
+        suggested_list = data.get('recipes', []) if isinstance(data, dict) else data
+        
+        for s in suggested_list:
+            img_url = ""
+            name_lower = s['recipe_name'].lower()
+            for key, url in MALAY_IMAGE_MAP.items():
+                if key in name_lower:
+                    img_url = url
+                    break
+
+            raw_instr = s.get('instructions', '')
+            if isinstance(raw_instr, list):
+                clean_instr = " | ".join([str(x).strip() for x in raw_instr])
+            else:
+                steps = re.split(r'(?:\d+[\.\)]\s*|[\•\-\*]\s*|\n+)', str(raw_instr))
+                clean_instr = " | ".join([x.strip() for x in steps if x.strip() and len(x.strip()) > 3])
+
+            instr_len = len(clean_instr.split('|'))
+            ai_cook_time = 15 if instr_len <= 3 else (40 if instr_len <= 6 else 70)
+
+            ai_suggestions.append({
+                'recipe_id': 'ai_' + str(abs(hash(s['recipe_name'])) % 10000),
+                'recipe_name': s['recipe_name'],
+                'ingredients': s.get('ingredients', ''),
+                'cuisine': s.get('cuisine', 'Global'),
+                'description': s.get('description', ''),
+                'instructions': clean_instr,
+                'is_ai': True,
+                'rating': 5.0,
+                'calories': s.get('calories', '450'),
+                'cook_time': ai_cook_time,
+                'image_url': img_url or "AI_PLACEHOLDER"
+            })
+    except Exception as e:
+        print(f"AI Suggestion Error: {e}")
+
+    return jsonify({'suggestions': ai_suggestions})
+
+
+@app.route("/api/confirm-ai-recipe", methods=["POST"])
+@login_required
+def confirm_ai_recipe():
+    """Converts an AI suggestion into a real recipe by saving it to CSV."""
+    data = request.get_json()
+    recipe_name = data.get('recipe_name')
+    
+    if not recipe_name:
+        return jsonify({'error': 'No recipe name provided'}), 400
+        
+    try:
+        df = pd.read_csv('RECIPES.csv', encoding='utf-8-sig')
+        df.columns = df.columns.str.strip()
+        
+        # Check if already exists
+        existing_idx = df[df['recipe_name'].str.lower() == recipe_name.lower()].index
+        if not existing_idx.empty:
+            idx = existing_idx[0]
+            # If existing recipe doesn't have formatted steps, update it
+            if ' | ' not in str(df.loc[idx, 'instructions']):
+                df.loc[idx, 'instructions'] = data.get('instructions', '')
+                _sync_recipe_csvs(df)
+                reload_recommender_data()
+            return jsonify({'recipe_id': int(df.loc[idx, 'recipe_id'])})
+            
+        new_id = int(df['recipe_id'].max() + 1) if len(df) > 0 else 1
+        
+        # Format instructions properly before saving to CSV
+        raw_instr = data.get('instructions', '')
+        if isinstance(raw_instr, list):
+            clean_instr = " | ".join([str(x).strip() for x in raw_instr])
+        else:
+            # Clean up numbers/bullets and ensure ' | ' separator
+            steps = re.split(r'(?:\d+[\.\)]\s*|[\•\-\*]\s*|\n+)', str(raw_instr))
+            clean_instr = " | ".join([x.strip() for x in steps if x.strip() and len(x.strip()) > 3])
+
+        new_row = {
+            'recipe_id': new_id,
+            'recipe_name': recipe_name,
+            'ingredients': data.get('ingredients', ''),
+            'cuisine': data.get('cuisine', 'Global'),
+            'calories': data.get('calories', '0'),
+            'rating': 5.0,
+            'difficulty': data.get('difficulty', 'medium'),
+            'cook_time': data.get('cook_time', 45),
+            'instructions': clean_instr,
+            'image_url': data.get('image_url', ''),
+        }
+        
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        _sync_recipe_csvs(df)
+        reload_recommender_data()
+        
+        return jsonify({'recipe_id': new_id})
+    except Exception as e:
+        print(f"Confirm AI Error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route("/meal-planner")
@@ -1043,6 +1229,122 @@ def mobile_taste_profile_api():
 
     return jsonify({"empty": False, "labels": labels, "scores": scores})
 
+@app.route("/api/user-stats")
+@jwt_required()
+def mobile_user_stats():
+    user_id = get_jwt_identity()
+    recommender = get_recommender()
+    
+    cooked_records = CookedRecipe.query.filter_by(user_id=user_id).order_by(CookedRecipe.cooked_at.desc()).all()
+    cooked_count = len(cooked_records)
+    saved_count = SavedRecipe.query.filter_by(user_id=user_id).count()
+    feedback_count = Feedback.query.filter_by(user_id=user_id).count()
+    
+    favorite_cuisine = "None yet"
+    cuisine_diversity = 0
+    avg_calories = 0
+    
+    if cooked_records:
+        cooked_ids = [r.recipe_id for r in cooked_records]
+        cooked_df = recommender.df[recommender.df['recipe_id'].isin(cooked_ids)]
+        if not cooked_df.empty:
+            if 'cuisine' in cooked_df.columns:
+                favorite_cuisine = cooked_df['cuisine'].mode().iloc[0] if not cooked_df['cuisine'].mode().empty else "Various"
+                unique_cuisines_cooked = cooked_df['cuisine'].nunique()
+                total_cuisines = recommender.df['cuisine'].nunique()
+                cuisine_diversity = round((unique_cuisines_cooked / total_cuisines) * 100) if total_cuisines > 0 else 0
+            if 'calories' in cooked_df.columns:
+                avg_calories = round(cooked_df['calories'].mean())
+
+    cooking_level = "Kitchen Novice"
+    if cooked_count >= 15: cooking_level = "Master Chef"
+    elif cooked_count >= 5: cooking_level = "Sous Chef"
+    elif cooked_count > 0: cooking_level = "Rising Star"
+
+    now = datetime.utcnow()
+    last_7_days = now - timedelta(days=7)
+    prev_7_days = now - timedelta(days=14)
+    
+    current_week_count = CookedRecipe.query.filter(
+        CookedRecipe.user_id == user_id,
+        CookedRecipe.cooked_at >= last_7_days
+    ).count()
+    previous_week_count = CookedRecipe.query.filter(
+        CookedRecipe.user_id == user_id,
+        CookedRecipe.cooked_at >= prev_7_days,
+        CookedRecipe.cooked_at < last_7_days
+    ).count()
+    
+    growth_pct = 0
+    if previous_week_count > 0:
+        growth_pct = round(((current_week_count - previous_week_count) / previous_week_count) * 100)
+    elif current_week_count > 0:
+        growth_pct = 100
+
+    activity_query = db.session.query(
+        db.func.strftime('%w', CookedRecipe.cooked_at).label('weekday'),
+        db.func.count(CookedRecipe.id).label('count')
+    ).filter(
+        CookedRecipe.user_id == user_id,
+        CookedRecipe.cooked_at >= (now - timedelta(days=30))
+    ).group_by('weekday').all()
+    
+    weekday_data = [0] * 7
+    for row in activity_query:
+        try:
+            day_idx = int(row.weekday)
+            weekday_data[day_idx] = row.count
+        except: continue
+
+    # ── Community Trends ──
+    global_favorites = []
+    top_gems = []
+    
+    try:
+        # Global Favorites (Most Cooked)
+        most_cooked_query = db.session.query(
+            CookedRecipe.recipe_id, 
+            CookedRecipe.recipe_name,
+            db.func.count(CookedRecipe.id).label('cook_count')
+        ).group_by(CookedRecipe.recipe_id, CookedRecipe.recipe_name).order_by(db.func.count(CookedRecipe.id).desc()).limit(3).all()
+        
+        for mc in most_cooked_query:
+            recipe_row = recommender.df[recommender.df['recipe_id'] == mc.recipe_id]
+            img_url = ""
+            if not recipe_row.empty:
+                img_url = str(recipe_row['image_url'].iloc[0]) if 'image_url' in recipe_row.columns else ""
+            global_favorites.append({'id': mc.recipe_id, 'name': mc.recipe_name, 'count': mc.cook_count, 'image': img_url})
+
+        # Top Rated Gems
+        temp_df = recommender.df.copy()
+        temp_df['rating_num'] = pd.to_numeric(temp_df['rating'], errors='coerce')
+        top_rated_df = temp_df.sort_values(by='rating_num', ascending=False).head(3)
+        
+        for _, row in top_rated_df.iterrows():
+            top_gems.append({
+                'id': int(row['recipe_id']),
+                'name': row['recipe_name'],
+                'rating': row['rating_num'],
+                'cuisine': row['cuisine'],
+                'image': str(row.get('image_url', ''))
+            })
+    except:
+        pass
+
+    return jsonify({
+        "cooked_count": cooked_count,
+        "saved_count": saved_count,
+        "feedback_count": feedback_count,
+        "favorite_cuisine": favorite_cuisine,
+        "cuisine_diversity": cuisine_diversity,
+        "avg_calories": avg_calories,
+        "cooking_level": cooking_level,
+        "growth_pct": growth_pct,
+        "weekday_data": weekday_data,
+        "global_favorites": global_favorites,
+        "top_gems": top_gems
+    })
+
 @app.route("/cooked-history")
 @login_required
 def cooked_history():
@@ -1153,7 +1455,8 @@ def transcribe_audio():
         tmp_wav = tmp_webm + ".wav"
         os.system(f'ffmpeg -i "{tmp_webm}" -ar 16000 -ac 1 -c:a pcm_s16le "{tmp_wav}" -y -loglevel quiet')
         
-        result = whisper_model(tmp_wav)
+        model = get_whisper_model()
+        result = model(tmp_wav)
         transcript = result["text"].strip()
         
         os.remove(tmp_webm)
@@ -1527,40 +1830,6 @@ def admin_search_photos():
     if not query:
         return jsonify({'photos': []})
 
-    # Curated lookup for common Malay dishes that Wikipedia doesn't index well
-    MALAY_IMAGE_MAP = {
-        'nasi lemak': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Nasi_lemak_on_banana_leaf.jpg/960px-Nasi_lemak_on_banana_leaf.jpg',
-        'rendang ayam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
-        'rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
-        'ayam rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
-        'laksa': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Nyonya_Laksa.jpg/960px-Nyonya_Laksa.jpg',
-        'laksa penang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Assam_laksa.jpg/960px-Assam_laksa.jpg',
-        'char kway teow': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Char_Kway_Teow.jpg/960px-Char_Kway_Teow.jpg',
-        'mee goreng': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Fried_noodles_%281%29.jpg/960px-Fried_noodles_%281%29.jpg',
-        'nasi goreng': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Fried_rice.jpg/960px-Fried_rice.jpg',
-        'satay': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Satay_%28Malaysian%29.jpg/960px-Satay_%28Malaysian%29.jpg',
-        'tom yam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Tom_yam_kung.jpg/960px-Tom_yam_kung.jpg',
-        'tom yum': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Tom_yam_kung.jpg/960px-Tom_yam_kung.jpg',
-        'ayam percik': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Ayam_percik_1.jpg/960px-Ayam_percik_1.jpg',
-        'ayam masak merah': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Ayam_masak_merah.jpg/960px-Ayam_masak_merah.jpg',
-        'kari ayam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Curry_chicken_Malaysia.jpg/960px-Curry_chicken_Malaysia.jpg',
-        'kari': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Curry_chicken_Malaysia.jpg/960px-Curry_chicken_Malaysia.jpg',
-        'sambal': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sambal.jpg/960px-Sambal.jpg',
-        'ikan bakar': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Ikan_bakar_%28Malay%29.jpg/960px-Ikan_bakar_%28Malay%29.jpg',
-        'asam pedas': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Asam_Pedas.jpg/960px-Asam_Pedas.jpg',
-        'bubur': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Bubur_ayam.jpg/960px-Bubur_ayam.jpg',
-        'kuih': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Kuih.jpg/960px-Kuih.jpg',
-        'kuih keria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Kuih_keria.jpg/960px-Kuih_keria.jpg',
-        'laksam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Laksam.jpg/960px-Laksam.jpg',
-        'apam balik': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Apam_balik.jpg/960px-Apam_balik.jpg',
-        'roti canai': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Roti_canai.jpg/960px-Roti_canai.jpg',
-        'nasi kandar': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Nasi_kandar.jpg/960px-Nasi_kandar.jpg',
-        'beef rendang': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rendang_Minangkabau.jpg/960px-Rendang_Minangkabau.jpg',
-        'kangkung': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Stir-fried_water_spinach.jpg/960px-Stir-fried_water_spinach.jpg',
-        'kerabu': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Kerabu.jpg/960px-Kerabu.jpg',
-        'kurma': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Chicken_kurma.jpg/960px-Chicken_kurma.jpg',
-        'gulai': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Gulai.jpg/960px-Gulai.jpg',
-    }
 
     photos = []
     query_lower = query.lower()
@@ -1907,7 +2176,28 @@ def api_save_recipe(recipe_id):
 def api_saved_recipes():
     user_id = get_jwt_identity()
     saved = SavedRecipe.query.filter_by(user_id=user_id).all()
-    recipes = [{'recipe_id': s.recipe_id, 'recipe_name': s.recipe_name} for s in saved]
+    
+    recommender = get_recommender()
+    df = recommender.df
+    
+    recipes = []
+    for s in saved:
+        recipe_row = df[df['recipe_id'] == s.recipe_id]
+        img = ""
+        cal = 0
+        rat = 0.0
+        if not recipe_row.empty:
+            img = str(recipe_row['image_url'].iloc[0]) if 'image_url' in recipe_row.columns else ""
+            cal = int(recipe_row['calories'].iloc[0]) if 'calories' in recipe_row.columns else 0
+            rat = float(recipe_row['rating'].iloc[0]) if 'rating' in recipe_row.columns else 0.0
+            
+        recipes.append({
+            'recipe_id': s.recipe_id, 
+            'recipe_name': s.recipe_name,
+            'image_url': img,
+            'calories': cal,
+            'rating': rat
+        })
     return jsonify({'recipes': recipes})
 
 @app.route("/api/unsave-recipe/<int:recipe_id>", methods=["POST"])
@@ -1968,8 +2258,29 @@ def api_cooked_history():
     user_id = get_jwt_identity()
     cooked = CookedRecipe.query.filter_by(user_id=user_id)\
         .order_by(CookedRecipe.cooked_at.desc()).all()
-    recipes = [{'recipe_id': c.recipe_id, 'recipe_name': c.recipe_name,
-                'cooked_at': c.cooked_at.strftime('%d %b %Y')} for c in cooked]
+    
+    recommender = get_recommender()
+    df = recommender.df
+    
+    recipes = []
+    for c in cooked:
+        recipe_row = df[df['recipe_id'] == c.recipe_id]
+        img = ""
+        cal = 0
+        rat = 0.0
+        if not recipe_row.empty:
+            img = str(recipe_row['image_url'].iloc[0]) if 'image_url' in recipe_row.columns else ""
+            cal = int(recipe_row['calories'].iloc[0]) if 'calories' in recipe_row.columns else 0
+            rat = float(recipe_row['rating'].iloc[0]) if 'rating' in recipe_row.columns else 0.0
+
+        recipes.append({
+            'recipe_id': c.recipe_id, 
+            'recipe_name': c.recipe_name,
+            'cooked_at': c.cooked_at.strftime('%d %b %Y'),
+            'image_url': img,
+            'calories': cal,
+            'rating': rat
+        })
     return jsonify({'recipes': recipes})
 
 @app.route('/api/mark-cooked/<int:recipe_id>', methods=['POST'])
@@ -2175,4 +2486,4 @@ def api_get_substitute():
 
 # ==================== RUN ====================
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)

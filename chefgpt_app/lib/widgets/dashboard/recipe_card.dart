@@ -49,6 +49,7 @@ class RecipeCard extends StatelessWidget {
                     children: [
                       if (recipe['cuisine'] != null) _tag(recipe['cuisine'], Icons.restaurant_rounded),
                       if (recipe['calories'] != null) _tag('${recipe['calories']} cal', Icons.local_fire_department_rounded),
+                      if (recipe['cook_time'] != null) _tag('${recipe['cook_time']} min', Icons.timer_rounded),
                     ],
                   ),
                   const SizedBox(height: 16),

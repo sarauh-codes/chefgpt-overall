@@ -17,7 +17,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<Map<String, String>> _messages = [];
+  final List<Map<String, dynamic>> _messages = [];
   bool _isTyping = false;
 
   @override
@@ -54,7 +54,11 @@ class _ChatScreenState extends State<ChatScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _messages.add({'role': 'bot', 'text': data['reply'] ?? '...'});
+          _messages.add({
+            'role': 'bot', 
+            'text': data['reply'] ?? '...',
+            'recipes': data['recipes']
+          });
         });
       } else {
         setState(() {
@@ -168,35 +172,103 @@ class _ChatScreenState extends State<ChatScreen> {
       itemBuilder: (_, i) {
         if (_isTyping && i == _messages.length) return _buildTypingIndicator();
         final msg = _messages[i];
-        return _buildChatBubble(msg['text']!, msg['role'] == 'user');
+        return _buildChatBubble(
+          msg['text']!, 
+          msg['role'] == 'user',
+          recipes: msg['recipes'] as List<dynamic>?,
+        );
       },
     );
   }
 
-  Widget _buildChatBubble(String text, bool isUser) {
+  Widget _buildChatBubble(String text, bool isUser, {List<dynamic>? recipes}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isUser) _avatar(),
-          const SizedBox(width: 12),
-          Flexible(
-            child: NeoGlassContainer(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(20),
-                topRight: const Radius.circular(20),
-                bottomLeft: Radius.circular(isUser ? 20 : 4),
-                bottomRight: Radius.circular(isUser ? 4 : 20),
+          Row(
+            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isUser) _avatar(),
+              const SizedBox(width: 12),
+              Flexible(
+                child: NeoGlassContainer(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: Radius.circular(isUser ? 20 : 4),
+                    bottomRight: Radius.circular(isUser ? 4 : 20),
+                  ),
+                  borderColor: isUser ? AppColors.accent.withOpacity(0.3) : AppColors.glassBorder,
+                  child: Text(text, style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
+                ),
               ),
-              borderColor: isUser ? AppColors.accent.withOpacity(0.3) : AppColors.glassBorder,
-              child: Text(text, style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
-            ),
+              const SizedBox(width: 12),
+              if (isUser) _avatar(isUser: true),
+            ],
           ),
-          const SizedBox(width: 12),
-          if (isUser) _avatar(isUser: true),
+          if (recipes != null && recipes.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.only(left: 44),
+              child: SizedBox(
+                height: 140,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: recipes.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, i) => _buildMiniRecipeCard(recipes[i]),
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniRecipeCard(dynamic recipe) {
+    return GestureDetector(
+      onTap: () {
+        final id = recipe['recipe_id'] ?? 0;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeId: id is int ? id : int.parse(id.toString()))),
+        );
+      },
+      child: NeoGlassContainer(
+        width: 140,
+        padding: EdgeInsets.zero,
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: recipe['image_url'] != null && recipe['image_url'].toString().isNotEmpty
+                    ? Image.network(
+                        recipe['image_url'],
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(color: Colors.white10, child: const Icon(Icons.restaurant, color: Colors.white24)),
+                      )
+                    : Container(color: Colors.white10, child: const Icon(Icons.restaurant, color: Colors.white24)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                recipe['recipe_name'] ?? 'Recipe',
+                style: AppStyles.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

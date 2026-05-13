@@ -42,8 +42,8 @@ async function sendFloatingMessage() {
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: text})
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
     });
     if (!res.ok) throw new Error();
     const data = await res.json();

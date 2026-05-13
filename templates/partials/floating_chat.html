@@ -1,6 +1,5 @@
 <!-- Floating Bubble Button -->
-<div id="chat-bubble" onclick="openChat()"
-  style="position:fixed; bottom:24px; right:24px; z-index:9998;
+<div id="chat-bubble" onclick="openChat()" style="position:fixed; bottom:24px; right:24px; z-index:9998;
          display:flex; align-items:center; gap:10px;
          background:linear-gradient(135deg, #ff6b35, #f7931e);
          padding:12px 20px; border-radius:999px;
@@ -10,7 +9,7 @@
   <span style="color:white; font-weight:700; font-size:14px;">Ask ChefGPT</span>
 </div>
 
-  <!-- Floating Chat Popup -->
+<!-- Floating Chat Popup -->
 <div id="chat-overlay" style="display:none; position:fixed; bottom:24px; right:24px;
      width:360px; height:500px; background:white; border-radius:20px;
      border:2px solid #ff6b35; box-shadow:0 16px 48px rgba(0,0,0,0.2);
@@ -26,8 +25,7 @@
         <div style="color:rgba(255,255,255,0.8); font-size:11px;">AI Cooking Assistant</div>
       </div>
     </div>
-    <button onclick="closeChat()"
-      style="background:rgba(255,255,255,0.2); border:none; color:white;
+    <button onclick="closeChat()" style="background:rgba(255,255,255,0.2); border:none; color:white;
              width:28px; height:28px; border-radius:50%; cursor:pointer;
              font-size:16px; display:flex; align-items:center; justify-content:center;">
       ✕
@@ -50,18 +48,15 @@
 
   <!-- Quick Chips -->
   <div style="padding:8px 12px; display:flex; gap:6px; flex-wrap:wrap; border-top:1px solid #f0f0f0;">
-    <span onclick="sendChip('Simple chicken recipe')"
-      style="padding:4px 10px;background:#fff3ee;border:1px solid #ff6b35;
+    <span onclick="sendChip('Simple chicken recipe')" style="padding:4px 10px;background:#fff3ee;border:1px solid #ff6b35;
              border-radius:999px;font-size:11px;color:#ff6b35;cursor:pointer;">
       🍗 Chicken
     </span>
-    <span onclick="sendChip('Healthy low calorie meal')"
-      style="padding:4px 10px;background:#fff3ee;border:1px solid #ff6b35;
+    <span onclick="sendChip('Healthy low calorie meal')" style="padding:4px 10px;background:#fff3ee;border:1px solid #ff6b35;
              border-radius:999px;font-size:11px;color:#ff6b35;cursor:pointer;">
       🥗 Healthy
     </span>
-    <span onclick="sendChip('Quick 20 minute dinner')"
-      style="padding:4px 10px;background:#fff3ee;border:1px solid #ff6b35;
+    <span onclick="sendChip('Quick 20 minute dinner')" style="padding:4px 10px;background:#fff3ee;border:1px solid #ff6b35;
              border-radius:999px;font-size:11px;color:#ff6b35;cursor:pointer;">
       ⏱ Quick
     </span>
@@ -70,15 +65,13 @@
   <!-- Input -->
   <div style="padding:12px; border-top:1px solid #f0f0f0; display:flex; gap:8px;">
     <input id="chat-input" type="text" placeholder="Ask ChefGPT..."
-      onkeydown="if(event.key==='Enter') sendFloatingMessage()"
-      style="flex:1;padding:8px 14px;border:2px solid #e0e0e0;border-radius:999px;
+      onkeydown="if(event.key==='Enter') sendFloatingMessage()" style="flex:1;padding:8px 14px;border:2px solid #e0e0e0;border-radius:999px;
              font-size:13px;outline:none;">
-    <button onclick="sendFloatingMessage()"
-      style="background:linear-gradient(135deg,#ff6b35,#f7931e);border:none;
+    <button onclick="sendFloatingMessage()" style="background:linear-gradient(135deg,#ff6b35,#f7931e);border:none;
              border-radius:999px;padding:8px 16px;color:white;font-weight:600;
              font-size:13px;cursor:pointer;">
       ➤
     </button>
   </div>
 </div>
- <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>

@@ -362,8 +362,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _compactInfo(Icons.local_fire_department_rounded, '${recipe['calories']} cal'),
-                    _compactInfo(Icons.timer_rounded, '45 min'),
-                    _compactInfo(Icons.restaurant_rounded, 'Easy'),
+                    _compactInfo(Icons.timer_rounded, '${recipe['cook_time'] ?? '45'} min'),
+                    _compactInfo(Icons.restaurant_rounded, recipe['difficulty']?.toString().toUpperCase() ?? 'MEDIUM'),
                   ],
                 ),
               ],

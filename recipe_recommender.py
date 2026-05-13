@@ -101,28 +101,65 @@ class RecipeRecommender:
         self.df = pd.read_csv(csv_path, encoding='utf-8-sig')
         self.df.columns = self.df.columns.str.strip()  # Clean column names
 
-        # Add recipe_id column
         # Add recipe_id column only if it doesn't exist
         if 'recipe_id' not in self.df.columns:
             self.df.insert(0, 'recipe_id', range(1, len(self.df) + 1))
 
+        # Pre-calculate numeric columns for faster analytics
+        self.df['rating_num'] = pd.to_numeric(self.df['rating'], errors='coerce').fillna(0.0)
+        self.df['calories_num'] = pd.to_numeric(self.df['calories'], errors='coerce').fillna(0)
 
-        # Load pre-trained model (all-MiniLM-L6-v2)
-        print("Loading ML model...")
-        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Ensure cook_time exists, assign sensible defaults based on difficulty
+        if 'cook_time' not in self.df.columns:
+            def assign_time(diff):
+                d = str(diff).lower()
+                if d == 'easy': return 20
+                if d == 'hard': return 75
+                return 45 # medium/default
+            self.df['cook_time'] = self.df['difficulty'].apply(assign_time)
+        
+        self.model = None
+        self.recipe_embeddings = None
+        self.bm25 = None
+        print("Recommender initialized (models will load on first search).")
 
-        # Encode all recipe ingredients
-        cleaned_ingredients = self.df['ingredients'].apply(clean_ingredients_for_ml).tolist()
-        self.recipe_embeddings = self.model.encode(cleaned_ingredients, show_progress_bar=True)
+    def _ensure_models_loaded(self):
+        """Lazy load ML models only when needed."""
+        if self.model is None:
+            from sentence_transformers import SentenceTransformer
+            from rank_bm25 import BM25Okapi
+            
+            print("Loading ML models for the first time... (Please wait)")
+            self.model = SentenceTransformer('all-MiniLM-L6-v2')
+            
+            # Encode all recipe ingredients
+            cleaned_ingredients = self.df['ingredients'].apply(clean_ingredients_for_ml).tolist()
+            self.recipe_embeddings = self.model.encode(cleaned_ingredients, show_progress_bar=True)
 
-        # Build BM25 index for keyword matching
-        print("Building BM25 keyword index...")
-        tokenized_ingredients = [clean_ingredients_for_ml(ing).split() for ing in self.df['ingredients'].tolist()]
-        self.bm25 = BM25Okapi(tokenized_ingredients)
+            # Build BM25 index for keyword matching
+            print("Building BM25 keyword index...")
+            tokenized_ingredients = [clean_ingredients_for_ml(ing).split() for ing in self.df['ingredients'].tolist()]
+            self.bm25 = BM25Okapi(tokenized_ingredients)
+            print("Models ready!")
 
-        print("Model ready! Loaded {} recipes.".format(len(self.df)))
+    def _parse_calories(self, val):
+        """Safely parse calories even if it's a range or has text."""
+        try:
+            if pd.isna(val) or val == '' or val == '---':
+                return 0
+            s = str(val).lower().replace('kcal', '').strip()
+            if '-' in s:
+                parts = s.split('-')
+                return int(float(parts[0].strip()))
+            match = re.search(r'(\d+)', s)
+            if match:
+                return int(match.group(1))
+            return 0
+        except:
+            return 0
 
     def recommend(self, user_ingredients, top_k=5, alpha=0.5, min_overlap=0):
+        self._ensure_models_loaded()
         """
         Recommend recipes using hybrid search (semantic + keyword matching)
 
@@ -223,7 +260,8 @@ class RecipeRecommender:
         return self.recommend(user_ingredients, top_k=top_k, alpha=1.0, min_overlap=0)
 
     def fridge_search(self, user_ingredients, top_k=10):
-    # Parse user ingredients — split by comma FIRST, then clean each one
+        self._ensure_models_loaded()
+        # Parse user ingredients — split by comma FIRST, then clean each one
         user_items = set()
         for item in user_ingredients.split(','):
             cleaned = clean_ingredients_for_ml(item.strip())
@@ -287,7 +325,7 @@ class RecipeRecommender:
             'recipe_name': recipe['recipe_name'],
             'ingredients': recipe['ingredients'],
             'cuisine': recipe['cuisine'],
-            'calories': int(recipe['calories']),
+            'calories': self._parse_calories(recipe['calories']),
             'rating': float(recipe['rating']),
             'difficulty': recipe.get('difficulty', 'medium'),
             'instructions': instructions,

@@ -56,7 +56,7 @@
           <img src="{{ gem.image }}" onerror="this.src='https://via.placeholder.com/40?text=⭐'">
           <div class="mini-recipe-info">
             <span class="mini-recipe-name">{{ gem.name }}</span>
-            <span class="mini-recipe-meta">⭐ {{ gem.rating }} · {{ gem.cuisine }}</span>
+            <span class="mini-recipe-meta">⭐ {{ gem.rating }} · {{ gem.cuisine }} · ⏱ 45 min</span>
           </div>
         </div>
         {% endfor %}
@@ -103,13 +103,12 @@
   <div class="chef-tip-inline">
     <span class="tip-icon">💡</span>
     <span class="tip-text">
-      {% if analytics.cuisine_diversity < 20 %}
-        Try <strong>Asian</strong> dishes to broaden your horizons!
-      {% elif analytics.avg_calories > 600 %}
+      {% if analytics.cuisine_diversity < 20 %} Try <strong>Asian</strong> dishes to broaden your horizons!
+        {% elif analytics.avg_calories > 600 %}
         Try a <strong>Low Calorie</strong> search today?
-      {% else %}
+        {% else %}
         Experiment with new spices to reach 'Master Chef'!
-      {% endif %}
+        {% endif %}
     </span>
   </div>
 </div>
@@ -117,40 +116,41 @@
 <!-- Load Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     const ctx = document.getElementById('activityChart').getContext('2d');
-    const activityData = {{ analytics.trends.weekday_activity | tojson }};
-    
-    // Shift data from Sun-Sat to Mon-Sun for better reading if needed, 
-    // but here we keep it simple Sun-Sat matching the SQL strftime %w
-    const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: activityData,
-                backgroundColor: 'rgba(255, 107, 53, 0.6)',
-                borderColor: 'rgba(255, 107, 53, 1)',
-                borderWidth: 0,
-                borderRadius: 4,
-                barThickness: 12
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { display: false, beginAtZero: true },
-                x: { 
-                    grid: { display: false },
-                    ticks: { font: { size: 9 }, color: '#94a3b8' }
-                }
-            }
+    const activityData = {{ analytics.trends.weekday_activity | tojson
+  }};
+
+  // Shift data from Sun-Sat to Mon-Sun for better reading if needed, 
+  // but here we keep it simple Sun-Sat matching the SQL strftime %w
+  const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: activityData,
+        backgroundColor: 'rgba(255, 107, 53, 0.6)',
+        borderColor: 'rgba(255, 107, 53, 1)',
+        borderWidth: 0,
+        borderRadius: 4,
+        barThickness: 12
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { display: false, beginAtZero: true },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 9 }, color: '#94a3b8' }
         }
-    });
+      }
+    }
+  });
 });
 </script>
 
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function() {
         {% else %}
         <div class="recipe-img-placeholder">🍽️</div>
         {% endif %}
-        <div class="recipe-time-badge">⏱ {{ recipe.cook_time if recipe.cook_time else '30' }} min</div>
+        <div class="recipe-time-badge">⏱ {{ recipe.cook_time }} min</div>
       </div>
       <div class="recipe-card-body">
         <div class="recipe-card-name">{{ recipe.recipe_name }}</div>
@@ -217,5 +217,20 @@ document.addEventListener('DOMContentLoaded', function() {
     <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
   </div>
 </section>
+
+<!-- AI Quick View Modal -->
+<div id="ai-modal-overlay" class="diet-overlay" style="display:none; z-index: 10001;" onclick="closeAiModal()"></div>
+<div class="diet-drawer" id="ai-drawer"
+  style="right: -480px; width: 100%; max-width: 500px; padding: 0; background: #1a1a1a; z-index: 10002; position: fixed; top: 0; bottom: 0; transition: right 0.3s ease;">
+  <div
+    style="position: sticky; top: 0; background: #1a1a1a; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+    <h2 id="ai-modal-title" style="margin:0; font-size: 1.2rem; color: #ff6b35;">Recipe Detail</h2>
+    <button onclick="closeAiModal()"
+      style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">&times;</button>
+  </div>
+  <div id="ai-modal-content" style="padding: 24px; overflow-y: auto; max-height: calc(100vh - 80px);">
+    <!-- Content injected by JS -->
+  </div>
+</div>
 
 {% endblock %}

@@ -157,7 +157,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // ------------share Recipe----------
 const recipeUrl = window.location.href;
 const recipeName = document.querySelector('.recipe-title').textContent.trim();
-const shareText = `Check out this recipe: ${recipeName} 🍽️`;
+const cuisineName = document.querySelector('.recipe-cuisine')?.textContent.trim() || 'General';
+const caloriesCount = document.querySelector('.meta-tag')?.textContent.trim() || '';
+
+const shareText = `🍳 Check out this recipe: ${recipeName}!\n\n🍽️ Cuisine: ${cuisineName}\n🔥 ${caloriesCount}\n\nView the full recipe here:\n${recipeUrl}\n\nShared from ChefGPT 👨‍🍳`;
 
 function openShareModal() {
     // If the browser supports native sharing (like on mobile phones or modern Macs), use that!

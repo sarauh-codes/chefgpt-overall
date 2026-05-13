@@ -13,7 +13,7 @@
     <div class="container recipe-container">
 
         <!-- Back Button -->
-        <a href="{{ url_for('dashboard') }}" class="recipe-back-btn no-print" onclick="event.preventDefault(); window.history.back();">
+        <a href="{{ url_for('dashboard') }}" class="recipe-back-btn no-print">
             ← Back to recipes
         </a>
         
@@ -38,6 +38,7 @@
                 <p class="recipe-cuisine">{{ recipe.cuisine }}</p>
                 
                 <div class="recipe-meta-tags">
+                    <span class="meta-tag">⏱ {{ recipe.cook_time }} min</span>
                     <span class="meta-tag">🔥 {{ recipe.calories }} cal</span>
                     <span class="meta-tag">⭐ {{ recipe.rating }}/5</span>
                     <span class="meta-tag diff-{{ recipe.difficulty|lower }}">
