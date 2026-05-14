@@ -201,10 +201,12 @@ class RecipeCard extends StatelessWidget {
     final rawId = recipe['recipe_id'] ?? recipe['id'];
     if (rawId == null) return;
     
+    final int parsedId = rawId is int ? rawId : int.tryParse(rawId.toString()) ?? 0;
+    
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RecipeDetailScreen(recipeId: rawId.toString()),
+        builder: (_) => RecipeDetailScreen(recipeId: parsedId),
       ),
     );
   }

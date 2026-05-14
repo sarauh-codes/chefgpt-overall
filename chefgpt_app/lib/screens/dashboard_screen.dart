@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
@@ -171,7 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         
         // Stage 1: Local Search
         final response = await http.get(
-          Uri.parse('$baseUrl/search-recipes?q=${Uri.encodeComponent(query)}'),
+          Uri.parse('$baseUrl/api/search-recipes?q=${Uri.encodeComponent(query)}'),
           headers: {
             if (token.isNotEmpty) 'Authorization': 'Bearer $token',
           },

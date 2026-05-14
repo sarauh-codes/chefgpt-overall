@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../widgets/neo_glass_container.dart';
 import '../constants.dart';
+import 'recipe_detail_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final bool isEmbedded;
