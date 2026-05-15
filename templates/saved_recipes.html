@@ -29,7 +29,7 @@
         {% else %}
             <div class="recipe-grid">
             {% for saved in recipes %}
-                <div class="recipe-card" onclick="window.location.href='{{ url_for('recipe_detail', recipe_id=saved.recipe_id) }}'" style="position: relative;">
+                <div class="recipe-card" onclick="window.location.href='{{ url_for('recipe_detail', recipe_id=saved.recipe_id) }}';" style="position: relative;">
                     <button class="view-btn" style="position: absolute; top: 8px; right: 8px; background: rgba(231, 76, 60, 0.9); color: white; border: none; padding: 6px 10px; font-size: 11px; z-index: 10; border-radius: 8px;" onclick="event.stopPropagation(); unsave({{ saved.recipe_id }}, this)">
                         ✕ Remove
                     </button>

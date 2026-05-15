@@ -235,7 +235,7 @@ class RecipeRecommender:
                 'recipe_name': recipe['recipe_name'],
                 'ingredients': recipe['ingredients'],
                 'cuisine': recipe['cuisine'],
-                'calories': int(recipe['calories']),
+                'calories': self._parse_calories(recipe['calories']),
                 'rating': float(recipe['rating']),
                 'difficulty': recipe.get('difficulty', 'medium'),
                 'similarity_score': round(float(hybrid_scores[idx]) * 100, 2),  # Hybrid score
@@ -290,21 +290,22 @@ class RecipeRecommender:
             missing = list(recipe_items - matched_recipe_items)
             match_pct = round((matched / total) * 100) if total > 0 else 0
 
-            results.append({
-                'recipe_id': int(row['recipe_id']),
-                'recipe_name': row['recipe_name'],
-                'ingredients': row['ingredients'],
-                'cuisine': row['cuisine'],
-                'calories': int(row['calories']),
-                'rating': float(row['rating']),
-                'difficulty': row.get('difficulty', 'medium'),
-                'matched_count': matched,
-                'total_ingredients': total,
-                'missing_ingredients': missing,
-                'match_pct': match_pct,
-                'semantic_score': round(float(semantic_scores[idx]) * 100, 2),
-                'image_url': row.get('image_url', '') or '',
-            })
+            if matched > 0:
+                results.append({
+                    'recipe_id': int(row['recipe_id']),
+                    'recipe_name': row['recipe_name'],
+                    'ingredients': row['ingredients'],
+                    'cuisine': row['cuisine'],
+                    'calories': self._parse_calories(row['calories']),
+                    'rating': float(row['rating']),
+                    'difficulty': row.get('difficulty', 'medium'),
+                    'matched_count': matched,
+                    'total_ingredients': total,
+                    'missing_ingredients': missing,
+                    'match_pct': match_pct,
+                    'semantic_score': round(float(semantic_scores[idx]) * 100, 2),
+                    'image_url': row.get('image_url', '') or '',
+                })
 
         results.sort(key=lambda x: (x['match_pct'], x['semantic_score']), reverse=True)
         return results[:top_k]

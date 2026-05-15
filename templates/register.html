@@ -1,37 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - ChefGPT</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-</head>
-<body>
-    <!-- FLASH MESSAGES -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-messages" style="text-align: center; margin-bottom: 15px;">
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }}" style="padding: 10px; border-radius: 5px; color: #fff; background-color: {% if category == 'success' %}#28a745{% else %}#dc3545{% endif %}; margin-bottom: 10px;">{{ message }}</div>
-        {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
 
-    <div class="container">
-        <h2>Create Account</h2> 
-        
-        <form method="POST" action="{{ url_for('register') }}">
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="email" name="email" placeholder="Email" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <button type="submit">Register</button>
-        </form>
-        
-        <p>
-            Already have an account? 
-            <a href="{{ url_for('login') }}">Login here</a>
-        </p>
-    </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - ChefGPT</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+
+<body>
+  <!-- FLASH MESSAGES -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="container">
+    <h2>Create Account</h2>
+
+    <form method="POST" action="{{ url_for('register') }}">
+      <input type="text" name="username" placeholder="Username" required>
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <button type="submit">Register</button>
+    </form>
+
+    <p>
+      Already have an account?
+      <a href="{{ url_for('login') }}">Login here</a>
+    </p>
+  </div>
 </body>
+
 </html>

@@ -724,7 +724,7 @@ def load_more_recipes():
             'recipe_name': str(row['recipe_name']),
             'ingredients': str(row['ingredients']),
             'cuisine': str(row['cuisine']),
-            'calories': int(row['calories']),
+            'calories': get_recommender()._parse_calories(row['calories']),
             'rating': float(row['rating']),
             'difficulty': str(row.get('difficulty', 'medium')),
             'image_url': img,
@@ -784,7 +784,7 @@ def search_recipes():
 
 
 @app.route('/api/ai-search-suggestions', methods=['GET'])
-@login_required
+@web_or_jwt_required
 def ai_search_suggestions():
     query = request.args.get('q', '').strip()
     if not query:
@@ -1037,7 +1037,7 @@ def meal_plan_week_api():
                 "recipe_id": int(row["recipe_id"]),
                 "recipe_name": str(row["recipe_name"]),
                 "cuisine": str(row["cuisine"]),
-                "calories": int(row["calories"]),
+                "calories": get_recommender()._parse_calories(row["calories"]),
                 "rating": float(row["rating"]),
                 "difficulty": str(row.get("difficulty", "medium")),
                 "image_url": str(row.get("image_url", "") or ""),
@@ -2113,13 +2113,17 @@ def api_search_recipes():
             'recipe_name': str(row['recipe_name']),
             'ingredients': str(row['ingredients']),
             'cuisine': str(row['cuisine']),
-            'calories': int(row['calories']),
+            'calories': get_recommender()._parse_calories(row['calories']),
             'rating': float(row['rating']),
             'difficulty': str(row['difficulty']),
             'image_url': str(row.get('image_url', '')) or '',
+            'cook_time': get_cook_time(row),
         })
 
-    return jsonify({'recipes': recipes_list})
+    return jsonify({
+        'recipes': recipes_list,
+        'trigger_ai': len(query) >= 3
+    })
 @app.route('/api/recipe/<int:recipe_id>', methods=['GET'])
 @jwt_required()
 def api_recipe_detail(recipe_id):
@@ -2188,7 +2192,7 @@ def api_saved_recipes():
         rat = 0.0
         if not recipe_row.empty:
             img = str(recipe_row['image_url'].iloc[0]) if 'image_url' in recipe_row.columns else ""
-            cal = int(recipe_row['calories'].iloc[0]) if 'calories' in recipe_row.columns else 0
+            cal = get_recommender()._parse_calories(recipe_row['calories'].iloc[0]) if 'calories' in recipe_row.columns else 0
             rat = float(recipe_row['rating'].iloc[0]) if 'rating' in recipe_row.columns else 0.0
             
         recipes.append({
@@ -2270,7 +2274,7 @@ def api_cooked_history():
         rat = 0.0
         if not recipe_row.empty:
             img = str(recipe_row['image_url'].iloc[0]) if 'image_url' in recipe_row.columns else ""
-            cal = int(recipe_row['calories'].iloc[0]) if 'calories' in recipe_row.columns else 0
+            cal = get_recommender()._parse_calories(recipe_row['calories'].iloc[0]) if 'calories' in recipe_row.columns else 0
             rat = float(recipe_row['rating'].iloc[0]) if 'rating' in recipe_row.columns else 0.0
 
         recipes.append({

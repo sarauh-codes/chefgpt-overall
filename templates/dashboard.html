@@ -69,16 +69,26 @@
     <div class="compact-card analytics-visual">
       <div class="card-header-row">
         <h3>📊 Activity Pattern</h3>
+        {% if analytics.cooked > 0 %}
         <div class="growth-indicator {% if analytics.trends.growth >= 0 %}up{% else %}down{% endif %}">
           {{ analytics.trends.growth }}% <span>vs last week</span>
         </div>
+        {% endif %}
       </div>
+      
+      {% if analytics.cooked > 0 %}
       <div class="chart-container">
         <canvas id="activityChart"></canvas>
       </div>
       <div class="behavior-insight-text">
         You've cooked <strong>{{ analytics.trends.this_week }}</strong> recipes this week.
       </div>
+      {% else %}
+      <div style="text-align: center; padding: 30px 10px; color: #888;">
+        <div style="font-size: 32px; margin-bottom: 10px;">🍳</div>
+        <p style="margin: 0; font-size: 0.95rem; line-height: 1.4; color: #94a3b8;">Start cooking your first meal to unlock your personalized activity patterns!</p>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -117,9 +127,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    {% if analytics.cooked > 0 %}
     const ctx = document.getElementById('activityChart').getContext('2d');
-    const activityData = {{ analytics.trends.weekday_activity | tojson
-  }};
+    const activityData = {{ analytics.trends.weekday_activity | tojson }};
 
   // Shift data from Sun-Sat to Mon-Sun for better reading if needed, 
   // but here we keep it simple Sun-Sat matching the SQL strftime %w
@@ -151,6 +161,7 @@
       }
     }
   });
+  {% endif %}
 });
 </script>
 
