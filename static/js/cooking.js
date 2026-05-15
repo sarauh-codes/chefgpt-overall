@@ -89,3 +89,78 @@ async function markAsCooked() {
         alert('Error marking recipe as cooked');
     }
 }
+
+// ==================== LANGUAGE: COOKING PAGE ====================
+
+const COOKING_LANG_CACHE_PREFIX = 'chefgpt_recipe_ms_';
+
+/**
+ * Called by dashboard.js setLanguage() or on page load.
+ */
+async function applyPageLanguage(lang) {
+    if (lang === 'ms') {
+        await loadMalayForCookingPage();
+    } else {
+        revertToEnglishOnCookingPage();
+    }
+}
+
+async function loadMalayForCookingPage() {
+    const recipeIdEl = document.getElementById('recipe-id');
+    if (!recipeIdEl) return;
+    const recipeId = recipeIdEl.value;
+
+    const cacheKey = COOKING_LANG_CACHE_PREFIX + recipeId;
+    let data = null;
+
+    // Try sessionStorage first (populated by recipe detail page)
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+        try { data = JSON.parse(cached); } catch(e) {}
+    }
+
+    // If not cached, fetch from the API
+    if (!data) {
+        try {
+            const ingredients = document.getElementById('recipe-ingredients-raw')?.value || '';
+            const instructions = document.getElementById('recipe-instructions-raw')?.value || '';
+
+            const res = await fetch('/api/translate-recipe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipe_id: recipeId, ingredients, instructions })
+            });
+            if (res.ok) {
+                data = await res.json();
+                sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            }
+        } catch(e) {
+            console.error('[cooking.js] Translation error:', e);
+        }
+    }
+
+    if (data && data.instructions_ms) {
+        applyMalayStepsToCookingPage(data.instructions_ms);
+    }
+}
+
+function applyMalayStepsToCookingPage(instructionsMs) {
+    const msSteps = instructionsMs.split('|').map(s => s.trim()).filter(Boolean);
+    const stepEls = document.querySelectorAll('.slide-text');
+    stepEls.forEach((el, i) => {
+        if (msSteps[i]) el.textContent = msSteps[i];
+    });
+}
+
+function revertToEnglishOnCookingPage() {
+    document.querySelectorAll('.slide-text[data-en]').forEach(el => {
+        el.textContent = el.dataset.en;
+    });
+}
+
+// Run on page load — respect user's stored language preference
+document.addEventListener('DOMContentLoaded', function() {
+    const lang = typeof getLanguage === 'function' ? getLanguage() : (localStorage.getItem('chefgpt_lang') || 'en');
+    applyPageLanguage(lang);
+});
+

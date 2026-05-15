@@ -9,6 +9,8 @@
 
 {% block content %}
     <input type="hidden" id="recipe-id" value="{{ recipe.recipe_id }}">
+    <input type="hidden" id="recipe-ingredients-raw" value="{{ recipe.ingredients | e }}">
+    <input type="hidden" id="recipe-instructions-raw" value="{{ recipe.instructions | e }}">
     
     <div class="container recipe-container">
 
@@ -75,6 +77,11 @@
                 <button class="tab-btn" onclick="switchTab(event, 'reviews')">💬 Reviews</button>
             </div>
 
+            <!-- Language loading indicator -->
+            <div id="lang-loading" style="display:none; text-align:center; padding:20px 0; color:var(--brand); font-size:14px; font-weight:600;">
+                🌐 <span id="lang-loading-text">Menterjemah ke Bahasa Melayu...</span>
+            </div>
+
             <!-- Tab 1: Ingredients -->
             <div id="tab-ingredients" class="tab-content active">
                 <h3 class="print-only">📝 Ingredients</h3>
@@ -97,7 +104,7 @@
                             <div class="ingredient-row" style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid var(--border); padding: 4px 0;">
                                 <label class="ingredient-label" style="border-bottom: none; display: flex; align-items: center; gap: 16px; cursor: pointer; flex: 1; padding: 12px 16px;">
                                     <input type="checkbox" class="ingredient-checkbox">
-                                    <span class="ingredient-text" style="font-weight: 500;">{{ ingredient.strip() }}</span>
+                                    <span class="ingredient-text" style="font-weight: 500;" data-en="{{ ingredient.strip() | e }}">{{ ingredient.strip() }}</span>
                                 </label>
                                 
                                 {% if ns.is_swappable %}
@@ -132,7 +139,7 @@
                         {% if loop.index <= 3 %}
                         <div class="timeline-step">
                             <div class="timeline-number">{{ loop.index }}</div>
-                            <div class="timeline-content">{{ step }}</div>
+                            <div class="timeline-content" data-en="{{ step | e }}">{{ step }}</div>
                         </div>
                         {% endif %}
                     {% endfor %}
@@ -151,7 +158,7 @@
                     {% for step in steps %}
                     <div class="timeline-step">
                         <div class="timeline-number">{{ loop.index }}</div>
-                        <div class="timeline-content">{{ step }}</div>
+                        <div class="timeline-content" data-en="{{ step | e }}">{{ step }}</div>
                     </div>
                     {% endfor %}
                 </div>

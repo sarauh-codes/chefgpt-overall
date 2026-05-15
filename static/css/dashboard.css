@@ -54,6 +54,7 @@ body {
   overflow-y: auto;
   position: sticky;
   top: 0;
+  z-index: 10;
 }
 
 
@@ -279,6 +280,102 @@ body.dark-theme .theme-switch {
   justify-content: flex-end;
 }
 
+/* ===== LANGUAGE SWITCHER ===== */
+.lang-switcher {
+  position: relative;
+  z-index: 9999;
+}
+
+.lang-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  white-space: nowrap;
+}
+
+.lang-toggle-btn:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.lang-caret {
+  font-size: 9px;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.lang-dropdown {
+  display: none;
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  overflow: hidden;
+  z-index: 9999;
+  min-width: 190px;
+  animation: langDropIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lang-dropdown.open {
+  display: block;
+}
+
+@keyframes langDropIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.lang-option:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.lang-opt-flag {
+  font-size: 16px;
+}
+
+.lang-check {
+  margin-left: auto;
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* Translating indicator pulse */
+@keyframes langPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+#lang-loading {
+  animation: langPulse 1.4s ease infinite;
+}
 
 /* ===== ALERTS ===== */
 .alert {

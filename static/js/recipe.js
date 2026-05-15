@@ -328,3 +328,106 @@ function downloadPDF() {
     
     if (typeof showToast === 'function') showToast('✅ PDF downloaded successfully!', 'success');
 }
+
+// ==================== LANGUAGE: RECIPE PAGE ====================
+
+const RECIPE_LANG_CACHE_PREFIX = 'chefgpt_recipe_ms_';
+
+/**
+ * Called by dashboard.js setLanguage() and on DOMContentLoaded.
+ * Orchestrates swapping ingredients + instructions to/from Malay.
+ */
+async function applyPageLanguage(lang) {
+    if (lang === 'ms') {
+        await loadMalayForRecipePage();
+    } else {
+        revertToEnglishOnRecipePage();
+    }
+}
+
+async function loadMalayForRecipePage() {
+    const recipeIdEl = document.getElementById('recipe-id');
+    if (!recipeIdEl) return;
+    const recipeId = recipeIdEl.value;
+
+    const cacheKey = RECIPE_LANG_CACHE_PREFIX + recipeId;
+    const cached   = sessionStorage.getItem(cacheKey);
+
+    if (cached) {
+        try {
+            applyMalayContentToRecipePage(JSON.parse(cached));
+        } catch(e) {}
+        return;
+    }
+
+    // Show loading indicator
+    const loadingEl = document.getElementById('lang-loading');
+    if (loadingEl) loadingEl.style.display = 'block';
+
+    try {
+        const ingredients = document.getElementById('recipe-ingredients-raw')?.value || '';
+        const instructions = document.getElementById('recipe-instructions-raw')?.value || '';
+
+        const res = await fetch('/api/translate-recipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipe_id: recipeId, ingredients, instructions })
+        });
+
+        if (!res.ok) throw new Error('Translation request failed');
+        const data = await res.json();
+
+        // Cache the result
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
+        applyMalayContentToRecipePage(data);
+    } catch (err) {
+        console.error('[recipe.js] Translation error:', err);
+        if (typeof showToast === 'function') {
+            showToast('⚠️ Translation unavailable. Showing English.', 'error');
+        }
+    } finally {
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
+function applyMalayContentToRecipePage(data) {
+    // ── Ingredients ──
+    if (data.ingredients_ms) {
+        const msIngredients = data.ingredients_ms.split(',').map(s => s.trim());
+        const ingredientEls = document.querySelectorAll('.ingredient-text');
+        ingredientEls.forEach((el, i) => {
+            if (msIngredients[i]) el.textContent = msIngredients[i];
+        });
+    }
+
+    // ── Instructions (timeline steps) ──
+    if (data.instructions_ms) {
+        const msSteps = data.instructions_ms.split('|').map(s => s.trim()).filter(Boolean);
+        const stepEls = document.querySelectorAll('.timeline-content');
+        stepEls.forEach((el, i) => {
+            if (msSteps[i]) el.textContent = msSteps[i];
+        });
+    }
+
+    // Hide loading indicator if still visible
+    const loadingEl = document.getElementById('lang-loading');
+    if (loadingEl) loadingEl.style.display = 'none';
+}
+
+function revertToEnglishOnRecipePage() {
+    // Restore ingredients from data-en
+    document.querySelectorAll('.ingredient-text[data-en]').forEach(el => {
+        el.textContent = el.dataset.en;
+    });
+
+    // Restore instruction steps from data-en
+    document.querySelectorAll('.timeline-content[data-en]').forEach(el => {
+        el.textContent = el.dataset.en;
+    });
+}
+
+// Run on page load — respect user's stored language preference
+document.addEventListener('DOMContentLoaded', function() {
+    const lang = typeof getLanguage === 'function' ? getLanguage() : (localStorage.getItem('chefgpt_lang') || 'en');
+    applyPageLanguage(lang);
+});

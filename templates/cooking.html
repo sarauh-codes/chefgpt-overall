@@ -8,6 +8,8 @@
 
 {% block content %}
     <input type="hidden" id="recipe-id" value="{{ recipe.recipe_id }}">
+    <input type="hidden" id="recipe-ingredients-raw" value="{{ recipe.ingredients | e }}">
+    <input type="hidden" id="recipe-instructions-raw" value="{{ recipe.instructions | e }}">
     
     <div class="container cooking-mode-wrapper">
         <div class="cooking-header">
@@ -51,7 +53,7 @@
                 {% for step in valid_steps %}
                     <div class="cooking-slide" data-index="{{ loop.index0 }}">
                         <div class="slide-number">{{ loop.index }}</div>
-                        <div class="slide-text">{{ step }}</div>
+                        <div class="slide-text" data-en="{{ step | e }}">{{ step }}</div>
                     </div>
                 {% endfor %}
             </div>

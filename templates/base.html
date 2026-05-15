@@ -54,12 +54,35 @@
 
     <div class="topbar-actions">
       <div class="topbar-date" id="topbarDate"></div>
+
+      <!-- Language Switcher -->
+      <div class="lang-switcher" id="langSwitcher">
+        <button class="lang-toggle-btn" id="langToggleBtn" onclick="toggleLangDropdown()" aria-label="Change language">
+          <span id="langFlag">🌐</span>
+          <span id="langLabel">EN</span>
+          <span class="lang-caret">▾</span>
+        </button>
+        <div class="lang-dropdown" id="langDropdown">
+          <button class="lang-option" id="langOptEn" onclick="setLanguage('en')">
+            <span class="lang-opt-flag">🇬🇧</span>
+            <span>English</span>
+            <span class="lang-check" id="checkEn">✓</span>
+          </button>
+          <button class="lang-option" id="langOptMs" onclick="setLanguage('ms')">
+            <span class="lang-opt-flag">🇲🇾</span>
+            <span>Bahasa Melayu</span>
+            <span class="lang-check" id="checkMs" style="display:none;">✓</span>
+          </button>
+        </div>
+      </div>
+
       <button class="theme-switch" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
         <span class="theme-switch-icon" id="themeIcon">🌙</span>
         <span class="theme-switch-text" id="themeText">Dark</span>
         <span class="theme-switch-knob"></span>
       </button>
     </div>
+
 
     <!-- FLASH MESSAGES -->
     {% with messages = get_flashed_messages(with_categories=true) %}

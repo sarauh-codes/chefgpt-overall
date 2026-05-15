@@ -1,3 +1,80 @@
+// ==================== LANGUAGE SWITCHER ====================
+
+const LANG_KEY = 'chefgpt_lang';
+
+function getLanguage() {
+    return localStorage.getItem(LANG_KEY) || 'en';
+}
+
+function setLanguage(lang) {
+    localStorage.setItem(LANG_KEY, lang);
+    _updateLangUI(lang);
+    closeLangDropdown();
+
+    // If we are currently on a recipe or cooking page, apply or revert translations
+    if (typeof applyPageLanguage === 'function') {
+        applyPageLanguage(lang);
+    }
+}
+
+function _updateLangUI(lang) {
+    const flagEl   = document.getElementById('langFlag');
+    const labelEl  = document.getElementById('langLabel');
+    const checkEn  = document.getElementById('checkEn');
+    const checkMs  = document.getElementById('checkMs');
+
+    if (!flagEl) return; // topbar not rendered on this page
+
+    if (lang === 'ms') {
+        flagEl.textContent  = '🇲🇾';
+        labelEl.textContent = 'BM';
+        if (checkEn) checkEn.style.display = 'none';
+        if (checkMs) checkMs.style.display = 'inline';
+    } else {
+        flagEl.textContent  = '🌐';
+        labelEl.textContent = 'EN';
+        if (checkEn) checkEn.style.display = 'inline';
+        if (checkMs) checkMs.style.display = 'none';
+    }
+}
+
+function toggleLangDropdown() {
+    const dropdown = document.getElementById('langDropdown');
+    const btn      = document.getElementById('langToggleBtn');
+    if (!dropdown || !btn) return;
+
+    if (dropdown.classList.contains('open')) {
+        dropdown.classList.remove('open');
+        return;
+    }
+
+    // Position the fixed dropdown just below the button
+    const rect = btn.getBoundingClientRect();
+    dropdown.style.top   = (rect.bottom + 8) + 'px';
+    dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+    dropdown.classList.add('open');
+}
+
+function closeLangDropdown() {
+    const dropdown = document.getElementById('langDropdown');
+    if (dropdown) dropdown.classList.remove('open');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const switcher = document.getElementById('langSwitcher');
+    if (switcher && !switcher.contains(e.target)) {
+        closeLangDropdown();
+    }
+});
+
+// Init UI label on every page load
+document.addEventListener('DOMContentLoaded', function() {
+    _updateLangUI(getLanguage());
+});
+
+// ==================== END LANGUAGE SWITCHER ====================
+
 const rotatingPrompts = [
     "Find recipes using chicken and rice...",
     "Plan a healthy dinner for tonight...",

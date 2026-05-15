@@ -1083,6 +1083,58 @@ def meal_plan_week_api():
 
 
 # ==================== RECIPE ROUTES ====================
+
+@app.route("/api/translate-recipe", methods=["POST"])
+@login_required
+def translate_recipe():
+    """Translate recipe ingredients and instructions to Bahasa Melayu using Groq."""
+    data = request.get_json()
+    recipe_id = data.get("recipe_id")
+    ingredients_en = data.get("ingredients", "")
+    instructions_en = data.get("instructions", "")
+
+    if not ingredients_en and not instructions_en:
+        return jsonify({"error": "Nothing to translate"}), 400
+
+    try:
+        prompt = (
+            "You are a professional culinary translator. Translate the following recipe content "
+            "from English to Bahasa Melayu (Malaysian Malay). Keep ingredient measurements, numbers, "
+            "and unit abbreviations (e.g. g, kg, ml, tbsp, tsp, cup) exactly as they are — only translate "
+            "the ingredient names and instruction text. Do NOT add any extra commentary.\n\n"
+            "Respond with ONLY a valid JSON object in this exact format:\n"
+            '{"ingredients_ms": "<translated ingredients, comma-separated exactly matching the original list>", '
+            '"instructions_ms": "<translated instructions, steps separated by | exactly as the original>"}\n\n'
+            f"INGREDIENTS (comma-separated):\n{ingredients_en}\n\n"
+            f"INSTRUCTIONS (steps separated by |):\n{instructions_en}"
+        )
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2000,
+            temperature=0.2,
+        )
+
+        raw = response.choices[0].message.content.strip()
+
+        # Strip markdown code fences if the model wrapped the JSON
+        if raw.startswith("```"):
+            raw = re.sub(r"^```[a-z]*\n?", "", raw)
+            raw = re.sub(r"\n?```$", "", raw)
+
+        result = json.loads(raw)
+        return jsonify({
+            "recipe_id": recipe_id,
+            "ingredients_ms": result.get("ingredients_ms", ingredients_en),
+            "instructions_ms": result.get("instructions_ms", instructions_en),
+        })
+
+    except Exception as e:
+        print(f"[translate_recipe] Error: {e}")
+        return jsonify({"error": "Translation failed", "detail": str(e)}), 500
+
+
 @app.route("/recipe/<int:recipe_id>")
 @login_required
 def recipe_detail(recipe_id):
