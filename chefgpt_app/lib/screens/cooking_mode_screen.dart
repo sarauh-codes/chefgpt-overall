@@ -12,10 +12,12 @@ import 'chat_fab.dart';
 class CookingModeScreen extends StatefulWidget {
   final int recipeId;
   final Map<String, dynamic> recipe;
+  final String? translatedInstructions; // pre-translated pipe-separated steps (Malay)
   const CookingModeScreen({
     super.key,
     required this.recipeId,
     required this.recipe,
+    this.translatedInstructions,
   });
 
   @override
@@ -40,7 +42,10 @@ class _CookingModeScreenState extends State<CookingModeScreen>
       duration: const Duration(seconds: 18),
     )..repeat();
 
-    _steps = splitRecipeInstructions(widget.recipe['instructions']).where((s) => s.trim().isNotEmpty).toList();
+    _steps = splitRecipeInstructions(
+      // Use pre-translated steps if provided (Malay mode), otherwise English
+      widget.translatedInstructions ?? widget.recipe['instructions'],
+    ).where((s) => s.trim().isNotEmpty).toList();
     _pageController = PageController();
   }
 

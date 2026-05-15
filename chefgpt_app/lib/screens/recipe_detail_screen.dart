@@ -1,5 +1,6 @@
 import '../constants.dart';
 import '../utils/recipe_format.dart';
+import '../utils/language_prefs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -40,6 +41,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   List _feedbacks = [];
   final ScrollController _scrollController = ScrollController();
 
+  // ── Language state ──
+  bool _isMalay = false;
+  bool _isTranslating = false;
+  String? _transIngredients; // translated comma-separated ingredients
+  String? _transInstructions; // translated pipe-separated instructions
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +56,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() => setState(() {}));
     _loadAll();
+    _loadLanguagePref();
   }
 
   @override
@@ -62,6 +70,65 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   Future<String> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token') ?? '';
+  }
+
+  Future<void> _loadLanguagePref() async {
+    final lang = await getLanguage();
+    if (lang == 'ms' && mounted) {
+      setState(() => _isMalay = true);
+      // Fetch translation once recipe is loaded
+      await _loadAll();
+      _fetchTranslation();
+    }
+  }
+
+  Future<void> _toggleLanguage() async {
+    final newIsMalay = !_isMalay;
+    setState(() => _isMalay = newIsMalay);
+    await setLanguage(newIsMalay ? 'ms' : 'en');
+    if (newIsMalay && _transIngredients == null) {
+      _fetchTranslation();
+    }
+  }
+
+  Future<void> _fetchTranslation() async {
+    if (_recipe == null) return;
+    final ingredients = _recipe!['ingredients']?.toString() ?? '';
+    final instructions = _recipe!['instructions']?.toString() ?? '';
+    if (ingredients.isEmpty && instructions.isEmpty) return;
+
+    setState(() => _isTranslating = true);
+    try {
+      final token = await _getToken();
+      final res = await http.post(
+        Uri.parse('$baseUrl/api/translate-recipe'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'recipe_id': widget.recipeId,
+          'ingredients': ingredients,
+          'instructions': instructions,
+        }),
+      );
+      if (res.statusCode == 200 && mounted) {
+        final data = jsonDecode(res.body);
+        setState(() {
+          _transIngredients = data['ingredients_ms']?.toString();
+          _transInstructions = data['instructions_ms']?.toString();
+        });
+      }
+    } catch (e) {
+      debugPrint('[recipe_detail] Translation error: $e');
+      if (mounted) {
+        _showSnack('Translation unavailable. Showing English.', isError: true);
+        setState(() => _isMalay = false);
+        await setLanguage('en');
+      }
+    } finally {
+      if (mounted) setState(() => _isTranslating = false);
+    }
   }
 
   Future<void> _loadAll() async {
@@ -211,6 +278,45 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
             ),
             Row(
               children: [
+                // ── Language Toggle ──
+                GestureDetector(
+                  onTap: _isTranslating ? null : _toggleLanguage,
+                  behavior: HitTestBehavior.opaque,
+                  child: NeoGlassContainer(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    borderRadius: BorderRadius.circular(50),
+                    borderColor: _isMalay ? AppColors.accent : AppColors.glassBorder,
+                    child: _isTranslating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: AppColors.accent,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.language_rounded,
+                                color: _isMalay ? AppColors.accent : Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _isMalay ? 'BM' : 'EN',
+                                style: TextStyle(
+                                  color: _isMalay ? AppColors.accent : Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 GestureDetector(
                   onTap: _shareRecipe,
                   behavior: HitTestBehavior.opaque,
@@ -440,24 +546,47 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   Widget _buildIngredientsTab() {
-    return _buildIngredientsList(_recipe?['ingredients'] ?? '');
+    // Use translated ingredients string when Malay is active and translation is ready
+    final raw = (_isMalay && _transIngredients != null)
+        ? _transIngredients!
+        : (_recipe?['ingredients'] ?? '');
+    return _buildIngredientsList(raw);
   }
 
   Widget _buildStepsTab() {
-    final raw = _recipe?['instructions'] ?? '';
-    final steps = splitRecipeInstructions(raw).where((s) => s.trim().isNotEmpty).toList();
+    // Use translated instructions when Malay is active and translation is ready
+    final rawInstructions = (_isMalay && _transInstructions != null)
+        ? _transInstructions!
+        : (_recipe?['instructions'] ?? '');
+    final steps = splitRecipeInstructions(rawInstructions).where((s) => s.trim().isNotEmpty).toList();
     final visibleSteps = steps.take(3).toList();
     final hasMore = steps.length > 3;
 
     return Column(
       children: [
+        // Translating indicator
+        if (_isTranslating)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 14, height: 14,
+                  child: CircularProgressIndicator(color: AppColors.accent, strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Text('Menterjemah ke Bahasa Melayu...', style: AppStyles.caption.copyWith(color: AppColors.accent)),
+              ],
+            ),
+          ),
         ShaderMask(
           shaderCallback: (rect) {
-            return LinearGradient(
+            return const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [Colors.black, Colors.black, Colors.transparent],
-              stops: const [0.0, 0.7, 1.0],
+              stops: [0.0, 0.7, 1.0],
             ).createShader(rect);
           },
           blendMode: BlendMode.dstIn,
@@ -491,7 +620,22 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
         if (hasMore) ...[
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CookingModeScreen(recipeId: widget.recipeId, recipe: _recipe ?? {}))),
+            onTap: () {
+              // Pass translated steps to cooking mode if available
+              final cookingSteps = (_isMalay && _transInstructions != null)
+                  ? _transInstructions
+                  : null;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CookingModeScreen(
+                    recipeId: widget.recipeId,
+                    recipe: _recipe ?? {},
+                    translatedInstructions: cookingSteps,
+                  ),
+                ),
+              );
+            },
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20),
@@ -709,7 +853,21 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
 
   Widget _buildStartCookingBtn() {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CookingModeScreen(recipeId: widget.recipeId, recipe: _recipe ?? {}))),
+      onTap: () {
+        final cookingSteps = (_isMalay && _transInstructions != null)
+            ? _transInstructions
+            : null;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CookingModeScreen(
+              recipeId: widget.recipeId,
+              recipe: _recipe ?? {},
+              translatedInstructions: cookingSteps,
+            ),
+          ),
+        );
+      },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 18),
