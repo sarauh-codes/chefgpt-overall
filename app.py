@@ -145,6 +145,15 @@ class DietaryProfile(db.Model):
     user = db.relationship('User', backref=db.backref('dietary_profile', uselist=False))
 
 
+class AdminLog(db.Model):
+    __tablename__ = 'admin_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    action = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    admin = db.relationship('User', backref='admin_logs')
+
+
 MEAL_PLAN_VALID_DAYS = 7
 
 
@@ -373,7 +382,11 @@ def _best_match_pool(
     cuisine_relaxed = False
     cuisine_target = (cuisine or "").strip().lower()
     if cuisine_target and not using_base_mode:
-        only_cuisine = scored[cuisine_col == cuisine_target]
+        if cuisine_target == 'asian':
+            only_cuisine = scored[cuisine_col.isin(['asian', 'malay'])]
+        else:
+            only_cuisine = scored[cuisine_col == cuisine_target]
+            
         if len(only_cuisine) >= 7:
             scored = only_cuisine.copy()
             score = pd.Series(0.0, index=scored.index)
@@ -389,7 +402,10 @@ def _best_match_pool(
     else:
         if cuisine_target:
             cuisine_col_scored = scored["cuisine"].fillna("").astype(str).str.lower()
-            score += (cuisine_col_scored == cuisine_target).astype(float) * 20.0
+            if cuisine_target == 'asian':
+                score += (cuisine_col_scored.isin(['asian', 'malay'])).astype(float) * 20.0
+            else:
+                score += (cuisine_col_scored == cuisine_target).astype(float) * 20.0
         if max_calories is not None:
             within = calories_col <= max_calories
             overflow = (calories_col - max_calories).clip(lower=0).fillna(9999)
@@ -977,7 +993,10 @@ def meal_plan_week_api():
         # Normal mode: only cuisine/calories/rating/difficulty filters apply.
         df_stage_a = df_all
         if cuisine:
-            df_stage_a = df_stage_a[df_stage_a["cuisine"].astype(str).str.lower() == cuisine.lower()]
+            if cuisine.lower() == 'asian':
+                df_stage_a = df_stage_a[df_stage_a["cuisine"].astype(str).str.lower().isin(['asian', 'malay'])]
+            else:
+                df_stage_a = df_stage_a[df_stage_a["cuisine"].astype(str).str.lower() == cuisine.lower()]
         if max_calories is not None:
             df_stage_a = df_stage_a[df_stage_a["calories"] <= max_calories]
         if min_rating is not None:
@@ -1719,13 +1738,78 @@ def admin_dashboard():
     if current_user.role != 'admin':
         flash("Access denied!", "danger")
         return redirect(url_for('dashboard'))
+        
+    days = request.args.get('days', default=None, type=int)
+    
+    users_query = User.query.filter(User.role != 'admin')
+    feedbacks_query = Feedback.query
+    
+    if days:
+        from datetime import datetime, timedelta
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        users_query = users_query.filter(User.created_at >= cutoff)
+        feedbacks_query = feedbacks_query.filter(Feedback.created_at >= cutoff)
+
+    users = users_query.all()
+    feedbacks = feedbacks_query.all()
+    
     recommender = get_recommender()
     recipes_df = recommender.df
-    users = User.query.all()
-    feedbacks = Feedback.query.all()
+    
+    try:
+        admin_logs_query = AdminLog.query
+        if days:
+            from datetime import datetime, timedelta
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            admin_logs_query = admin_logs_query.filter(AdminLog.created_at >= cutoff)
+        admin_logs = admin_logs_query.order_by(AdminLog.created_at.desc()).limit(5).all()
+    except Exception:
+        db.create_all()
+        admin_logs_query = AdminLog.query
+        if days:
+            from datetime import datetime, timedelta
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            admin_logs_query = admin_logs_query.filter(AdminLog.created_at >= cutoff)
+        admin_logs = admin_logs_query.order_by(AdminLog.created_at.desc()).limit(5).all()
+
+    # Create a unified activity feed
+    activities = []
+    for u in users[-5:]:
+        activities.append({
+            'type': 'user', 
+            'text': f"New User: {u.username} registered.", 
+            'time': u.created_at, 
+            'icon': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />', 
+            'color': '#6366f1',
+            'bg': 'rgba(99,102,241,0.1)'
+        })
+    for f in feedbacks[-5:]:
+        activities.append({
+            'type': 'feedback', 
+            'text': f"Feedback: {f.rating}⭐ on '{f.recipe_name}'", 
+            'time': f.created_at, 
+            'icon': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />', 
+            'color': '#f59e0b',
+            'bg': 'rgba(245,158,11,0.1)'
+        })
+    for l in admin_logs:
+        activities.append({
+            'type': 'admin', 
+            'text': f"Admin {l.admin.username}: {l.action}", 
+            'time': l.created_at, 
+            'icon': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />', 
+            'color': '#ef4444',
+            'bg': 'rgba(239,68,68,0.1)'
+        })
+        
+    activities.sort(key=lambda x: x['time'], reverse=True)
+    activities = activities[:6]  # Show latest 6 activities
+
     return render_template('/admin/dashboard_admin.html',
         users=users, feedbacks=feedbacks,
-        recipes=recipes_df.to_dict(orient='records'))
+        recipes=recipes_df.to_dict(orient='records'),
+        activities=activities,
+        current_filter=days)
 
 
 @app.route('/register_admin', methods=['GET', 'POST'])
@@ -1765,6 +1849,12 @@ def delete_user(user_id):
         db.session.commit()
         db.session.delete(user_to_delete)
         db.session.commit()
+        
+        # Log the action
+        new_log = AdminLog(admin_id=current_user.id, action=f"Deleted user: {user_to_delete.username}")
+        db.session.add(new_log)
+        db.session.commit()
+        
         flash(f"User {user_to_delete.username} has been deleted.", "success")
     except Exception as e:
         db.session.rollback()
@@ -1808,6 +1898,12 @@ def add_user():
         )
         db.session.add(new_user)
         db.session.commit()
+        
+        # Log the action
+        new_log = AdminLog(admin_id=current_user.id, action=f"Created new user: {username}")
+        db.session.add(new_log)
+        db.session.commit()
+        
         flash(f"User {username} added successfully!", "success")
         return redirect(url_for('admin_dashboard'))
     return render_template('/admin/add_user.html')
@@ -1993,9 +2089,43 @@ def delete_recipe(recipe_id):
     df.drop(columns=['recipe_id'], inplace=True)
     _sync_recipe_csvs(df)
     reload_recommender_data()  # Instantly remove from user-facing pages
+    
+    # Log the action
+    new_log = AdminLog(admin_id=current_user.id, action=f"Deleted recipe #{recipe_id}")
+    db.session.add(new_log)
+    db.session.commit()
+    
     flash("Recipe deleted successfully!", "success")
     return redirect(url_for('manage_recipes'))
 
+@app.route('/admin/profile', methods=['GET', 'POST'])
+@login_required
+def admin_profile():
+    if current_user.role != 'admin':
+        flash('Access denied', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user and existing_user.id != current_user.id:
+            flash('Email is already registered.', 'danger')
+            return redirect(url_for('admin_profile'))
+            
+        current_user.username = username
+        current_user.email = email
+        
+        if password:
+            current_user.password = bcrypt.generate_password_hash(password).decode('utf-8')
+            
+        db.session.commit()
+        flash('Profile updated successfully!', 'success')
+        return redirect(url_for('admin_profile'))
+        
+    return render_template('admin/admin_profile.html')
 
 @app.route('/admin/manage_user')
 @login_required
@@ -2568,4 +2698,4 @@ def api_get_substitute():
 
 # ==================== RUN ====================
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)

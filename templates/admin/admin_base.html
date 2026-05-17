@@ -1,53 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}ChefGPT Admin Center{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
-    
+
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    
+
     {% block extra_head %}{% endblock %}
 </head>
+
 <body>
     <div class="admin-layout">
         <!-- Sidebar -->
         <aside class="admin-sidebar">
             <div class="sidebar-brand">
                 <span class="brand-icon">🍳</span>
-                ChefGPT <span class="brand-badge">PRO</span>
+                ChefGPT <span class="brand-badge">ADMIN</span>
             </div>
-            
-            <div class="admin-profile">
-                <div class="admin-avatar">AD</div>
-                <div class="admin-info">
-                    <div class="admin-name">{{ current_user.username if current_user else 'Admin' }}</div>
-                    <div class="admin-role">System Administrator</div>
-                </div>
+
+            <div class="admin-profile" style="padding: 0; background: transparent;">
+                <a href="{{ url_for('admin_profile') }}"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; width: 100%; padding: 16px 20px; border-radius: 16px; transition: background 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                    onmouseout="this.style.background='transparent'">
+                    <div class="admin-avatar">{{ current_user.username[0]|upper if current_user else 'A' }}</div>
+                    <div class="admin-info" style="flex-grow: 1;">
+                        <div class="admin-name"
+                            style="display: flex; justify-content: space-between; align-items: center;">
+                            {{ current_user.username if current_user else 'Admin' }}
+                            <span style="font-size: 14px; opacity: 0.7;" title="Profile Settings">⚙️</span>
+                        </div>
+                        <div class="admin-role">System Administrator</div>
+                    </div>
+                </a>
             </div>
 
             <nav class="admin-nav">
                 <div class="nav-label">COMMAND CENTER</div>
-                <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                <a href="{{ url_for('admin_dashboard') }}"
+                    class="nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
                     <span class="nav-icon">📊</span> Analytics Overview
                 </a>
-                <a href="{{ url_for('manage_user') }}" class="nav-item {% if 'user' in request.endpoint %}active{% endif %}">
+                <a href="{{ url_for('manage_user') }}"
+                    class="nav-item {% if 'user' in request.endpoint %}active{% endif %}">
                     <span class="nav-icon">👥</span> Manage Users
                 </a>
-                <a href="{{ url_for('manage_feedback') }}" class="nav-item {% if 'feedback' in request.endpoint %}active{% endif %}">
+                <a href="{{ url_for('manage_feedback') }}"
+                    class="nav-item {% if 'feedback' in request.endpoint %}active{% endif %}">
                     <span class="nav-icon">⭐</span> Manage Feedbacks
                 </a>
-                <a href="{{ url_for('manage_recipes') }}" class="nav-item {% if 'recipe' in request.endpoint and 'dashboard' not in request.endpoint %}active{% endif %}">
+                <a href="{{ url_for('manage_recipes') }}"
+                    class="nav-item {% if 'recipe' in request.endpoint and 'dashboard' not in request.endpoint %}active{% endif %}">
                     <span class="nav-icon">🍽️</span> Recipe Control
                 </a>
-                
+
                 <div class="nav-bottom">
                     <a href="{{ url_for('logout') }}" class="nav-item nav-logout">
-                        <span class="nav-icon">🚪</span> Secure Logout
+                        <span class="nav-icon">🚪</span> Logout
                     </a>
                 </div>
             </nav>
@@ -57,15 +74,28 @@
         <main class="admin-main">
             <!-- FLASH MESSAGES -->
             {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                <div style="margin-bottom: 24px;">
+            {% if messages %}
+            <div id="flash-message-container" style="margin-bottom: 24px; transition: opacity 0.5s ease;">
                 {% for category, message in messages %}
-                  <div style="padding: 16px 20px; border-radius: 12px; margin-bottom: 10px; background: {% if category == 'success' %}#10b981{% else %}#ef4444{% endif %}; color: white; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                      {{ message }}
-                  </div>
-                {% endfor %}
+                <div
+                    style="padding: 16px 20px; border-radius: 12px; margin-bottom: 10px; background: {% if category == 'success' %}#10b981{% else %}#ef4444{% endif %}; color: white; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: inline-block;">
+                    {{ message }}
                 </div>
-              {% endif %}
+                {% endfor %}
+            </div>
+            <script>
+                // Auto-hide the flash message after 3 seconds
+                setTimeout(function () {
+                    var flashContainer = document.getElementById('flash-message-container');
+                    if (flashContainer) {
+                        flashContainer.style.opacity = '0';
+                        setTimeout(function () {
+                            flashContainer.style.display = 'none';
+                        }, 500); // Wait for transition to finish
+                    }
+                }, 3000);
+            </script>
+            {% endif %}
             {% endwith %}
 
             {% block admin_content %}{% endblock %}
@@ -81,4 +111,5 @@
 
     {% block extra_scripts %}{% endblock %}
 </body>
+
 </html>
