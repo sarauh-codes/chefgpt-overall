@@ -20,6 +20,16 @@
 <body>
     <div class="admin-layout">
         <!-- Sidebar -->
+        <style>
+            .flash-success {
+                background: #10b981;
+            }
+
+            .flash-error {
+                background: #ef4444;
+            }
+        </style>
+
         <aside class="admin-sidebar">
             <div class="sidebar-brand">
                 <span class="brand-icon">🍳</span>
@@ -77,8 +87,8 @@
             {% if messages %}
             <div id="flash-message-container" style="margin-bottom: 24px; transition: opacity 0.5s ease;">
                 {% for category, message in messages %}
-                <div
-                    style="padding: 16px 20px; border-radius: 12px; margin-bottom: 10px; background: {% if category == 'success' %}#10b981{% else %}#ef4444{% endif %}; color: white; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: inline-block;">
+                <div class="flash-msg flash-{{ 'success' if category == 'success' else 'error' }}"
+                    style="padding: 16px 20px; border-radius: 12px; margin-bottom: 10px; color: white; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: inline-block;">
                     {{ message }}
                 </div>
                 {% endfor %}
