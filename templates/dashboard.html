@@ -4,232 +4,242 @@
 
 {% block content %}
 
-<section class="agent-center" id="hero-section">
-  <div id="hero-header-text">
-    <div class="agent-pill">CHEFGPT AGENT</div>
-    <h1>Hi {{ username }}, what do you want to cook?</h1>
-    <p>Tell me ingredients, cravings, diet, or mood.</p>
-  </div>
-  <div class="agent-box">
-    <textarea id="dashChatInput"
-      onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendMessage('hero');}"></textarea>
-    <div class="agent-box-bottom">
-      <button class="agent-mode" type="button">⚡ Chef</button>
-      <button class="agent-send" type="button" onclick="sendMessage('hero')">↑</button>
-    </div>
-  </div>
-  <div id="hero-chat-messages" style="width:100%; max-width:700px; margin:20px auto; text-align:left;"></div>
-</section>
-
-<div class="compact-dashboard-grid">
-  <!-- COLUMN 1: GLOBAL TRENDS -->
-  <div class="compact-col">
-    <div class="compact-card">
-      <div class="card-header-row">
-        <h3>🔥 Trending Now</h3>
-        <span class="trend-badge community">Global</span>
+<!-- HERO HEADER BANNER (100% Full Screen Width) -->
+<div class="dashboard-hero">
+  <div class="hero-grid">
+    <!-- Left Section -->
+    <div class="hero-left">
+      <div class="hero-badge">
+        <span>🍳</span> Cook. Discover. Enjoy.
       </div>
-      <div class="mini-recipe-list">
-        {% for recipe in analytics.global_favorites %}
-        <div class="mini-recipe-item" onclick="window.location.href='/recipe/{{ recipe.id }}'">
-          <img src="{{ recipe.image }}" onerror="this.src='https://via.placeholder.com/40?text=🍽️'">
-          <div class="mini-recipe-info">
-            <span class="mini-recipe-name">{{ recipe.name }}</span>
-            <span class="mini-recipe-meta">{{ recipe.count }} cooks</span>
+      <h1 class="hero-title">
+        What do you want<br>to cook <span class="hero-title-brand-wrapper">today?
+          <svg class="hero-title-underline" viewBox="0 0 100 10" preserveAspectRatio="none">
+            <path d="M0,5 Q50,10 100,5" stroke="var(--brand)" stroke-width="4" fill="none" stroke-linecap="round" />
+          </svg>
+        </span>
+      </h1>
+      <p class="hero-sub">
+        Find the best recipes, personalized for you.<br>
+        Easy to cook. Delicious to share.
+      </p>
+
+      <!-- Hero Search Input -->
+      <div class="hero-search-container">
+        <span class="hero-search-icon-span">🔍</span>
+        <input type="text" id="hero-recipe-search" placeholder="Search recipes, cuisines, ingredients..."
+          class="hero-search-input" onkeydown="if(event.key === 'Enter') { window.location.href = '/search?q=' + encodeURIComponent(this.value); }">
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent(document.getElementById('hero-recipe-search').value)"
+          class="hero-search-btn">
+          <span>🔍</span>
+        </button>
+      </div>
+
+      <!-- Hero Filter Pills -->
+      <div class="hero-pills">
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Quick Meals')" class="hero-pill-btn">⚡ Quick Meals</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('High Protein')" class="hero-pill-btn">💪 High Protein</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Vegan')" class="hero-pill-btn">🌱 Vegan</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Dessert')" class="hero-pill-btn">🧁 Desserts</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Air Fryer')" class="hero-pill-btn">🔌 Air Fryer</button>
+      </div>
+    </div>
+
+    <!-- Right Section -->
+    <div class="hero-right">
+      <div class="hero-right-fade"></div>
+      <div class="hero-stats-stack">
+        <!-- Cooked Recipes -->
+        <div class="hero-stat-card">
+          <div class="hero-stat-icon" style="background: #FFEBE2;">🔥</div>
+          <div>
+            <div class="hero-stat-value">{{ analytics.cooked if analytics and analytics.cooked is not none else 0 }}
+            </div>
+            <div class="hero-stat-label">Recipes Cooked</div>
           </div>
         </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- COLUMN 2: TOP RATED -->
-  <div class="compact-col">
-    <div class="compact-card">
-      <div class="card-header-row">
-        <h3>💎 Top Rated Gems</h3>
-        <span class="trend-badge premium">Top 3</span>
-      </div>
-      <div class="mini-recipe-list">
-        {% for gem in analytics.top_gems %}
-        <div class="mini-recipe-item" onclick="window.location.href='/recipe/{{ gem.id }}'">
-          <img src="{{ gem.image }}" onerror="this.src='https://via.placeholder.com/40?text=⭐'">
-          <div class="mini-recipe-info">
-            <span class="mini-recipe-name">{{ gem.name }}</span>
-            <span class="mini-recipe-meta">⭐ {{ gem.rating }} · {{ gem.cuisine }} · ⏱ 45 min</span>
+        <!-- Saved Recipes -->
+        <div class="hero-stat-card">
+          <div class="hero-stat-icon" style="background: #FEF9C3;">⭐</div>
+          <div>
+            <div class="hero-stat-value">{{ analytics.saved if analytics and analytics.saved is not none else 0 }}</div>
+            <div class="hero-stat-label">Recipes Saved</div>
           </div>
         </div>
-        {% endfor %}
+        <!-- Level -->
+        <div class="hero-stat-card">
+          <div class="hero-stat-icon" style="background: #DCFCE7;">👨‍🍳</div>
+          <div>
+            <div class="hero-stat-level-value">{{ analytics.cooking_level if analytics and analytics.cooking_level else
+              'Kitchen Novice' }}</div>
+            <div class="hero-stat-label">Chef Level</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- COLUMN 3: BEHAVIOR ANALYTICS -->
-  <div class="compact-col">
-    <div class="compact-card analytics-visual">
-      <div class="card-header-row">
-        <h3>📊 Activity Pattern</h3>
-        {% if analytics.cooked > 0 %}
-        <div class="growth-indicator {% if analytics.trends.growth >= 0 %}up{% else %}down{% endif %}">
-          {{ analytics.trends.growth }}% <span>vs last week</span>
-        </div>
-        {% endif %}
+  <!-- Bottom Bar -->
+  <div class="hero-bottom">
+    <div class="hero-bottom-item">
+      <div class="hero-bottom-icon">📖</div>
+      <div>
+        <div class="hero-bottom-title">1000+ Recipes</div>
+        <div class="hero-bottom-sub">Step-by-step guides</div>
       </div>
-      
-      {% if analytics.cooked > 0 %}
-      <div class="chart-container">
-        <canvas id="activityChart"></canvas>
-      </div>
-      <div class="behavior-insight-text">
-        You've cooked <strong>{{ analytics.trends.this_week }}</strong> recipes this week.
-      </div>
-      {% else %}
-      <div style="text-align: center; padding: 30px 10px; color: #888;">
-        <div style="font-size: 32px; margin-bottom: 10px;">🍳</div>
-        <p style="margin: 0; font-size: 0.95rem; line-height: 1.4; color: #94a3b8;">Start cooking your first meal to unlock your personalized activity patterns!</p>
-      </div>
-      {% endif %}
     </div>
+
+    <div class="hero-bottom-divider"></div>
+
+    <div class="hero-bottom-item">
+      <div class="hero-bottom-icon">✨</div>
+      <div>
+        <div class="hero-bottom-title">AI Powered</div>
+        <div class="hero-bottom-sub">Personalized for you</div>
+      </div>
+    </div>
+
+    <div class="hero-bottom-divider"></div>
+
+    <div class="hero-bottom-item">
+      <div class="hero-bottom-icon">❤️</div>
+      <div>
+        <div class="hero-bottom-title">ChefGPT Assistant</div>
+        <div class="hero-bottom-sub">Your Intelligent cooking companion</div>
+      </div>
+    </div>
+
+    <button onclick="document.getElementById('recipe-catalog').scrollIntoView({behavior: 'smooth'})" class="hero-cta">
+      Explore Recipes <span>→</span>
+    </button>
   </div>
 </div>
 
-<div class="stats-row-footer">
-  <div class="stat-bubble">
-    <span class="bubble-label">Community Recipes</span>
-    <span class="bubble-value">{{ analytics.community_stats.total }}</span>
-  </div>
-  <div class="stat-bubble">
-    <span class="bubble-label">Avg Quality</span>
-    <span class="bubble-value">{{ analytics.community_stats.avg_rating }}⭐</span>
-  </div>
-  <div class="stat-bubble">
-    <span class="bubble-label">Trending Cuisine</span>
-    <span class="bubble-value">{{ analytics.community_stats.popular_cuisine }}</span>
-  </div>
-  <div class="stat-bubble">
-    <span class="bubble-label">Cooking Rank</span>
-    <span class="bubble-value">{{ analytics.cooking_level }}</span>
-  </div>
-  <div class="chef-tip-inline">
-    <span class="tip-icon">💡</span>
-    <span class="tip-text">
-      {% if analytics.cuisine_diversity < 20 %} Try <strong>Asian</strong> dishes to broaden your horizons!
-        {% elif analytics.avg_calories > 600 %}
-        Try a <strong>Low Calorie</strong> search today?
-        {% else %}
-        Experiment with new spices to reach 'Master Chef'!
-        {% endif %}
-    </span>
-  </div>
-</div>
-
-<!-- Load Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    {% if analytics.cooked > 0 %}
-    const ctx = document.getElementById('activityChart').getContext('2d');
-    const activityData = {{ analytics.trends.weekday_activity | tojson }};
-
-  // Shift data from Sun-Sat to Mon-Sun for better reading if needed, 
-  // but here we keep it simple Sun-Sat matching the SQL strftime %w
-  const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: activityData,
-        backgroundColor: 'rgba(255, 107, 53, 0.6)',
-        borderColor: 'rgba(255, 107, 53, 1)',
-        borderWidth: 0,
-        borderRadius: 4,
-        barThickness: 12
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { display: false, beginAtZero: true },
-        x: {
-          grid: { display: false },
-          ticks: { font: { size: 9 }, color: '#94a3b8' }
-        }
-      }
+  function syncSearch(val) {
+    const mainSearch = document.getElementById('recipe-search');
+    if (mainSearch) {
+      mainSearch.value = val;
+      searchRecipes();
     }
-  });
-  {% endif %}
-});
+  }
+  function setHeroSearch(term) {
+    const heroInput = document.getElementById('hero-recipe-search');
+    if (heroInput) {
+      heroInput.value = term;
+    }
+    syncSearch(term);
+    document.getElementById('recipe-catalog').scrollIntoView({ behavior: 'smooth' });
+  }
 </script>
 
-<section class="dashboard-lower">
-  <div class="divider">
-    <div class="divider-line"></div>
-    <div class="divider-text">Popular recipes for you</div>
-    <div class="divider-line"></div>
-  </div>
-
-  <div class="section-row">
-    <div class="section-label">Browse all recipes</div>
-    <span class="section-link" onclick="document.getElementById('recipe-search').focus()">See all →</span>
-  </div>
-
-  <div class="search-wrap">
-    <input type="text" id="recipe-search" placeholder="🔍 Search recipes, cuisine, ingredients..."
-      oninput="searchRecipes()">
-  </div>
-
-  <div class="recipe-grid" id="recipe-catalog">
-    {% for recipe in recipes %}
-    <div class="recipe-card">
-      <div class="recipe-card-img">
-        {% if recipe.image_url %}
-        <img src="{{ recipe.image_url }}" alt="{{ recipe.recipe_name }}" loading="lazy"
-          onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">
-        {% else %}
-        <div class="recipe-img-placeholder">🍽️</div>
-        {% endif %}
-        <div class="recipe-time-badge">⏱ {{ recipe.cook_time }} min</div>
-      </div>
-      <div class="recipe-card-body">
-        <div class="recipe-card-name">{{ recipe.recipe_name }}</div>
-        <div class="recipe-card-meta">{{ recipe.cuisine }} · {{ recipe.calories }} cal</div>
-        <div class="recipe-card-footer">
-          <span class="recipe-rating">⭐ {{ recipe.rating }}</span>
-          <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="recipe-view-btn">View</a>
+<!-- POPULAR CATEGORIES -->
+{% if categories %}
+<div class="categories-section">
+  <h2 class="categories-section-title">Popular Categories</h2>
+  <div class="categories-ticker-wrap">
+    <div class="categories-container">
+      {% for cat in categories %}
+      <div class="category-card"
+        onclick="window.location.href = '/search?cuisine=' + encodeURIComponent('{{ cat.name }}');">
+        <span class="category-card-text">{{ cat.name }}</span>
+        <div class="category-card-img-wrap">
+          <div class="category-card-gradient-mask"></div>
+          <img src="{{ cat.image }}" alt="{{ cat.name }}">
         </div>
       </div>
+      {% endfor %}
+      <!-- Duplicate for seamless infinite scrolling ticker -->
+      {% for cat in categories %}
+      <div class="category-card"
+        onclick="window.location.href = '/search?cuisine=' + encodeURIComponent('{{ cat.name }}');">
+        <span class="category-card-text">{{ cat.name }}</span>
+        <div class="category-card-img-wrap">
+          <div class="category-card-gradient-mask"></div>
+          <img src="{{ cat.image }}" alt="{{ cat.name }}">
+        </div>
+      </div>
+      {% endfor %}
     </div>
-    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- CURATED SECTIONS -->
+<style>
+  .editorial-card:hover .editorial-card-img {
+    transform: scale(1.05);
+  }
+  .editorial-card:hover .editorial-card-title {
+    color: var(--brand);
+  }
+</style>
+
+<div class="dashboard-curated-container" style="max-width: 1200px; margin: 50px auto 30px; padding: 0 20px; font-family: 'Poppins', sans-serif;">
+  
+  <!-- Section 1: Editor's Choice -->
+  <div style="margin-bottom: 50px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;">
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px;">✨ Editor's Choice</h2>
+      <a href="/search" style="font-size: 13.5px; font-weight: 600; color: var(--brand); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#e55a2b'" onmouseout="this.style.color='var(--brand)'">See all →</a>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px;">
+      {% for recipe in featured_recipes %}
+      <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="editorial-card" style="text-decoration: none; color: inherit; display: flex; flex-direction: column;">
+        <div class="editorial-card-img-wrap" style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+          <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}" alt="{{ recipe.recipe_name }}" class="editorial-card-img" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);" onerror="this.src='/static/images/recipe-placeholder.jpg'">
+          <div class="editorial-card-time" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">⏱ {{ recipe.cook_time }} min</div>
+        </div>
+        <div class="editorial-card-title" style="font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.35; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 40px; transition: color 0.2s;">{{ recipe.recipe_name }}</div>
+        <div class="editorial-card-meta" style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-weight: 500;">
+          <span class="editorial-card-rating" style="display: flex; align-items: center; gap: 4px; color: var(--text); font-weight: 700;">⭐ {{ recipe.rating }}</span>
+          <span>👥 {{ recipe.servings }} portions</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
   </div>
 
-  <div id="no-results" style="display:none; text-align:center; padding:40px; color:#888;">
-    <div style="font-size:40px; margin-bottom:10px;">🔍</div>
-    <h3 style="margin-bottom:6px; color:#555;">No recipes found</h3>
-    <p>Try a different search term</p>
+  <!-- Section 2: Quick & Easy -->
+  <div style="margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;">
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px;">⚡ Quick & Easy (Under 30 Min)</h2>
+      <a href="/search?time=30" style="font-size: 13.5px; font-weight: 600; color: var(--brand); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#e55a2b'" onmouseout="this.style.color='var(--brand)'">See all →</a>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px;">
+      {% for recipe in quick_recipes %}
+      <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="editorial-card" style="text-decoration: none; color: inherit; display: flex; flex-direction: column;">
+        <div class="editorial-card-img-wrap" style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+          <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}" alt="{{ recipe.recipe_name }}" class="editorial-card-img" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);" onerror="this.src='/static/images/recipe-placeholder.jpg'">
+          <div class="editorial-card-time" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">⏱ {{ recipe.cook_time }} min</div>
+        </div>
+        <div class="editorial-card-title" style="font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.35; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 40px; transition: color 0.2s;">{{ recipe.recipe_name }}</div>
+        <div class="editorial-card-meta" style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-weight: 500;">
+          <span class="editorial-card-rating" style="display: flex; align-items: center; gap: 4px; color: var(--text); font-weight: 700;">⭐ {{ recipe.rating }}</span>
+          <span>👥 {{ recipe.servings }} portions</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
   </div>
 
-  {% if total_recipes > 12 %}
-  <div class="load-more-wrap" id="load-more-container">
-    <button class="load-more-btn" id="load-more-btn" onclick="loadMoreRecipes()">Load More Recipes</button>
-  </div>
-  {% endif %}
+</div>
 
-  <div class="ideas-banner">
+<!-- LOWER CTA SECTION -->
+<div class="dashboard-lower" style="max-width: 1200px; margin: 0 auto; padding: 20px 20px 40px;">
+  <div class="ideas-banner" style="margin-top: 10px;">
     <div class="ideas-banner-icon">👨‍🍳</div>
     <div class="ideas-banner-text">
       <div class="ideas-banner-title">Need more ideas?</div>
-      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!
-      </div>
+      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!</div>
     </div>
     <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
   </div>
-</section>
+</div>
 
-<!-- AI Quick View Modal -->
+<!-- AI Quick View Modal Drawer -->
 <div id="ai-modal-overlay" class="diet-overlay" style="display:none; z-index: 10001;" onclick="closeAiModal()"></div>
 <div class="diet-drawer" id="ai-drawer"
   style="right: -480px; width: 100%; max-width: 500px; padding: 0; background: #1a1a1a; z-index: 10002; position: fixed; top: 0; bottom: 0; transition: right 0.3s ease;">
@@ -240,7 +250,7 @@
       style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">&times;</button>
   </div>
   <div id="ai-modal-content" style="padding: 24px; overflow-y: auto; max-height: calc(100vh - 80px);">
-    <!-- Content injected by JS -->
+    <!-- Content injected dynamically by JS -->
   </div>
 </div>
 

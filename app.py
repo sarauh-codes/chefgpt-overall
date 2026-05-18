@@ -231,6 +231,29 @@ def get_cook_time(recipe_row):
     if diff == 'hard': return '75'
     return '45'
 
+def get_servings(recipe_row):
+    """Helper to determine servings portion consistently."""
+    try:
+        calories = recipe_row.get("calories", 0)
+        recommender = get_recommender()
+        cal = recommender._parse_calories(calories)
+    except:
+        cal = 0
+
+    if cal >= 700:
+        return 4
+    elif cal >= 500:
+        return 3
+    elif cal >= 300:
+        return 2
+    else:
+        recipe_id = recipe_row.get("recipe_id", 1)
+        try:
+            r_id = int(recipe_id)
+        except:
+            r_id = 1
+        return (r_id % 3) + 2  # returns 2, 3, or 4 portions
+
 def base_recipes_for_user(user_id):
     """Deduplicated recipe dataframe with the user's dietary profile applied."""
     recommender = get_recommender()
@@ -520,20 +543,53 @@ def chat():
     if len(user_message) > 1000:
         return jsonify({'error': 'Message too long. Please keep it under 1000 characters.'}), 400
 
+    # Retrieve user's dietary preferences
+    profile = DietaryProfile.query.filter_by(user_id=current_user.id).first()
+    
+    # Retrieve user's taste preferences based on cooked history
+    taste_pref_str = ""
+    try:
+        cooked = CookedRecipe.query.filter_by(user_id=current_user.id).all()
+        if cooked:
+            recommender = get_recommender()
+            df = recommender.df.copy()
+            cooked_ids = [c.recipe_id for c in cooked]
+            matched = df[df["recipe_id"].isin(cooked_ids)]
+            recipes_list = matched[["ingredients", "cuisine"]].to_dict(orient="records")
+            taste = compute_taste_profile(recipes_list)
+            dominant_taste = max(taste, key=taste.get)
+            if taste[dominant_taste] > 0:
+                taste_pref_str = f" The user prefers {dominant_taste} flavors."
+    except:
+        pass
+
+    system_content = (
+        "You are ChefGPT, a friendly and knowledgeable AI chef assistant. "
+        "You only answer questions related to food, cooking, recipes, ingredients, "
+        "nutrition, meal planning, and kitchen tips. "
+        "If the user asks about anything unrelated to food or cooking, politely decline "
+        "and redirect them back to food-related topics. "
+        "Keep your answers practical, friendly, and concise. "
+        "When suggesting recipes, ALWAYS include exact measurements for every ingredient (e.g., 200g, 1 cup, 2 tbsp)."
+    )
+
+    if profile:
+        diet_str = f" The user follows a strict {profile.diet_type} diet."
+        if profile.allergies:
+            diet_str += f" They are ALLERGIC to: {profile.allergies} (never suggest these)."
+        if profile.forbidden_ingredients:
+            diet_str += f" DO NOT suggest these forbidden ingredients: {profile.forbidden_ingredients}."
+        system_content += f"\nCRITICAL DIETARY RESTRICTIONS:{diet_str} You must strictly follow these rules."
+
+    if taste_pref_str:
+        system_content += f"\nPERSONALIZED TASTE PROFILE:{taste_pref_str} Gently tailor suggestions to fit this flavor profile when appropriate!"
+
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are ChefGPT, a friendly and knowledgeable AI chef assistant. "
-                    "You only answer questions related to food, cooking, recipes, ingredients, "
-                    "nutrition, meal planning, and kitchen tips. "
-                    "If the user asks about anything unrelated to food or cooking, politely decline "
-                    "and redirect them back to food-related topics. "
-                    "Keep your answers practical, friendly, and concise. "
-                    "When suggesting recipes, ALWAYS include exact measurements for every ingredient (e.g., 200g, 1 cup, 2 tbsp)."
-                )
+                "content": system_content
             },
             {"role": "user", "content": user_message}
         ],
@@ -555,12 +611,27 @@ def dashboard():
     if profile:
         filtered_df = apply_dietary_filter(filtered_df, profile)
 
-    df_shuffled = filtered_df.sample(n=min(12, len(filtered_df)), replace=False)
-    recipes = []
-    for _, row in df_shuffled.iterrows():
+    # 1. Curated Featured Recipes (High rating)
+    featured_df = filtered_df.sort_values(by='rating', ascending=False).head(30)
+    featured_sample = featured_df.sample(n=min(4, len(featured_df)), replace=False) if len(featured_df) >= 4 else featured_df
+    featured_recipes = []
+    for _, row in featured_sample.iterrows():
         r_dict = row.to_dict()
         r_dict['cook_time'] = get_cook_time(row)
-        recipes.append(r_dict)
+        r_dict['servings'] = get_servings(row)
+        featured_recipes.append(r_dict)
+
+    # 2. Curated Quick & Easy (Cook time <= 30 min)
+    quick_df = filtered_df[filtered_df.apply(lambda r: int(get_cook_time(r)) <= 30, axis=1)]
+    if quick_df.empty:
+        quick_df = filtered_df
+    quick_sample = quick_df.sample(n=min(4, len(quick_df)), replace=False) if len(quick_df) >= 4 else quick_df
+    quick_recipes = []
+    for _, row in quick_sample.iterrows():
+        r_dict = row.to_dict()
+        r_dict['cook_time'] = get_cook_time(row)
+        r_dict['servings'] = get_servings(row)
+        quick_recipes.append(r_dict)
     
     # User Analytics - Fetch once
     cooked_records = CookedRecipe.query.filter_by(user_id=current_user.id).order_by(CookedRecipe.cooked_at.desc()).all()
@@ -682,6 +753,27 @@ def dashboard():
     except Exception as e:
         print(f"Error calculating analytics: {e}")
 
+    categories_data = []
+    if 'display_category' in filtered_df.columns:
+        unique_categories = filtered_df['display_category'].dropna().unique()
+        for cat in unique_categories:
+            cat_str = str(cat).strip()
+            if not cat_str or cat_str.lower() == 'nan':
+                continue
+            cat_df = filtered_df[filtered_df['display_category'] == cat]
+            img_url = ""
+            for _, row in cat_df.iterrows():
+                row_img = str(row.get('image_url', ''))
+                if row_img and row_img.lower() not in ['nan', 'none', '']:
+                    img_url = row_img
+                    break
+            if not img_url:
+                img_url = "https://via.placeholder.com/300x200?text=" + cat_str.replace(" ", "+")
+            categories_data.append({
+                'name': cat_str,
+                'image': img_url
+            })
+
     analytics = {
         'cooked': cooked_count,
         'saved': saved_count,
@@ -704,8 +796,10 @@ def dashboard():
 
     return render_template("dashboard.html",
         username=current_user.username,
-        recipes=recipes,
+        featured_recipes=featured_recipes,
+        quick_recipes=quick_recipes,
         analytics=analytics,
+        categories=categories_data,
         profile=profile,
         total_recipes=total_recipes)
 
@@ -745,6 +839,7 @@ def load_more_recipes():
             'difficulty': str(row.get('difficulty', 'medium')),
             'image_url': img,
             'cook_time': cook_time_disp,
+            'servings': get_servings(row),
         })
 
     has_more = (offset + limit) < len(df)
@@ -755,20 +850,52 @@ def load_more_recipes():
 @login_required
 def search_recipes():
     query = request.args.get('q', '').strip().lower()
-    if not query:
-        return jsonify({'recipes': []})
+    cuisine = request.args.get('cuisine', '').strip().lower()
+    max_time = request.args.get('time', '').strip()
+    portions = request.args.get('portions', '').strip()
 
     recommender = get_recommender()
     df = recommender.df.copy()
     df = df.drop_duplicates(subset=['recipe_name'], keep='first')
 
-    mask = (
-        df['recipe_name'].str.lower().str.contains(query, na=False) |
-        df['cuisine'].str.lower().str.contains(query, na=False) |
-        df['ingredients'].str.lower().str.contains(query, na=False)
-    )
-    
-    matched_df = df[mask].head(20)
+    # Apply dietary filter
+    profile = DietaryProfile.query.filter_by(user_id=current_user.id).first()
+    df = apply_dietary_filter(df, profile)
+
+    # 1. Apply query text search mask
+    if query:
+        mask = (
+            df['recipe_name'].str.lower().str.contains(query, na=False) |
+            df['cuisine'].str.lower().str.contains(query, na=False) |
+            df['ingredients'].str.lower().str.contains(query, na=False) |
+            df.get('display_category', pd.Series(dtype=str)).str.lower().str.contains(query, na=False)
+        )
+        df = df[mask]
+
+    # 2. Apply cuisine filter
+    if cuisine:
+        if 'display_category' in df.columns:
+            df = df[(df['display_category'].str.lower() == cuisine) | (df['cuisine'].str.lower() == cuisine)]
+        else:
+            df = df[df['cuisine'].str.lower() == cuisine]
+
+    # 3. Apply cook time filter
+    if max_time:
+        try:
+            max_time_val = int(max_time)
+            df = df[df.apply(lambda r: int(get_cook_time(r)) <= max_time_val, axis=1)]
+        except:
+            pass
+
+    # 4. Apply portions filter
+    if portions:
+        try:
+            portions_val = int(portions)
+            df = df[df.apply(lambda r: get_servings(r) == portions_val, axis=1)]
+        except:
+            pass
+
+    matched_df = df.head(40) # Show up to 40 matches for richer, premium grids!
     local_results = []
     
     for _, row in matched_df.iterrows():
@@ -790,13 +917,37 @@ def search_recipes():
             'difficulty': str(row.get('difficulty', 'medium')),
             'image_url': img,
             'cook_time': cook_time_disp,
+            'servings': get_servings(row),
         })
     
-    # Return local results immediately + always trigger AI if query is meaningful
     return jsonify({
         'recipes': local_results,
-        'trigger_ai': len(query) >= 3
+        'trigger_ai': len(query) >= 3 and not (cuisine or max_time or portions)
     })
+
+
+@app.route('/search', methods=['GET'])
+@login_required
+def search_page():
+    query = request.args.get('q', '').strip()
+    cuisine = request.args.get('cuisine', '').strip()
+    time_limit = request.args.get('time', '').strip()
+    portions = request.args.get('portions', '').strip()
+
+    recommender = get_recommender()
+    df = recommender.df.copy()
+    
+    if 'display_category' in df.columns:
+        categories_list = sorted(df['display_category'].dropna().unique().tolist())
+    else:
+        categories_list = sorted(df['cuisine'].dropna().unique().tolist())
+
+    return render_template('search.html',
+                           query=query,
+                           cuisine=cuisine,
+                           time_limit=time_limit,
+                           portions=portions,
+                           categories=categories_list)
 
 
 @app.route('/api/ai-search-suggestions', methods=['GET'])
@@ -806,14 +957,38 @@ def ai_search_suggestions():
     if not query:
         return jsonify({'suggestions': []})
 
+    # Resolve user dietary profile
+    user_id = None
+    if current_user.is_authenticated:
+        user_id = current_user.id
+    else:
+        try:
+            user_id = get_jwt_identity()
+        except:
+            pass
+            
+    profile = None
+    if user_id:
+        profile = DietaryProfile.query.filter_by(user_id=user_id).first()
+
+    diet_restriction_prompt = ""
+    if profile:
+        diet_restriction_prompt = f" The user follows a strict {profile.diet_type} diet."
+        if profile.allergies:
+            diet_restriction_prompt += f" The user is ALLERGIC to: {profile.allergies} (do not include these ingredients)."
+        if profile.forbidden_ingredients:
+            diet_restriction_prompt += f" DO NOT include these forbidden ingredients: {profile.forbidden_ingredients}."
+        diet_restriction_prompt += " Adjust the generated recipes to strictly comply with these rules."
+
     ai_suggestions = []
     try:
         suggest_prompt = (
-            "You are a master chef. Return a JSON object with a 'recipes' key containing 5 creative recipe objects for: {query}. "
+            "You are a master chef. Return a JSON object with a 'recipes' key containing 5 creative recipe objects for: {query}."
+            "{diet_prompt} "
             "Each object must have: recipe_name, description, ingredients (comma separated with measurements), instructions (numbered list), cuisine, calories (number). "
             "Ensure measurements like '200g', '1 cup' are included. "
             "Return ONLY valid JSON."
-        ).format(query=query)
+        ).format(query=query, diet_prompt=diet_restriction_prompt)
         
         suggestions = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -2281,6 +2456,11 @@ def api_search_recipes():
     recommender = get_recommender()
     df = recommender.df.copy()
     df = df.drop_duplicates(subset=['recipe_name'], keep='first')
+
+    # Apply dietary filter
+    user_id = get_jwt_identity()
+    profile = DietaryProfile.query.filter_by(user_id=user_id).first()
+    df = apply_dietary_filter(df, profile)
 
     mask = (
         df['recipe_name'].str.lower().str.contains(query, na=False) |

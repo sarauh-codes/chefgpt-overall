@@ -191,6 +191,15 @@ function createRecipeCardHtml(recipe) {
         ? `<img src="${safeAttr(recipe.image_url)}" alt="${safeAttr(recipe.recipe_name)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'recipe-img-placeholder\'>🍽️</div>'">`
         : `<div class="recipe-img-placeholder"></div>`;
 
+    const servings = recipe.servings != null ? recipe.servings : (() => {
+        const cal = parseInt(recipe.calories) || 0;
+        if (cal >= 700) return 4;
+        if (cal >= 500) return 3;
+        if (cal >= 300) return 2;
+        const rId = parseInt(recipe.recipe_id) || 1;
+        return (rId % 3) + 2;
+    })();
+
     return `
         <div class="recipe-card ${recipe.is_ai ? 'ai-suggestion-card' : ''}">
             ${recipe.is_ai ? '<div class="ai-badge">AI Suggested</div>' : ''}
@@ -200,7 +209,7 @@ function createRecipeCardHtml(recipe) {
             </div>
             <div class="recipe-card-body">
                 <div class="recipe-card-name">${escapeHtml(recipe.recipe_name)}</div>
-                <div class="recipe-card-meta">${escapeHtml(recipe.cuisine)} ${recipe.calories !== '---' ? '· ' + escapeHtml(String(recipe.calories)) + ' cal' : ''}</div>
+                <div class="recipe-card-meta">${escapeHtml(recipe.cuisine)} ${recipe.calories !== '---' ? '· ' + escapeHtml(String(recipe.calories)) + ' cal' : ''} · 👥 ${servings} portions</div>
                 <div class="recipe-card-footer">
                     <span class="recipe-rating">⭐ ${escapeHtml(String(recipe.rating))}</span>
                     ${recipe.is_ai
@@ -252,31 +261,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const recipeCatalog = document.getElementById('recipe-catalog');
     const searchBox = document.getElementById('recipe-search');
-    originalRecipes = recipeCatalog.innerHTML;
+    
+    if (recipeCatalog) {
+        originalRecipes = recipeCatalog.innerHTML;
 
-    // Only restore search if user is coming BACK from a recipe detail page
-    const cameFromRecipe = sessionStorage.getItem(DASHBOARD_FROM_RECIPE);
-    const savedSearch = sessionStorage.getItem(DASHBOARD_SEARCH_KEY);
+        // Only restore search if user is coming BACK from a recipe detail page
+        const cameFromRecipe = sessionStorage.getItem(DASHBOARD_FROM_RECIPE);
+        const savedSearch = sessionStorage.getItem(DASHBOARD_SEARCH_KEY);
 
-    if (cameFromRecipe && searchBox && savedSearch) {
-        searchBox.value = savedSearch;
-        searchRecipes(true);
-    }
-
-    // Clear the flag so next fresh visit starts clean
-    sessionStorage.removeItem(DASHBOARD_FROM_RECIPE);
-
-    // Save search + scroll and set flag when clicking View on any recipe (regular or AI)
-    recipeCatalog.addEventListener('click', function (event) {
-        const viewLink = event.target.closest('.recipe-view-btn');
-        if (!viewLink) return;
-
-        if (searchBox) {
-            sessionStorage.setItem(DASHBOARD_SEARCH_KEY, searchBox.value.trim());
+        if (cameFromRecipe && searchBox && savedSearch) {
+            searchBox.value = savedSearch;
+            searchRecipes(true);
         }
-        sessionStorage.setItem(DASHBOARD_SCROLL_KEY, String(window.scrollY));
-        sessionStorage.setItem(DASHBOARD_FROM_RECIPE, '1');
-    });
+
+        // Clear the flag so next fresh visit starts clean
+        sessionStorage.removeItem(DASHBOARD_FROM_RECIPE);
+
+        // Save search + scroll and set flag when clicking View on any recipe (regular or AI)
+        recipeCatalog.addEventListener('click', function (event) {
+            const viewLink = event.target.closest('.recipe-view-btn');
+            if (!viewLink) return;
+
+            if (searchBox) {
+                sessionStorage.setItem(DASHBOARD_SEARCH_KEY, searchBox.value.trim());
+            }
+            sessionStorage.setItem(DASHBOARD_SCROLL_KEY, String(window.scrollY));
+            sessionStorage.setItem(DASHBOARD_FROM_RECIPE, '1');
+        });
+    }
 });
 
 // Search function
@@ -479,8 +491,8 @@ function renderTags(inputId, containerId, bgColor, textColor) {
 function updateBorderColors() {
     document.querySelectorAll('#diet-drawer input[type=radio]').forEach(radio => {
         const label = radio.closest('label');
-        label.style.borderColor = radio.checked ? '#667eea' : '#e0e0e0';
-        label.style.background = radio.checked ? 'rgba(102,126,234,0.08)' : 'white';
+        label.style.borderColor = radio.checked ? 'var(--brand)' : 'var(--border)';
+        label.style.background = radio.checked ? 'var(--brand-soft)' : 'var(--panel)';
     });
 }
 
@@ -569,14 +581,19 @@ function renderTasteDrawer() {
 
             // Render radar chart
             const ctx = document.getElementById("tasteRadarDrawer").getContext("2d");
+            const isDark = document.body.classList.contains('dark-theme');
+            const labelColor = isDark ? "#f0f0f0" : "#333333";
+            const gridColor = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
+            const angleColor = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
+
             new Chart(ctx, {
                 type: "radar",
                 data: {
                     labels: data.labels.map(l => `${AXIS_EMOJIS[l] || ""} ${l}`),
                     datasets: [{
                         data: data.scores,
-                        backgroundColor: "rgba(79,152,163,0.15)",
-                        borderColor: "#4f98a3",
+                        backgroundColor: isDark ? "rgba(255,107,53,0.15)" : "rgba(79,152,163,0.15)",
+                        borderColor: isDark ? "#FF6B35" : "#4f98a3",
                         pointBackgroundColor: data.labels.map(l => AXIS_COLORS[l] || "#4f98a3"),
                         pointRadius: 5,
                         pointHoverRadius: 7,
@@ -591,9 +608,9 @@ function renderTasteDrawer() {
                         r: {
                             min: 0, max: 100,
                             ticks: { display: false, stepSize: 20 },
-                            pointLabels: { font: { size: 12, weight: "600" }, color: "#333" },
-                            grid: { color: "rgba(0,0,0,0.25)" },
-                            angleLines: { color: "rgba(0,0,0,0.25)" }
+                            pointLabels: { font: { size: 12, weight: "600" }, color: labelColor },
+                            grid: { color: gridColor },
+                            angleLines: { color: angleColor }
                         }
                     },
                     plugins: { legend: { display: false } },
@@ -612,7 +629,7 @@ function renderTasteDrawer() {
                             <span style="font-size:13px; font-weight:600;">${AXIS_EMOJIS[label] || ""} ${label}</span>
                             <span style="font-size:13px; color:${color}; font-weight:600;">${data.scores[i]}%</span>
                         </div>
-                        <div style="background:#f0f0f0; border-radius:99px; height:8px;">
+                        <div style="background:var(--panel-2); border-radius:99px; height:8px;">
                             <div style="background:${color}; height:8px; border-radius:99px;
                                         width:${data.scores[i]}%; transition:width 0.5s ease;"></div>
                         </div>
@@ -822,7 +839,7 @@ function openAiModal(recipeId) {
 
 function closeAiModal() {
     document.getElementById('ai-modal-overlay').style.display = 'none';
-    document.getElementById('ai-drawer').style.right = '-480px';
+    document.getElementById('ai-drawer').style.right = '-520px';
 }
 
 async function viewAiRecipe(tempId) {
