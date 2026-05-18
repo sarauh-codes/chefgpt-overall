@@ -98,6 +98,21 @@
 {% include 'partials/floating_chat.html' %}
 {% block extra_scripts %}{% endblock %}
 
+<!-- AI Quick View Modal Drawer -->
+<div id="ai-modal-overlay" class="diet-overlay" style="display:none; z-index: 10001;" onclick="closeAiModal()"></div>
+<div class="diet-drawer" id="ai-drawer"
+  style="right: -480px; width: 100%; max-width: 500px; padding: 0; background: #1a1a1a; z-index: 10002; position: fixed; top: 0; bottom: 0; transition: right 0.3s ease;">
+  <div
+    style="position: sticky; top: 0; background: #1a1a1a; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+    <h2 id="ai-modal-title" style="margin:0; font-size: 1.2rem; color: #ff6b35;">Recipe Detail</h2>
+    <button onclick="closeAiModal()"
+      style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">&times;</button>
+  </div>
+  <div id="ai-modal-content" style="padding: 24px; overflow-y: auto; max-height: calc(100vh - 80px);">
+    <!-- Content injected dynamically by JS -->
+  </div>
+</div>
+
 <!-- DIET DRAWER -->
 <div id="diet-overlay" onclick="closeDietDrawer()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200;"></div>
 <div id="diet-drawer" style="position:fixed; top:0; right:-480px; width:440px; height:100vh; background:var(--panel); color:var(--text); border-left:1px solid var(--border); z-index:300; overflow-y:auto; padding:30px 24px; box-shadow:-4px 0 20px rgba(0,0,0,0.2); transition: right 0.35s ease;">

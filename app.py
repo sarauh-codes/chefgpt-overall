@@ -19,7 +19,7 @@ import re
 import os
 import time
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 from groq import Groq
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -611,9 +611,18 @@ def dashboard():
     if profile:
         filtered_df = apply_dietary_filter(filtered_df, profile)
 
-    # 1. Curated Featured Recipes (High rating)
-    featured_df = filtered_df.sort_values(by='rating', ascending=False).head(30)
-    featured_sample = featured_df.sample(n=min(4, len(featured_df)), replace=False) if len(featured_df) >= 4 else featured_df
+    # 1. Curated Featured Recipes (High rating with a bias towards Asian cuisine)
+    asian_featured = filtered_df[filtered_df['cuisine'].str.lower() == 'asian'].sort_values(by='rating', ascending=False).head(15)
+    other_featured = filtered_df[filtered_df['cuisine'].str.lower() != 'asian'].sort_values(by='rating', ascending=False).head(25)
+    
+    num_asian = min(2, len(asian_featured))
+    num_other = 4 - num_asian
+    
+    asian_sample = asian_featured.sample(n=num_asian, replace=False) if num_asian > 0 else pd.DataFrame()
+    other_sample = other_featured.sample(n=min(num_other, len(other_featured)), replace=False) if len(other_featured) > 0 else pd.DataFrame()
+    
+    featured_sample = pd.concat([asian_sample, other_sample]).sample(frac=1) if not (asian_sample.empty and other_sample.empty) else filtered_df.head(4)
+    
     featured_recipes = []
     for _, row in featured_sample.iterrows():
         r_dict = row.to_dict()
@@ -754,21 +763,46 @@ def dashboard():
         print(f"Error calculating analytics: {e}")
 
     categories_data = []
+    used_images = set()
     if 'display_category' in filtered_df.columns:
-        unique_categories = filtered_df['display_category'].dropna().unique()
+        # Get unique categories but exclude 'Vegetables & Vegetarian'
+        unique_categories = [c for c in filtered_df['display_category'].dropna().unique() if str(c).strip().lower() != 'vegetables & vegetarian']
+        
+        # Add 'Asian' category
+        if 'Asian' not in unique_categories:
+            unique_categories.append('Asian')
+            
         for cat in unique_categories:
             cat_str = str(cat).strip()
             if not cat_str or cat_str.lower() == 'nan':
                 continue
-            cat_df = filtered_df[filtered_df['display_category'] == cat]
+            
+            # Find recipes to get a preview image
+            if cat_str == 'Asian':
+                cat_df = filtered_df[filtered_df['cuisine'].str.lower() == 'asian']
+            else:
+                cat_df = filtered_df[filtered_df['display_category'] == cat]
+                
             img_url = ""
             for _, row in cat_df.iterrows():
                 row_img = str(row.get('image_url', ''))
                 if row_img and row_img.lower() not in ['nan', 'none', '']:
-                    img_url = row_img
-                    break
+                    if row_img not in used_images:
+                        img_url = row_img
+                        used_images.add(row_img)
+                        break
+                        
+            # Fallback if all images in this category were already used by other cards
+            if not img_url:
+                for _, row in cat_df.iterrows():
+                    row_img = str(row.get('image_url', ''))
+                    if row_img and row_img.lower() not in ['nan', 'none', '']:
+                        img_url = row_img
+                        break
+                        
             if not img_url:
                 img_url = "https://via.placeholder.com/300x200?text=" + cat_str.replace(" ", "+")
+                
             categories_data.append({
                 'name': cat_str,
                 'image': img_url
@@ -938,7 +972,10 @@ def search_page():
     df = recommender.df.copy()
     
     if 'display_category' in df.columns:
-        categories_list = sorted(df['display_category'].dropna().unique().tolist())
+        categories_list = [c for c in df['display_category'].dropna().unique().tolist() if str(c).strip().lower() != 'vegetables & vegetarian']
+        if 'Asian' not in categories_list:
+            categories_list.append('Asian')
+        categories_list = sorted(categories_list)
     else:
         categories_list = sorted(df['cuisine'].dropna().unique().tolist())
 
@@ -1338,6 +1375,83 @@ def recipe_detail(recipe_id):
         flash("Recipe not found!", "error")
         return redirect(url_for('dashboard'))
     return render_template("recipe_detail.html", recipe=recipe)
+
+
+# ── AI RECIPE DESCRIPTION VIA GROQ ────────────────────────────────────
+CACHE_FILE_PATH = os.path.join("static", "cache", "descriptions.json")
+
+def get_cached_description(recipe_id):
+    os.makedirs(os.path.dirname(CACHE_FILE_PATH), exist_ok=True)
+    if os.path.exists(CACHE_FILE_PATH):
+        try:
+            with open(CACHE_FILE_PATH, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+                return cache.get(str(recipe_id))
+        except Exception as e:
+            print(f"Error reading description cache: {e}")
+    return None
+
+def set_cached_description(recipe_id, desc):
+    os.makedirs(os.path.dirname(CACHE_FILE_PATH), exist_ok=True)
+    cache = {}
+    if os.path.exists(CACHE_FILE_PATH):
+        try:
+            with open(CACHE_FILE_PATH, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except Exception as e:
+            print(f"Error loading description cache for write: {e}")
+    cache[str(recipe_id)] = desc
+    try:
+        with open(CACHE_FILE_PATH, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error writing description cache: {e}")
+
+@app.route("/api/recipe-description/<int:recipe_id>", methods=["GET"])
+@login_required
+def recipe_description_api(recipe_id):
+    cached = get_cached_description(recipe_id)
+    if cached:
+        return jsonify({"description": cached})
+
+    recommender = get_recommender()
+    recipe = recommender.get_recipe_by_id(recipe_id)
+    if not recipe:
+        return jsonify({"error": "Recipe not found"}), 404
+
+    recipe_name = recipe.get("recipe_name", "this dish")
+    cuisine = recipe.get("cuisine", "various")
+    ingredients = recipe.get("ingredients", "")
+    instructions = recipe.get("instructions", "")
+    
+    try:
+        prompt = (
+            f"You are a friendly home cook. Write a simple, clear, and very short description (exactly 1-2 sentences) "
+            f"explaining exactly what '{recipe_name}' ({cuisine} cuisine) is so that any beginner will instantly understand it.\n\n"
+            f"Ingredients: {ingredients}\n"
+            f"Instructions preview: {instructions}\n\n"
+            f"Your description MUST be exactly 1-2 sentences. Keep it simple, clear, and direct. Explain what the dish is and how it is typically eaten. "
+            f"Do not include steps, warnings, or markdown. Only return the raw text."
+        )
+
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a professional culinary storyteller and local food expert."},
+                {"role": "user", "content": prompt}
+            ],
+            model="llama-3.1-8b-instant",
+            temperature=0.7,
+            max_tokens=250
+        )
+        description = chat_completion.choices[0].message.content.strip()
+        
+        # Save to cache
+        set_cached_description(recipe_id, description)
+        return jsonify({"description": description})
+    except Exception as e:
+        print(f"Groq description error: {e}")
+        fallback = f"Get ready to prepare a fantastic {cuisine} style {recipe_name}. Whether you're cooking for loved ones or just treating yourself, this dish offers incredible flavors and a deeply satisfying culinary experience."
+        return jsonify({"description": fallback})
 
 
 @app.route("/start-cooking/<int:recipe_id>")
@@ -2833,37 +2947,49 @@ SUBSTITUTES = {
     "mango":          [("peach", "similar sweetness and texture"), ("papaya", "tropical alternative")],
 }
 
+def _get_substitute_logic(ingredient):
+    # 1. Check static list first (try exact match first, then fuzzy/substring matching)
+    static_subs = None
+    if ingredient in SUBSTITUTES:
+        static_subs = SUBSTITUTES[ingredient]
+        
+    if not static_subs:
+        # Sort keys by length descending to match more specific ingredients first (e.g. "cheddar cheese" over "cheese")
+        for key in sorted(SUBSTITUTES.keys(), key=len, reverse=True):
+            if key in ingredient or ingredient in key:
+                static_subs = SUBSTITUTES[key]
+                break
+                
+    if static_subs:
+        return static_subs
+
+    # 2. If not in static, use AI magic
+    prompt = (
+        f"As a master chef, suggest 2-3 best culinary substitutes for '{ingredient}'. "
+        "For each substitute, provide a short reason or tip (max 10 words). "
+        "Return ONLY a JSON list of lists, like: [['sub1', 'tip1'], ['sub2', 'tip2']]"
+    )
+    
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+        max_tokens=200
+    )
+    
+    content = response.choices[0].message.content
+    ai_data = json.loads(content)
+    # Handle different possible JSON structures from AI
+    subs = ai_data.get('substitutes', ai_data.get('results', list(ai_data.values())[0]))
+    return subs
+
 @app.route("/get-substitute", methods=["POST"])
 @login_required
 def get_substitute():
     try:
         data = request.get_json()
         ingredient = data.get('ingredient', '').strip().lower()
-        
-        # 1. Check static list first for speed
-        static_subs = SUBSTITUTES.get(ingredient, [])
-        if static_subs:
-            return jsonify({'ingredient': ingredient, 'substitutes': static_subs})
-
-        # 2. If not in static, use AI magic
-        prompt = (
-            f"As a master chef, suggest 2-3 best culinary substitutes for '{ingredient}'. "
-            "For each substitute, provide a short reason or tip (max 10 words). "
-            "Return ONLY a JSON list of lists, like: [['sub1', 'tip1'], ['sub2', 'tip2']]"
-        )
-        
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            max_tokens=200
-        )
-        
-        content = response.choices[0].message.content
-        ai_data = json.loads(content)
-        # Handle different possible JSON structures from AI
-        subs = ai_data.get('substitutes', ai_data.get('results', list(ai_data.values())[0]))
-        
+        subs = _get_substitute_logic(ingredient)
         return jsonify({'ingredient': ingredient, 'substitutes': subs})
     except Exception as e:
         print(f"Sub Error: {e}")
@@ -2873,8 +2999,14 @@ def get_substitute():
 @app.route("/api/get-substitute", methods=["POST"])
 @jwt_required()
 def api_get_substitute():
-    # Re-use the same logic for mobile
-    return get_substitute()
+    try:
+        data = request.get_json()
+        ingredient = data.get('ingredient', '').strip().lower()
+        subs = _get_substitute_logic(ingredient)
+        return jsonify({'ingredient': ingredient, 'substitutes': subs})
+    except Exception as e:
+        print(f"API Sub Error: {e}")
+        return jsonify({'ingredient': ingredient, 'substitutes': []})
 
 # ==================== RUN ====================
 if __name__ == "__main__":

@@ -28,8 +28,10 @@
       <div class="hero-search-container">
         <span class="hero-search-icon-span">🔍</span>
         <input type="text" id="hero-recipe-search" placeholder="Search recipes, cuisines, ingredients..."
-          class="hero-search-input" onkeydown="if(event.key === 'Enter') { window.location.href = '/search?q=' + encodeURIComponent(this.value); }">
-        <button onclick="window.location.href = '/search?q=' + encodeURIComponent(document.getElementById('hero-recipe-search').value)"
+          class="hero-search-input"
+          onkeydown="if(event.key === 'Enter') { window.location.href = '/search?q=' + encodeURIComponent(this.value); }">
+        <button
+          onclick="window.location.href = '/search?q=' + encodeURIComponent(document.getElementById('hero-recipe-search').value)"
           class="hero-search-btn">
           <span>🔍</span>
         </button>
@@ -37,11 +39,16 @@
 
       <!-- Hero Filter Pills -->
       <div class="hero-pills">
-        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Quick Meals')" class="hero-pill-btn">⚡ Quick Meals</button>
-        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('High Protein')" class="hero-pill-btn">💪 High Protein</button>
-        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Vegan')" class="hero-pill-btn">🌱 Vegan</button>
-        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Dessert')" class="hero-pill-btn">🧁 Desserts</button>
-        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Air Fryer')" class="hero-pill-btn">🔌 Air Fryer</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Quick Meals')"
+          class="hero-pill-btn">⚡ Quick Meals</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('High Protein')"
+          class="hero-pill-btn">💪 High Protein</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Vegan')" class="hero-pill-btn">🌱
+          Vegan</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Dessert')" class="hero-pill-btn">🧁
+          Desserts</button>
+        <button onclick="window.location.href = '/search?q=' + encodeURIComponent('Air Fryer')" class="hero-pill-btn">🔌
+          Air Fryer</button>
       </div>
     </div>
 
@@ -170,30 +177,51 @@
   .editorial-card:hover .editorial-card-img {
     transform: scale(1.05);
   }
+
   .editorial-card:hover .editorial-card-title {
     color: var(--brand);
   }
 </style>
 
-<div class="dashboard-curated-container" style="max-width: 1200px; margin: 50px auto 30px; padding: 0 20px; font-family: 'Poppins', sans-serif;">
-  
+<div class="dashboard-curated-container"
+  style="max-width: 1200px; margin: 50px auto 30px; padding: 0 20px; font-family: 'Poppins', sans-serif;">
+
   <!-- Section 1: Editor's Choice -->
   <div style="margin-bottom: 50px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;">
-      <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px;">✨ Editor's Choice</h2>
-      <a href="/search" style="font-size: 13.5px; font-weight: 600; color: var(--brand); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#e55a2b'" onmouseout="this.style.color='var(--brand)'">See all →</a>
+      <h2
+        style="font-size: 1.5rem; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px;">
+        ✨ Editor's Choice</h2>
+      <a href="/search"
+        style="font-size: 13.5px; font-weight: 600; color: var(--brand); text-decoration: none; transition: color 0.2s;"
+        onmouseover="this.style.color='#e55a2b'" onmouseout="this.style.color='var(--brand)'">See all →</a>
     </div>
-    
+
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px;">
       {% for recipe in featured_recipes %}
-      <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="editorial-card" style="text-decoration: none; color: inherit; display: flex; flex-direction: column;">
-        <div class="editorial-card-img-wrap" style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-          <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}" alt="{{ recipe.recipe_name }}" class="editorial-card-img" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);" onerror="this.src='/static/images/recipe-placeholder.jpg'">
-          <div class="editorial-card-time" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">⏱ {{ recipe.cook_time }} min</div>
+      <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="editorial-card"
+        style="text-decoration: none; color: inherit; display: flex; flex-direction: column;">
+        <div class="editorial-card-img-wrap"
+          style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+          <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}"
+            alt="{{ recipe.recipe_name }}" class="editorial-card-img"
+            style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);"
+            onerror="this.src='/static/images/recipe-placeholder.jpg'">
+          <div class="editorial-card-cuisine"
+            style="position: absolute; top: 12px; left: 12px; background: var(--brand); color: white; font-size: 9.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+            {{ recipe.cuisine }}</div>
+          <div class="editorial-card-time"
+            style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">
+            ⏱ {{ recipe.cook_time }} min</div>
         </div>
-        <div class="editorial-card-title" style="font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.35; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 40px; transition: color 0.2s;">{{ recipe.recipe_name }}</div>
-        <div class="editorial-card-meta" style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-weight: 500;">
-          <span class="editorial-card-rating" style="display: flex; align-items: center; gap: 4px; color: var(--text); font-weight: 700;">⭐ {{ recipe.rating }}</span>
+        <div class="editorial-card-title"
+          style="font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.35; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 40px; transition: color 0.2s;">
+          {{ recipe.recipe_name }}</div>
+        <div class="editorial-card-meta"
+          style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-weight: 500;">
+          <span class="editorial-card-rating"
+            style="display: flex; align-items: center; gap: 4px; color: var(--text); font-weight: 700;">⭐ {{
+            recipe.rating }}</span>
           <span>👥 {{ recipe.servings }} portions</span>
         </div>
       </a>
@@ -204,20 +232,39 @@
   <!-- Section 2: Quick & Easy -->
   <div style="margin-bottom: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;">
-      <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px;">⚡ Quick & Easy (Under 30 Min)</h2>
-      <a href="/search?time=30" style="font-size: 13.5px; font-weight: 600; color: var(--brand); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#e55a2b'" onmouseout="this.style.color='var(--brand)'">See all →</a>
+      <h2
+        style="font-size: 1.5rem; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px;">
+        ⚡ Quick & Easy (Under 30 Min)</h2>
+      <a href="/search?time=30"
+        style="font-size: 13.5px; font-weight: 600; color: var(--brand); text-decoration: none; transition: color 0.2s;"
+        onmouseover="this.style.color='#e55a2b'" onmouseout="this.style.color='var(--brand)'">See all →</a>
     </div>
-    
+
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px;">
       {% for recipe in quick_recipes %}
-      <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="editorial-card" style="text-decoration: none; color: inherit; display: flex; flex-direction: column;">
-        <div class="editorial-card-img-wrap" style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-          <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}" alt="{{ recipe.recipe_name }}" class="editorial-card-img" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);" onerror="this.src='/static/images/recipe-placeholder.jpg'">
-          <div class="editorial-card-time" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">⏱ {{ recipe.cook_time }} min</div>
+      <a href="{{ url_for('recipe_detail', recipe_id=recipe.recipe_id) }}" class="editorial-card"
+        style="text-decoration: none; color: inherit; display: flex; flex-direction: column;">
+        <div class="editorial-card-img-wrap"
+          style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+          <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}"
+            alt="{{ recipe.recipe_name }}" class="editorial-card-img"
+            style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);"
+            onerror="this.src='/static/images/recipe-placeholder.jpg'">
+          <div class="editorial-card-cuisine"
+            style="position: absolute; top: 12px; left: 12px; background: var(--brand); color: white; font-size: 9.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+            {{ recipe.cuisine }}</div>
+          <div class="editorial-card-time"
+            style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">
+            ⏱ {{ recipe.cook_time }} min</div>
         </div>
-        <div class="editorial-card-title" style="font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.35; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 40px; transition: color 0.2s;">{{ recipe.recipe_name }}</div>
-        <div class="editorial-card-meta" style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-weight: 500;">
-          <span class="editorial-card-rating" style="display: flex; align-items: center; gap: 4px; color: var(--text); font-weight: 700;">⭐ {{ recipe.rating }}</span>
+        <div class="editorial-card-title"
+          style="font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.35; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 40px; transition: color 0.2s;">
+          {{ recipe.recipe_name }}</div>
+        <div class="editorial-card-meta"
+          style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-weight: 500;">
+          <span class="editorial-card-rating"
+            style="display: flex; align-items: center; gap: 4px; color: var(--text); font-weight: 700;">⭐ {{
+            recipe.rating }}</span>
           <span>👥 {{ recipe.servings }} portions</span>
         </div>
       </a>
@@ -233,24 +280,10 @@
     <div class="ideas-banner-icon">👨‍🍳</div>
     <div class="ideas-banner-text">
       <div class="ideas-banner-title">Need more ideas?</div>
-      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!</div>
+      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!
+      </div>
     </div>
     <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
-  </div>
-</div>
-
-<!-- AI Quick View Modal Drawer -->
-<div id="ai-modal-overlay" class="diet-overlay" style="display:none; z-index: 10001;" onclick="closeAiModal()"></div>
-<div class="diet-drawer" id="ai-drawer"
-  style="right: -480px; width: 100%; max-width: 500px; padding: 0; background: #1a1a1a; z-index: 10002; position: fixed; top: 0; bottom: 0; transition: right 0.3s ease;">
-  <div
-    style="position: sticky; top: 0; background: #1a1a1a; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; z-index: 10;">
-    <h2 id="ai-modal-title" style="margin:0; font-size: 1.2rem; color: #ff6b35;">Recipe Detail</h2>
-    <button onclick="closeAiModal()"
-      style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">&times;</button>
-  </div>
-  <div id="ai-modal-content" style="padding: 24px; overflow-y: auto; max-height: calc(100vh - 80px);">
-    <!-- Content injected dynamically by JS -->
   </div>
 </div>
 
