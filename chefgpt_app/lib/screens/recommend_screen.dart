@@ -17,10 +17,10 @@ class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
 
   @override
-  State<RecommendScreen> createState() => _RecommendScreenState();
+  State<RecommendScreen> createState() => RecommendScreenState();
 }
 
-class _RecommendScreenState extends State<RecommendScreen>
+class RecommendScreenState extends State<RecommendScreen>
     with SingleTickerProviderStateMixin {
   final _ingredientsController = TextEditingController();
   final _voiceIngredientsController = TextEditingController();
@@ -47,6 +47,20 @@ class _RecommendScreenState extends State<RecommendScreen>
   bool _isAnalyzingImage = false;
   String _imageStatus = '';
   bool _imageResultVisible = false;
+
+  void clearAllInputs() {
+    setState(() {
+      _ingredientsController.clear();
+      _voiceIngredientsController.clear();
+      _imageIngredientsController.clear();
+      _recommendations = [];
+      _errorMessage = '';
+      _voiceStatus = '';
+      _voiceResultVisible = false;
+      _imageStatus = '';
+      _imageResultVisible = false;
+    });
+  }
 
   @override
   void initState() {

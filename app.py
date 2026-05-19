@@ -2547,6 +2547,64 @@ def api_register():
     return jsonify({'message': 'Registration successful!'})
 
 
+
+@app.route('/api/categories', methods=['GET'])
+@jwt_required()
+def api_get_categories():
+    recommender = get_recommender()
+    df = recommender.df.copy()
+    df = df.drop_duplicates(subset=['recipe_name'], keep='first')
+    
+    # Apply dietary filter for the logged-in user
+    user_id = get_jwt_identity()
+    profile = DietaryProfile.query.filter_by(user_id=user_id).first()
+    df = apply_dietary_filter(df, profile)
+
+    categories_data = []
+    used_images = set()
+    
+    if 'display_category' in df.columns:
+        unique_categories = [c for c in df['display_category'].dropna().unique() if str(c).strip().lower() != 'vegetables & vegetarian']
+        if 'Asian' not in unique_categories:
+            unique_categories.append('Asian')
+            
+        for cat in unique_categories:
+            cat_str = str(cat).strip()
+            if not cat_str or cat_str.lower() == 'nan':
+                continue
+                
+            if cat_str == 'Asian':
+                cat_df = df[df['cuisine'].str.lower() == 'asian']
+            else:
+                cat_df = df[df['display_category'] == cat]
+                
+            img_url = ""
+            for _, row in cat_df.iterrows():
+                row_img = str(row.get('image_url', ''))
+                if row_img and row_img.lower() not in ['nan', 'none', '']:
+                    if row_img not in used_images:
+                        img_url = row_img
+                        used_images.add(row_img)
+                        break
+                        
+            if not img_url:
+                for _, row in cat_df.iterrows():
+                    row_img = str(row.get('image_url', ''))
+                    if row_img and row_img.lower() not in ['nan', 'none', '']:
+                        img_url = row_img
+                        break
+                        
+            if not img_url:
+                img_url = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
+                
+            categories_data.append({
+                'name': cat_str,
+                'image': img_url
+            })
+            
+    return jsonify({'categories': categories_data})
+
+
 @app.route('/api/recipes', methods=['GET'])
 @jwt_required()
 def api_get_recipes():
@@ -2554,18 +2612,105 @@ def api_get_recipes():
     recommender = get_recommender()
     df = recommender.df.copy()
     df = df.drop_duplicates(subset=['recipe_name'], keep='first')
+    
     profile = DietaryProfile.query.filter_by(user_id=user_id).first()
     df = apply_dietary_filter(df, profile)
+    
+    # 1. Curated Featured Recipes (High rating with a bias towards Asian cuisine)
+    asian_featured = df[df['cuisine'].str.lower() == 'asian'].sort_values(by='rating', ascending=False).head(15)
+    other_featured = df[df['cuisine'].str.lower() != 'asian'].sort_values(by='rating', ascending=False).head(25)
+    
+    num_asian = min(2, len(asian_featured))
+    num_other = 4 - num_asian
+    
+    asian_sample = asian_featured.sample(n=num_asian, replace=False) if num_asian > 0 else pd.DataFrame()
+    other_sample = other_featured.sample(n=min(num_other, len(other_featured)), replace=False) if len(other_featured) > 0 else pd.DataFrame()
+    
+    featured_sample = pd.concat([asian_sample, other_sample]).sample(frac=1) if not (asian_sample.empty and other_sample.empty) else df.head(4)
+    
+    featured_list = []
+    for _, row in featured_sample.iterrows():
+        img = row.get('image_url', '')
+        if not img or str(img).lower() == 'nan':
+            img = "/static/images/recipe-placeholder.jpg"
+            
+        featured_list.append({
+            'recipe_id': str(row['recipe_id']),
+            'recipe_name': str(row['recipe_name']),
+            'ingredients': str(row['ingredients']),
+            'cuisine': str(row['cuisine']),
+            'calories': recommender._parse_calories(row['calories']),
+            'rating': float(row['rating']) if not pd.isna(row['rating']) else 0.0,
+            'difficulty': str(row.get('difficulty', 'medium')),
+            'image_url': img,
+            'cook_time': get_cook_time(row),
+            'servings': get_servings(row),
+        })
+
+    # 2. Curated Quick & Easy (Cook time <= 30 min)
+    quick_df = df[df.apply(lambda r: int(get_cook_time(r)) <= 30, axis=1)]
+    if quick_df.empty:
+        quick_df = df
+    quick_sample = quick_df.sample(n=min(4, len(quick_df)), replace=False) if len(quick_df) >= 4 else quick_df
+    
+    quick_list = []
+    for _, row in quick_sample.iterrows():
+        img = row.get('image_url', '')
+        if not img or str(img).lower() == 'nan':
+            img = "/static/images/recipe-placeholder.jpg"
+            
+        quick_list.append({
+            'recipe_id': str(row['recipe_id']),
+            'recipe_name': str(row['recipe_name']),
+            'ingredients': str(row['ingredients']),
+            'cuisine': str(row['cuisine']),
+            'calories': recommender._parse_calories(row['calories']),
+            'rating': float(row['rating']) if not pd.isna(row['rating']) else 0.0,
+            'difficulty': str(row.get('difficulty', 'medium')),
+            'image_url': img,
+            'cook_time': get_cook_time(row),
+            'servings': get_servings(row),
+        })
+
+    # 3. Fallback/Standard (Shuffled sample of 12)
     df_shuffled = df.sample(n=min(12, len(df)), replace=False)
-    return jsonify({'recipes': df_shuffled.to_dict('records')})
+    recipes_list = []
+    for _, row in df_shuffled.iterrows():
+        img = row.get('image_url', '')
+        if not img or str(img).lower() == 'nan':
+            img = "/static/images/recipe-placeholder.jpg"
+            
+        recipes_list.append({
+            'recipe_id': str(row['recipe_id']),
+            'recipe_name': str(row['recipe_name']),
+            'ingredients': str(row['ingredients']),
+            'cuisine': str(row['cuisine']),
+            'calories': recommender._parse_calories(row['calories']),
+            'rating': float(row['rating']) if not pd.isna(row['rating']) else 0.0,
+            'difficulty': str(row.get('difficulty', 'medium')),
+            'image_url': img,
+            'cook_time': get_cook_time(row),
+            'servings': get_servings(row),
+        })
+        
+    return jsonify({
+        'featured': featured_list,
+        'quick': quick_list,
+        'recipes': recipes_list
+    })
 
 
 @app.route('/api/search-recipes', methods=['GET'])
 @jwt_required()
 def api_search_recipes():
     query = request.args.get('q', '').strip().lower()
-    if not query:
-        return jsonify({'recipes': []})
+    cuisine = request.args.get('cuisine', '').strip().lower()
+    max_time = request.args.get('time', '').strip()
+    portions = request.args.get('portions', '').strip()
+
+    # If everything is empty, return empty immediately to avoid overload
+    if not query and not cuisine and not max_time and not portions:
+        return jsonify({'recipes': [], 'trigger_ai': False})
 
     recommender = get_recommender()
     df = recommender.df.copy()
@@ -2576,29 +2721,69 @@ def api_search_recipes():
     profile = DietaryProfile.query.filter_by(user_id=user_id).first()
     df = apply_dietary_filter(df, profile)
 
-    mask = (
-        df['recipe_name'].str.lower().str.contains(query, na=False) |
-        df['cuisine'].str.lower().str.contains(query, na=False) |
-        df['ingredients'].str.lower().str.contains(query, na=False)
-    )
+    # 1. Apply query text search mask
+    if query:
+        mask = (
+            df['recipe_name'].str.lower().str.contains(query, na=False) |
+            df['cuisine'].str.lower().str.contains(query, na=False) |
+            df['ingredients'].str.lower().str.contains(query, na=False) |
+            df.get('display_category', pd.Series(dtype=str)).str.lower().str.contains(query, na=False)
+        )
+        df = df[mask]
 
+    # 2. Apply cuisine / category filter (exactly like Web backend!)
+    if cuisine:
+        if 'display_category' in df.columns:
+            df = df[(df['display_category'].str.lower() == cuisine) | (df['cuisine'].str.lower() == cuisine)]
+        else:
+            df = df[df['cuisine'].str.lower() == cuisine]
+
+    # 3. Apply cook time filter
+    if max_time:
+        try:
+            max_time_val = int(max_time)
+            df = df[df.apply(lambda r: int(get_cook_time(r)) <= max_time_val, axis=1)]
+        except:
+            pass
+
+    # 4. Apply portions filter
+    if portions:
+        try:
+            portions_val = int(portions)
+            df = df[df.apply(lambda r: get_servings(r) == portions_val, axis=1)]
+        except:
+            pass
+
+    matched_df = df.head(40) # Show up to 40 matches like the Web
     recipes_list = []
-    for _, row in df[mask].iterrows():
+    for _, row in matched_df.iterrows():
+        # Get cook time with fallback
+        cook_time_disp = get_cook_time(row)
+        
+        # Image logic
+        img = row.get('image_url', '')
+        if not img or str(img).lower() == 'nan':
+            img = "/static/images/recipe-placeholder.jpg"
+
         recipes_list.append({
-            'recipe_id': int(row['recipe_id']),
+            'recipe_id': str(row['recipe_id']),
             'recipe_name': str(row['recipe_name']),
             'ingredients': str(row['ingredients']),
             'cuisine': str(row['cuisine']),
-            'calories': get_recommender()._parse_calories(row['calories']),
-            'rating': float(row['rating']),
-            'difficulty': str(row['difficulty']),
-            'image_url': str(row.get('image_url', '')) or '',
-            'cook_time': get_cook_time(row),
+            'calories': recommender._parse_calories(row['calories']),
+            'rating': float(row['rating']) if not pd.isna(row['rating']) else 0.0,
+            'difficulty': str(row.get('difficulty', 'medium')),
+            'image_url': img,
+            'cook_time': cook_time_disp,
+            'servings': get_servings(row),
         })
+
+    # trigger_ai matches the Web backend logic exactly (query >= 3 and no active filter dropdowns)
+    trigger_ai = len(query) >= 3 and not (cuisine or max_time or portions)
 
     return jsonify({
         'recipes': recipes_list,
-        'trigger_ai': len(query) >= 3
+        'trigger_ai': trigger_ai
     })
 @app.route('/api/recipe/<int:recipe_id>', methods=['GET'])
 @jwt_required()
@@ -3010,5 +3195,13 @@ def api_get_substitute():
 
 # ==================== RUN ====================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    app.run(host="0.0.0.0", port=port)
+    try:
+        # Pre-load recommendations and SBERT models on server start
+        print("\n=== Warm-starting recommendation ML models (BM25 + SBERT) ===")
+        warm_recommender = get_recommender()
+        warm_recommender._ensure_models_loaded()
+        print("=== Models successfully pre-loaded and hot-cached! ===\n")
+    except Exception as e:
+        print(f"Startup models load warning: {e}")
+
+    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
