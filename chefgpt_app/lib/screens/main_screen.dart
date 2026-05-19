@@ -21,14 +21,23 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
   int _currentIndex = 2; // Home is now middle
   late AnimationController _auroraController;
+  final GlobalKey<RecommendScreenState> _recommendKey = GlobalKey<RecommendScreenState>();
 
-  final List<Widget> _screens = [
-    RecommendScreen(),
+  late final List<Widget> _screens = [
+    RecommendScreen(key: _recommendKey),
     const MealPlannerScreen(),
     const DashboardScreen(),
     const SavedRecipesScreen(),
     CookingHistoryScreen(),
   ];
+
+  void _changeTab(int index) {
+    if (_currentIndex == 0 && index != 0) {
+      // Navigating away from Recommend screen, clear all inputs!
+      _recommendKey.currentState?.clearAllInputs();
+    }
+    setState(() => _currentIndex = index);
+  }
 
   @override
   void initState() {
@@ -125,7 +134,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   Widget _buildFloatingHome(int index) {
     final isSelected = _currentIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => _changeTab(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutBack,
@@ -171,7 +180,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   Widget _buildNavItem(int index, IconData icon, String label) {
     final isSelected = _currentIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => _changeTab(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
