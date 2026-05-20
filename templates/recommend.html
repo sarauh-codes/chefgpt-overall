@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Get Recipes - ChefGPT{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/recommend.css') }}">
+{% endblock %}
+
+{% block content %}
+
+    <div class="container">
+        <!-- Hero Header -->
+        <div class="page-header">
+            <h2>✨ AI Recipe Recommendations</h2>
+            <p>Don't know what to cook? Tell us what you have, and our AI will generate the perfect recipe tailored to your ingredients and dietary preferences.</p>
+        </div>
+        <div class="search-box">
+            <h2 style="font-size: 24px;">🔍 What ingredients do you have?</h2>
+            <p class="search-subtitle">Choose how you want to enter your ingredients</p>
+
+            <!-- 3 Tab Buttons -->
+            <div class="input-tabs">
+                <button class="tab-btn active" id="tab-text" onclick="switchTab('text')">⌨️ Type</button>
+                <button class="tab-btn" id="tab-voice" onclick="switchTab('voice')">🎤 Voice</button>
+                <button class="tab-btn" id="tab-image" onclick="switchTab('image')">📸 Image</button>
+            </div>
+
+            <!-- Tab 1: Text -->
+            <div class="tab-content" id="content-text">
+                <p class="search-subtitle">Enter your available ingredients (comma-separated)</p>
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="ingredients-input"
+                        placeholder="e.g., chicken, rice, egg, tomato"
+                        autocomplete="off"
+                    >
+                    <button class="btn-search" onclick="getRecommendations()">Get Recipes</button>
+                </div>
+                
+                <div class="quick-suggestions">
+                    <span>💡 Popular:</span>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'chicken, '">Chicken</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'rice, '">Rice</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'pasta, '">Pasta</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'eggs, '">Eggs</button>
+                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'tomatoes, '">Tomatoes</button>
+                </div>
+            </div>
+
+            <!-- Tab 2: Voice (Whisper) -->
+            <div class="tab-content" id="content-voice" style="display: none;">
+                <p class="search-subtitle">Click the mic, say your ingredients, then click stop 🎙️</p>
+                <div class="voice-section">
+                    <button class="btn-mic" id="micBtn" onclick="toggleRecording()">🎤 Start Recording</button>
+                    <p class="voice-status" id="voiceStatus"></p>
+                </div>
+                <div class="input-group" id="voice-result-group" style="display: none;">
+                    <input
+                        type="text"
+                        id="ingredients-input-voice"
+                        placeholder="Detected ingredients will appear here..."
+                        autocomplete="off"
+                    >
+                    <button class="btn-search" id="voice-search-btn" onclick="getRecommendationsFromVoice()">Get Recipes</button>
+                </div>
+            </div>
+
+            <!-- Tab 3: Image Upload -->
+            <div class="tab-content" id="content-image" style="display: none;">
+                <p class="search-subtitle">Upload one or more photos of your ingredients and let AI detect them 📸</p>
+                <div class="image-section">
+                    <label class="image-upload-label" id="imageUploadLabel" for="imageInput">
+                        <span id="uploadPrompt">📂 Click to upload one or more images</span>
+                        <input type="file" id="imageInput" accept="image/*" multiple onchange="handleImageUpload(event)" style="display: none;">
+                    </label>
+
+                    <!-- Thumbnail preview strip -->
+                    <div class="preview-strip" id="previewStrip"></div>
+
+                    <!-- Analyzing animation -->
+                    <div class="analyzing-box" id="analyzingBox">
+                        <div class="img-spinner"></div>
+                        <div class="progress-text">
+                            <p class="progress-label" id="progressLabel">Analyzing image...</p>
+                            <p class="progress-sub" id="progressSub">Detecting ingredients with AI vision</p>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Done state with chips -->
+                    <div class="done-box" id="doneBox">
+                        <div class="done-icon">✓</div>
+                        <div style="flex:1;">
+                            <p class="detected-subtitle">Detected — edit if needed, then click Get Recipes!</p>
+                            <div class="detected-chips" id="detectedChips"></div>
+                        </div>
+                    </div>
+
+                    <!-- Clear button -->
+                    <button class="clear-images-btn" id="clearImagesBtn" onclick="clearImages()" style="display:none;">✕ Clear images</button>
+                </div>
+
+                <div class="input-group" id="image-result-group" style="display: none;">
+                    <input
+                        type="text"
+                        id="ingredients-input-image"
+                        placeholder="Detected ingredients will appear here..."
+                        autocomplete="off"
+                    >
+                    <button class="btn-search" onclick="getRecommendationsFromImage()">Get Recipes</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+
+        <div class="loading" id="loading">
+            <h3>🤖 AI is analyzing your ingredients...</h3>
+            <p>Please wait...</p>
+        </div>
+
+        <div class="results" id="results">
+            <h2>Recommended Recipes for You</h2>
+            <div id="recipe-list"></div>
+        </div>
+    </div>
+{% endblock %}
+{% block extra_scripts %}
+    <script src="{{ url_for('static', filename='js/recommend.js') }}"></script>
+    {% include 'partials/floating_chat.html' %}
+{% endblock %}

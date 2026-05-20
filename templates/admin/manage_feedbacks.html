@@ -1,0 +1,139 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}Manage Feedbacks - ChefGPT Admin{% endblock %}
+
+{% block admin_content %}
+    <header class="admin-header">
+        <div>
+            <h1>Manage Feedbacks</h1>
+            <p class="header-sub">Review and moderate user ratings and comments.</p>
+        </div>
+    </header>
+
+    <div class="admin-card">
+        <form action="{{ url_for('bulk_delete_feedbacks') }}" method="POST" id="bulkForm">
+            <div class="card-header-flex">
+                <button type="submit" class="btn-action delete" onclick="return confirm('Delete all selected feedbacks?')">
+                    🗑️ Delete Selected
+                </button>
+            </div>
+
+            <div class="table-container" style="padding-top: 10px;">
+                <table id="dataTable" class="admin-table display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Recipe</th>
+                            <th>Rating</th>
+                            <th>Comment</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fb in feedbacks %}
+                        <tr>
+                            <td><input type="checkbox" name="selected_ids" value="{{ fb.id }}"></td>
+                            <td><span class="badge badge-gray">#{{ fb.id }}</span></td>
+                            <td class="font-medium">{{ fb.user.username if fb.user else 'Deleted User' }}</td>
+                            <td>{{ fb.recipe_name }}</td>
+                            <td>
+                                <div class="rating-display">
+                                    <span class="star-icon">⭐</span> {{ fb.rating }}/5
+                                </div>
+                            </td>
+                            <td class="comment-cell">
+                                {{ fb.comment if fb.comment else '<span class="text-muted">No comment</span>'|safe }}
+                            </td>
+                            <td class="actions-cell">
+                                {% if fb.comment %}
+                                <button type="button" class="btn-action edit" onclick="viewComment('{{ fb.user.username if fb.user else 'Deleted User' }}', '{{ fb.recipe_name|replace("'", "\\'") }}', '{{ fb.rating }}', '{{ fb.comment|replace("'", "\\'")|replace('\n', ' ') }}')">👁️ View</button>
+                                {% endif %}
+                                <a href="{{ url_for('delete_feedback', feedback_id=fb.id) }}" onclick="event.preventDefault(); if(confirm('Delete this feedback?')) document.getElementById('del-{{fb.id}}').submit();" class="btn-action delete">🗑️ Delete</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+
+    <!-- Hidden standalone delete forms -->
+    {% for fb in feedbacks %}
+    <form id="del-{{fb.id}}" action="{{ url_for('delete_feedback', feedback_id=fb.id) }}" method="POST" style="display:none;"></form>
+    {% endfor %}
+
+    <!-- View Comment Modal -->
+    <div id="commentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:white; padding:30px; border-radius:20px; max-width:500px; width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+                <div>
+                    <h3 id="modalRecipe" style="font-family:'Outfit'; font-size:22px; margin-bottom:4px; color:#0f172a;">Recipe Name</h3>
+                    <p id="modalUser" style="color:#64748b; font-size:14px;"></p>
+                </div>
+                <div id="modalRating" class="rating-display" style="background:#fef3c7; padding:6px 12px; border-radius:8px; color:#b45309;">
+                    ⭐ 5.0
+                </div>
+            </div>
+            <div id="modalComment" style="padding:20px; background:#f8fafc; border-radius:12px; color:#334155; font-size:15px; line-height:1.6; margin-bottom:24px;">
+                Comment text goes here...
+            </div>
+            <button onclick="document.getElementById('commentModal').style.display='none'" style="width:100%; padding:14px; background:#f1f5f9; color:#475569; border:none; border-radius:10px; font-weight:600; cursor:pointer;">Close</button>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        dom: '<"top"fB>rt<"bottom"lip><"clear">',
+        buttons: [
+            { 
+                extend: 'csv', 
+                className: 'btn-action edit', 
+                text: '📥 Export CSV',
+                exportOptions: { columns: ':not(:first-child):not(:last-child)' }
+            },
+            { 
+                extend: 'excel', 
+                className: 'btn-action edit', 
+                text: '📊 Export Excel',
+                exportOptions: { columns: ':not(:first-child):not(:last-child)' }
+            }
+        ],
+        pageLength: 25,
+        columnDefs: [ { orderable: false, targets: [0, 6] } ],
+        order: [[1, 'asc']]
+    });
+
+    $('#selectAll').click(function() {
+        $('input[name="selected_ids"]').prop('checked', this.checked);
+    });
+});
+
+function viewComment(user, recipe, rating, comment) {
+    document.getElementById('modalUser').innerText = "By " + user;
+    document.getElementById('modalRecipe').innerText = recipe;
+    document.getElementById('modalRating').innerText = "⭐ " + rating + "/5";
+    document.getElementById('modalComment').innerText = comment;
+    document.getElementById('commentModal').style.display = 'flex';
+}
+</script>
+<style>
+    .dataTables_wrapper .dataTables_filter input {
+        border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 12px; margin-left: 10px; outline:none; font-family: 'Inter', sans-serif;
+    }
+    .dataTables_wrapper .dataTables_filter input:focus { border-color: #6366f1; }
+    .dataTables_wrapper .dt-buttons { margin-bottom: 15px; margin-left: 20px; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+        background: #FF6B35 !important; color: white !important; border: none; border-radius: 6px;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        background: #f1f5f9 !important; color: #0f172a !important; border: none;
+    }
+</style>
+{% endblock %}

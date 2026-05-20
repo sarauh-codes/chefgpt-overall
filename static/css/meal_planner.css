@@ -1,0 +1,229 @@
+/* meal_planner.css - Modernized */
+
+.meal-planner-panel {
+  background: var(--panel);
+  padding: 36px 40px;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.03);
+  border: 1px solid var(--border);
+  margin-bottom: 28px;
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+.meal-planner-panel h2 {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.meal-planner-sub {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.meal-planner-sub a {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.meal-planner-sub a:hover {
+  text-decoration: underline;
+}
+
+.meal-diet-hint {
+  background: var(--brand-soft);
+  border: 1px solid rgba(255, 107, 53, 0.15);
+  border-radius: 16px;
+  padding: 16px 20px;
+  font-size: 14px;
+  color: var(--brand);
+  margin-bottom: 28px;
+  font-weight: 500;
+}
+
+.meal-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.meal-filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.meal-filter-grid select,
+.meal-filter-grid input {
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  font-size: 14px;
+  background: var(--panel-2);
+  color: var(--text);
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.meal-filter-grid select:focus,
+.meal-filter-grid input:focus {
+  border-color: var(--brand);
+  background: var(--panel);
+  box-shadow: 0 4px 16px var(--brand-soft);
+}
+
+.meal-plan-expiry-banner {
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(25, 118, 210, 0.05);
+  border: 1px solid rgba(25, 118, 210, 0.15);
+  color: #1a5270;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+body.dark-theme .meal-plan-expiry-banner {
+  color: #64b5f6;
+}
+
+.meal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+
+.btn-randomize-week {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  background: var(--brand);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px var(--brand-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-randomize-week:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+  filter: brightness(1.1);
+}
+
+.btn-reset-plan {
+  padding: 16px 26px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-reset-plan:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.meal-plan-error {
+  display: none;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(229, 62, 62, 0.1);
+  border: 1px solid rgba(229, 62, 62, 0.2);
+  color: #E53E3E;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.meal-plan-error.visible { display: block; animation: slideUp 0.3s ease; }
+
+.meal-plan-success-notice {
+  display: none;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(56, 161, 105, 0.1);
+  border: 1px solid rgba(56, 161, 105, 0.2);
+  color: #38a169;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.meal-plan-success-notice.visible { display: block; animation: slideUp 0.3s ease; }
+
+.meal-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.day-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.day-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 24px rgba(255,107,53,0.15);
+  border-color: var(--brand-soft);
+}
+
+.day-header {
+  background: linear-gradient(135deg, var(--brand) 0%, #f77f00 100%);
+  color: white;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.day-card-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.meal-plan-thumb {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .meal-planner-panel { padding: 24px 20px; }
+  .meal-plan-table th, .meal-plan-table td { padding: 14px; }
+}

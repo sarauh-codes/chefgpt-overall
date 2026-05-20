@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}My Cooked Recipes - ChefGPT{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="page-header">
+            <h2>📖 My Cooked Recipes History</h2>
+            <p>Track all the delicious meals you've prepared!</p>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">{{ recipes|length }}</div>
+                    <div class="stat-label">Recipes Cooked</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ recipes|map(attribute='recipe_id')|unique|list|length }}</div>
+                    <div class="stat-label">Unique Dishes</div>
+                </div>
+            </div>
+        </div>
+        
+        {% if recipes|length == 0 %}
+            <div class="empty-state">
+                <div style="font-size: 48px; margin-bottom: 16px;">🍽️</div>
+                <h3>No Recipes Cooked Yet</h3>
+                <p>Start your cooking journey by finding recipes and marking them as cooked!</p>
+                <a href="{{ url_for('recommend_page') }}">Find Recipes to Cook</a>
+            </div>
+        {% else %}
+            <div class="recipe-grid">
+            {% for cooked in recipes %}
+                <div class="recipe-card" onclick="window.location.href='{{ url_for('recipe_detail', recipe_id=cooked.recipe_id) }}'">
+                    <div class="recipe-card-img">
+                        <div class="recipe-img-placeholder">👨‍🍳</div>
+                        <div class="recipe-time-badge" style="background: #38A169;">✅ Mastered</div>
+                    </div>
+                    <div class="recipe-card-body">
+                        <div class="recipe-card-name" style="font-size: 15px;">{{ cooked.recipe_name }}</div>
+                        <div class="recipe-card-meta" style="color: var(--muted); font-weight: 500; margin-top: 4px;">
+                            <span style="font-size: 14px;">📅</span> {{ cooked.cooked_at.strftime('%b %d, %Y') }}
+                        </div>
+                        <div class="recipe-card-footer" style="margin-top: 12px;">
+                            <div class="recipe-rating" style="font-size: 11px;">At {{ cooked.cooked_at.strftime('%I:%M %p') }}</div>
+                            <div class="recipe-view-btn" style="background: var(--brand);">Cook Again 🍳</div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

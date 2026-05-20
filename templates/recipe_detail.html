@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recipe.recipe_name }} - ChefGPT{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/recipe.css') }}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<input type="hidden" id="recipe-id" value="{{ recipe.recipe_id }}">
+<input type="hidden" id="recipe-ingredients-raw" value="{{ recipe.ingredients | e }}">
+<input type="hidden" id="recipe-instructions-raw" value="{{ recipe.instructions | e }}">
+
+<div class="container recipe-container">
+
+    <!-- Navigation & Actions Row -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;" class="no-print">
+        <a href="{{ url_for('dashboard') }}" class="recipe-back-btn" style="margin-bottom: 0;">
+            ← Back to recipes
+        </a>
+        {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('edit_recipe', recipe_id=recipe.recipe_id) }}" class="recipe-edit-btn" style="display: inline-flex; align-items: center; gap: 8px; color: var(--text); background: var(--panel); border: 1px solid var(--border); text-decoration: none; font-size: 14px; font-weight: 700; padding: 8px 16px; border-radius: 10px; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+            ⚙️ Edit Recipe
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Print Header -->
+    <div class="print-header print-only" style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #FF6B35; font-size: 28px; margin: 0; font-weight: 900;">🍳 ChefGPT</h2>
+        <p style="color: #666; font-size: 14px; margin: 0; letter-spacing: 2px; text-transform: uppercase;">Your Personal AI Chef</p>
+    </div>
+
+    <!-- Header Grid -->
+    <div class="recipe-header-grid">
+        <div class="recipe-image-wrap" style="position: relative;">
+            {% if recipe.image_url and recipe.image_url != 'AI_PLACEHOLDER' and recipe.image_url != '' %}
+            <img src="{{ recipe.image_url }}" alt="{{ recipe.recipe_name }}" class="recipe-main-image" onerror="this.style.display='none'; document.getElementById('pinterest-fallback-container').style.display='flex';">
+            {% endif %}
+            
+            <!-- Pinterest Fallback suggestions when image is empty or invalid -->
+            <a id="pinterest-fallback-container" href="https://www.pinterest.com/search/pins/?q={{ recipe.recipe_name | urlencode }} food photo" target="_blank" class="recipe-fallback-image no-print" style="{% if recipe.image_url and recipe.image_url != 'AI_PLACEHOLDER' and recipe.image_url != '' %}display: none;{% else %}display: flex;{% endif %} flex-direction: column; background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%); justify-content: center; align-items: center; text-align: center; padding: 20px; border-radius: 24px; position: absolute; inset: 0; text-decoration: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5;">
+                <div style="font-size: 60px; filter: drop-shadow(0 8px 16px rgba(139, 92, 246, 0.45)); animation: float 3s ease-in-out infinite;">🤖</div>
+                <div style="font-size: 15px; font-weight: 800; color: #f3e8ff; margin-top: 14px; margin-bottom: 2px; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 8px; justify-content: center;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="#e60023" style="display: block;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.08 3.16 9.4 7.64 11.13-.1-.95-.2-2.4.04-3.43.22-.93 1.4-5.93 1.4-5.93s-.36-.72-.36-1.77c0-1.66.96-2.9 2.16-2.9 1.02 0 1.51.77 1.51 1.68 0 1.03-.65 2.56-.99 3.99-.28 1.19.6 2.16 1.77 2.16 2.12 0 3.76-2.24 3.76-5.47 0-2.86-2.06-4.86-5-4.86-3.4 0-5.4 2.55-5.4 5.19 0 1.03.4 2.13.9 2.73.1.12.11.23.08.35l-.34 1.39c-.06.23-.18.28-.4.18-1.5-.7-2.43-2.88-2.43-4.63 0-3.77 2.74-7.23 7.9-7.23 4.14 0 7.36 2.95 7.36 6.9 0 4.12-2.6 7.43-6.2 7.43-1.2 0-2.35-.63-2.73-1.37l-.75 2.85c-.27 1.04-1 2.35-1.5 3.14C10.74 23.82 11.36 24 12 24c6.63 0 12-5.37 12-12S18.63 0 12 0z"/></svg>
+                    Search on Pinterest
+                </div>
+                <div style="font-size: 11px; color: #c084fc; font-weight: 500;">Click to find gorgeous cover photos!</div>
+            </a>
+            
+            <noscript>
+                <div class="recipe-fallback-image">🍽️</div>
+            </noscript>
+        </div>
+
+        <div class="recipe-header-info">
+            <h1 class="recipe-title">{{ recipe.recipe_name }}</h1>
+            <p class="recipe-cuisine">{{ recipe.cuisine }}</p>
+
+            <div class="recipe-meta-tags">
+                <span class="meta-tag">⏱ {{ recipe.cook_time }} min</span>
+                <span class="meta-tag">🔥 {{ recipe.calories }} cal</span>
+                <span class="meta-tag">⭐ {{ recipe.rating }}/5</span>
+                <span class="meta-tag diff-{{ recipe.difficulty|lower }}">
+                    {% if recipe.difficulty == 'easy' %} Easy
+                    {% elif recipe.difficulty == 'medium' %} Medium
+                    {% elif recipe.difficulty == 'hard' %} Hard
+                    {% else %} {{ recipe.difficulty }}
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="recipe-description-box no-print"
+                style="margin-bottom: 32px; background: none; border-left: 4px solid var(--brand); padding: 10px 20px; box-shadow: none; min-height: 80px; position: relative;">
+                <strong
+                    style="color: var(--brand); display: block; margin-bottom: 6px; font-size: 13.5px; text-transform: uppercase; letter-spacing: 1px;">✨
+                    ChefGPT Heritage & Story</strong>
+                <div id="recipe-ai-description"
+                    style="color: var(--text); font-size: 15px; line-height: 1.65; font-style: italic;">
+                    <div class="skeleton-line"
+                        style="width: 100%; height: 14px; background: var(--panel-2); border-radius: 4px; margin-bottom: 8px; animation: skeleton-shimmer 1.5s infinite linear;">
+                    </div>
+                    <div class="skeleton-line"
+                        style="width: 92%; height: 14px; background: var(--panel-2); border-radius: 4px; margin-bottom: 8px; animation: skeleton-shimmer 1.5s infinite linear;">
+                    </div>
+                    <div class="skeleton-line"
+                        style="width: 60%; height: 14px; background: var(--panel-2); border-radius: 4px; animation: skeleton-shimmer 1.5s infinite linear;">
+                    </div>
+                </div>
+            </div>
+
+            {% if not recipe.image_url or recipe.image_url == 'AI_PLACEHOLDER' or recipe.image_url == '' %}
+                {% if current_user.role == 'admin' %}
+                <div class="pinterest-admin-tip no-print" style="margin-top: -15px; margin-bottom: 32px; padding: 16px; border-radius: 16px; background: rgba(230, 0, 35, 0.05); border: 1px dashed rgba(230, 0, 35, 0.35); display: flex; align-items: flex-start; gap: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.01); text-align: left;">
+                    <span style="font-size: 20px;">💡</span>
+                    <div style="font-size: 13px; color: var(--text); line-height: 1.6;">
+                        <strong style="color: #e60023;">Admin Image Linker Tip:</strong> Click on the floating robot above to search Pinterest. Right-click your favorite photo, choose <strong>"Copy image address"</strong>, then click <strong>"⚙️ Edit Recipe"</strong> on the top-right to paste it!
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+
+            <style>
+                @keyframes skeleton-shimmer {
+                    0% {
+                        opacity: 0.5;
+                        background-color: var(--panel-2);
+                    }
+
+                    50% {
+                        opacity: 0.95;
+                        background-color: var(--border);
+                    }
+
+                    100% {
+                        opacity: 0.5;
+                        background-color: var(--panel-2);
+                    }
+                }
+
+                @keyframes descFadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(6px);
+                    }
+
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+
+                @keyframes float {
+                    0% { transform: translateY(0px); }
+                    50% { transform: translateY(-10px); }
+                    100% { transform: translateY(0px); }
+                }
+
+                #pinterest-fallback-container:hover {
+                    transform: scale(1.02);
+                    filter: brightness(1.08);
+                    box-shadow: 0 12px 30px rgba(139, 92, 246, 0.35) !important;
+                }
+
+                .recipe-edit-btn:hover {
+                    color: var(--brand) !important;
+                    border-color: var(--brand) !important;
+                    background: var(--panel-2) !important;
+                    transform: translateY(-1px);
+                    box-shadow: 0 6px 16px rgba(0,0,0,0.05) !important;
+                }
+            </style>
+
+            <div class="recipe-actions no-print">
+                <button class="btn-primary-action"
+                    onclick="window.location.href='{{ url_for('start_cooking', recipe_id=recipe.recipe_id) }}'">🍳 Start
+                    Cooking</button>
+                <div class="secondary-action-row">
+                    <button class="btn-secondary-action btn-color-save" id="save-btn" onclick="toggleSave()"
+                        title="Save Recipe">🔖 Save</button>
+                    <button class="btn-secondary-action btn-color-share" onclick="openShareModal()" title="Share">🔗
+                        Share</button>
+                    <button class="btn-secondary-action btn-color-print" onclick="printRecipe()" title="Print">🖨️
+                        Print</button>
+                    <button class="btn-secondary-action btn-color-pdf" onclick="downloadPDF()" title="Download PDF">📄
+                        PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabbed Content Section -->
+    <div class="recipe-content-card">
+        <div class="recipe-tabs no-print">
+            <button class="tab-btn active" onclick="switchTab(event, 'ingredients')">📝 Ingredients</button>
+            <button class="tab-btn" onclick="switchTab(event, 'instructions')">👨‍🍳 Instructions</button>
+            <button class="tab-btn" onclick="switchTab(event, 'reviews')">💬 Reviews</button>
+        </div>
+
+        <!-- Language loading indicator -->
+        <div id="lang-loading"
+            style="display:none; text-align:center; padding:20px 0; color:var(--brand); font-size:14px; font-weight:600;">
+            🌐 <span id="lang-loading-text">Menterjemah ke Bahasa Melayu...</span>
+        </div>
+
+        <!-- Tab 1: Ingredients -->
+        <div id="tab-ingredients" class="tab-content active">
+            <h3 class="print-only">📝 Ingredients</h3>
+            <ul class="ingredient-checklist">
+                {% set ingredients_array = recipe.ingredients.split(',') %}
+                {% for ingredient in ingredients_array %}
+                {% if ingredient.strip() %}
+                <li>
+                    {% set clean_ing = ingredient.strip().lower() %}
+                    {% set swappable_keywords = ['pork', 'wine', 'alcohol', 'beer', 'beef', 'chicken', 'meat', 'bacon',
+                    'ham', 'lard', 'shrimp', 'crab', 'prawn', 'fish', 'tofu', 'cheese', 'milk', 'cream', 'butter',
+                    'rum', 'brandy', 'vodka', 'whiskey', 'sauce'] %}
+
+                    {# Use namespace to fix Jinja2 scoping trap #}
+                    {% set ns = namespace(is_swappable=false) %}
+                    {% for key in swappable_keywords %}
+                    {% if key in clean_ing %}
+                    {% set ns.is_swappable = true %}
+                    {% endif %}
+                    {% endfor %}
+
+                    <div class="ingredient-row"
+                        style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid var(--border); padding: 4px 0;">
+                        <label class="ingredient-label"
+                            style="border-bottom: none; display: flex; align-items: center; gap: 16px; cursor: pointer; flex: 1; padding: 12px 16px;">
+                            <input type="checkbox" class="ingredient-checkbox">
+                            <span class="ingredient-text" style="font-weight: 500;"
+                                data-en="{{ ingredient.strip() | e }}">{{ ingredient.strip() }}</span>
+                        </label>
+
+                        {% if ns.is_swappable %}
+                        <div class="swap-action-inline"
+                            style="display: flex; align-items: center; gap: 12px; padding-right: 16px;">
+                            <button class="swap-btn"
+                                onclick="event.stopPropagation(); getSubstitute('{{ ingredient.strip() }}', this)"
+                                style="background: var(--brand-soft); border: 1px solid var(--brand); color: var(--brand); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: all 0.2s; position: relative; z-index: 10;">
+                                ✨ swap
+                            </button>
+                            <span class="sub-result" style="color: #38A169; font-weight: 700; font-size: 13px;"></span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Tab 2: Instructions -->
+        <div id="tab-instructions" class="tab-content">
+            <h3 class="print-only">👨‍🍳 Instructions</h3>
+
+            {% set steps = [] %}
+            {% for instruction in recipe.instructions.split(' | ') %}
+            {% if instruction.strip() %}
+            {% set _ = steps.append(instruction.strip()) %}
+            {% endif %}
+            {% endfor %}
+
+            <div class="instruction-timeline no-print">
+                {% for step in steps %}
+                {% if loop.index <= 3 %} <div class="timeline-step">
+                    <div class="timeline-number">{{ loop.index }}</div>
+                    <div class="timeline-content" data-en="{{ step | e }}">{{ step }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {% if steps|length > 2 %}
+            <div class="instructions-fade-out">
+                <div class="fade-overlay"></div>
+                <button class="btn-unlock-cooking"
+                    onclick="window.location.href='{{ url_for('start_cooking', recipe_id=recipe.recipe_id) }}'">
+                    <span>🍳 Start Cooking to View All {{ steps|length }} Steps</span>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="instruction-timeline print-only">
+            {% for step in steps %}
+            <div class="timeline-step">
+                <div class="timeline-number">{{ loop.index }}</div>
+                <div class="timeline-content" data-en="{{ step | e }}">{{ step }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Tab 3: Reviews -->
+    <div id="tab-reviews" class="tab-content">
+        <div class="recipe-reviews-section no-print">
+            <div class="rating-summary-card">
+                <div class="rating-summary-header">
+                    <div class="header-line"></div>
+                    <h3 style="margin: 0;">Ratings & Reviews</h3>
+                </div>
+
+                <div class="rating-interactive-box">
+                    <div class="star-rating">
+                        <span class="star" onclick="setRating(1)">☆</span>
+                        <span class="star" onclick="setRating(2)">☆</span>
+                        <span class="star" onclick="setRating(3)">☆</span>
+                        <span class="star" onclick="setRating(4)">☆</span>
+                        <span class="star" onclick="setRating(5)">☆</span>
+                    </div>
+                    <textarea id="comment-input" placeholder="Share your thoughts about this recipe... (optional)"
+                        rows="3"></textarea>
+                    <button onclick="submitFeedback()" class="btn-submit-feedback">Post Review</button>
+                </div>
+            </div>
+
+            <div id="feedbacks-list" class="feedbacks-container">
+                <!-- Feedbacks populated by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- Share Modal Overlay -->
+<div id="share-overlay" onclick="closeShareModal()"
+    style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:500;"></div>
+
+<!-- Share Modal -->
+<div id="share-modal" class="modal-box"
+    style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:600;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h5 style="margin:0; font-weight:700; font-size:18px;">🔗 Share Recipe</h5>
+        <button onclick="closeShareModal()" class="modal-close-btn">✕</button>
+    </div>
+    <p style="color:var(--muted); font-size:13px; margin-bottom:24px;">
+        Share <strong>{{ recipe.recipe_name }}</strong> with your friends!
+    </p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+        <button onclick="shareWhatsApp()" class="share-btn-platform" style="background:#25D366;">💬 WhatsApp</button>
+        <button onclick="shareFacebook()" class="share-btn-platform" style="background:#1877F2;">📘 Facebook</button>
+        <button onclick="shareTwitter()" class="share-btn-platform" style="background:#000000;">🐦 Twitter/X</button>
+        <button onclick="shareTelegram()" class="share-btn-platform" style="background:#0088cc;">✈️ Telegram</button>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <input id="share-link-input" type="text" readonly value="{{ request.url }}">
+        <button onclick="copyLink()" id="copy-btn">📋 Copy</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/recipe.js') }}"></script>
+<script>
+    // Asynchronously fetch AI-generated Groq heritage story on load
+    document.addEventListener('DOMContentLoaded', async () => {
+        const descContainer = document.getElementById('recipe-ai-description');
+        const recipeId = document.getElementById('recipe-id');
+        if (!descContainer || !recipeId) return;
+
+        try {
+            const res = await fetch(`/api/recipe-description/${recipeId.value}`);
+            const data = await res.json();
+            if (data.description) {
+                descContainer.style.animation = 'descFadeIn 0.5s ease-out';
+                descContainer.innerHTML = `<p style="margin: 0; color: var(--text); font-size: 15px; line-height: 1.7; font-style: normal;">${data.description}</p>`;
+            } else {
+                descContainer.innerHTML = `<p style="margin: 0; color: var(--text);">A delicious culinary masterpiece waiting to be explored in your kitchen!</p>`;
+            }
+        } catch (err) {
+            console.error("Failed to load ChefGPT AI description:", err);
+            descContainer.innerHTML = `<p style="margin: 0; color: var(--text);">A delicious culinary masterpiece waiting to be explored in your kitchen!</p>`;
+        }
+    });
+
+    async function getSubstitute(ingredient, btn) {
+        const resultSpan = btn.nextElementSibling;
+        if (resultSpan.innerHTML !== '') {
+            resultSpan.innerHTML = '';
+            btn.innerHTML = '✨ swap';
+            return;
+        }
+        btn.innerHTML = '...';
+
+        try {
+            const cleanIngredient = ingredient.toLowerCase()
+                .replace(/^\d+\s*(cup|tsp|tbsp|g|kg|ml|l|oz|lb|piece|clove|stalk|slice|can|jar|bottle|pack|bunch)\s+/i, '')
+                .replace(/[^a-z\s]/g, '')
+                .trim();
+
+            const res = await fetch('/get-substitute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ingredient: cleanIngredient })
+            });
+            const data = await res.json();
+            btn.innerHTML = '✨ swap';
+
+            if (data.substitutes && data.substitutes.length > 0) {
+                const subsHtml = data.substitutes.map(s =>
+                    `<span style="background:rgba(56,161,105,0.1); padding:2px 8px; border-radius:10px; cursor:help;" title="${s[1]}">${s[0]}</span>`
+                ).join(' or ');
+                resultSpan.innerHTML = ` → ${subsHtml}`;
+            } else {
+                resultSpan.innerHTML = ` <span style="color:var(--muted); font-size:11px;">(No suggestions)</span>`;
+            }
+        } catch (err) {
+            btn.innerHTML = '✨ swap';
+            resultSpan.innerHTML = ` <span style="color:red; font-size:11px;">Error</span>`;
+        }
+    }
+</script>
+{% endblock %}

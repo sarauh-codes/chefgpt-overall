@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Fridge Search - ChefGPT{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fridge_search.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <div class="search-box">
+        <h2>🥕 What's in Your Fridge?</h2>
+        <p>Enter the ingredients you have at home and we'll find the best matching recipes for you!</p>
+
+        <div class="tag-input-wrapper" id="tag-input-wrapper" onclick="focusInput()">
+            <div id="tag-container"></div>
+            <input type="text" id="ingredient-input" placeholder="Type an ingredient and press Enter or comma..."
+                autocomplete="off" onkeydown="handleKeyDown(event)" oninput="handleInput(event)">
+        </div>
+
+        <p class="hint-text">💡 Press <kbd>Enter</kbd> or <kbd>,</kbd> after each ingredient to add it as a tag</p>
+
+        <div class="quick-add-section">
+            <span class="quick-label">Quick add:</span>
+            <div class="quick-tags">
+                {% set suggestions = ['chicken', 'egg', 'rice', 'garlic', 'onion', 'tomato', 'pasta', 'butter', 'milk',
+                'cheese'] %}
+                {% for item in suggestions %}
+                <span class="quick-tag" onclick="addQuickTag('{{ item }}')">+ {{ item }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="action-row">
+            <button class="btn-clear" onclick="clearAll()">🗑️ Clear All</button>
+            <button class="btn-search" onclick="searchFridge()">🔍 Find Recipes</button>
+        </div>
+    </div>
+
+    <div class="error-message" id="error-message" style="display:none;"></div>
+
+    <div class="loading" id="loading" style="display:none;">
+        <div class="loading-spinner"></div>
+        <h3>🤖 Finding the best matches...</h3>
+        <p>Analysing your ingredients...</p>
+    </div>
+
+    <div class="results" id="results" style="display:none;">
+        <div class="results-header">
+            <h2>🍽️ Recipes You Can Make</h2>
+            <p id="results-subtitle"></p>
+        </div>
+        <div id="recipe-list"></div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let tags = [];
+
+    function focusInput() {
+        document.getElementById('ingredient-input').focus();
+    }
+
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const val = e.target.value.trim().replace(/,$/, '');
+            if (val) addTag(val);
+            e.target.value = '';
+        } else if (e.key === 'Backspace' && e.target.value === '' && tags.length > 0) {
+            removeTag(tags.length - 1);
+        }
+    }
+
+    function handleInput(e) {
+        const val = e.target.value;
+        if (val.includes(',')) {
+            const parts = val.split(',');
+            parts.slice(0, -1).forEach(p => { if (p.trim()) addTag(p.trim()); });
+            e.target.value = parts[parts.length - 1];
+        }
+    }
+
+    function addTag(text) {
+        const clean = text.trim().toLowerCase();
+        if (!clean || tags.includes(clean)) return;
+        tags.push(clean);
+        renderTags();
+    }
+
+    function addQuickTag(text) {
+        addTag(text);
+        focusInput();
+    }
+
+    function removeTag(index) {
+        tags.splice(index, 1);
+        renderTags();
+    }
+
+    function renderTags() {
+        const container = document.getElementById('tag-container');
+        container.innerHTML = '';
+        tags.forEach((tag, i) => {
+            const el = document.createElement('span');
+            el.className = 'tag';
+            el.innerHTML = `${tag} <button onclick="removeTag(${i})" class="tag-remove">✕</button>`;
+            container.appendChild(el);
+        });
+    }
+
+    function clearAll() {
+        tags = [];
+        renderTags();
+        document.getElementById('ingredient-input').value = '';
+        document.getElementById('results').style.display = 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    async function searchFridge() {
+        if (tags.length === 0) {
+            showError('Please add at least one ingredient!');
+            return;
+        }
+        hideError();
+        showLoading(true);
+        document.getElementById('results').style.display = 'none';
+
+        const ingredientsStr = tags.join(', ');
+        try {
+            const res = await fetch('/fridge-search-results', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ingredients: ingredientsStr })
+            });
+            const data = await res.json();
+            showLoading(false);
+            if (data.error) { showError(data.error); return; }
+            renderResults(data.results);
+        } catch (err) {
+            showLoading(false);
+            showError('Something went wrong. Please try again.');
+        }
+    }
+
+    function renderResults(results) {
+        const container = document.getElementById('recipe-list');
+        const resultsDiv = document.getElementById('results');
+        const subtitle = document.getElementById('results-subtitle');
+        container.innerHTML = '';
+
+        if (!results || results.length === 0) {
+            subtitle.textContent = 'No local recipes match perfectly. Let\'s see what ChefGPT can invent...';
+            resultsDiv.style.display = 'block';
+            return;
+        }
+
+        subtitle.textContent = `Found ${results.length} local recipe${results.length > 1 ? 's' : ''} matching your ingredients`;
+
+        const swappableKeywords = ['pork', 'wine', 'alcohol', 'beer', 'beef', 'chicken', 'meat', 'bacon', 'ham', 'lard', 'shrimp', 'crab', 'prawn', 'fish', 'tofu', 'cheese', 'milk', 'cream', 'butter', 'rum', 'brandy', 'vodka', 'whiskey', 'sauce'];
+
+        results.forEach(recipe => {
+            const pct = recipe.match_pct || 0;
+            const matched = recipe.matched_count || 0;
+            const total = recipe.total_ingredients || 0;
+            const missing = recipe.missing_ingredients || [];
+
+            let barColor = '#ff6b6b';
+            if (pct >= 70) barColor = '#00b894';
+            else if (pct >= 40) barColor = '#fdcb6e';
+
+            const missingHTML = missing.length > 0
+                ? `<div class="missing-section">
+                        <span class="missing-label">🛒 Still need:</span>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                        ${missing.map(m => {
+                            const isSwappable = swappableKeywords.some(k => m.toLowerCase().includes(k));
+                            return `
+                                <div class="missing-ing-chip" style="display:inline-flex; align-items:center; gap:8px; background: rgba(0,0,0,0.03); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05);">
+                                    <span class="missing-tag" style="margin:0; font-size: 13px; font-weight: 500;">${m}</span>
+                                    ${isSwappable ? `<button class="swap-btn-mini" onclick="getSubstitute('${m}', this)" style="background: var(--brand); color: white; border: none; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 4px var(--brand-soft);">SWAP</button>` : ''}
+                                    <span class="sub-result"></span>
+                                </div>
+                            `;
+                        }).join('')}
+                        </div>
+                       </div>`
+                : `<div class="missing-section"><span class="all-good">✅ You have all ingredients!</span></div>`;
+
+            const card = document.createElement('div');
+            card.className = 'recipe-card';
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="card-title-area">
+                        <h3>${recipe.recipe_name}</h3>
+                        <div class="recipe-meta">
+                            <span class="info-tag">🍽️ ${recipe.cuisine}</span>
+                            <span class="info-tag">🔥 ${recipe.calories} cal</span>
+                            <span class="info-tag">⭐ ${recipe.rating}/5</span>
+                            <span class="info-tag">🔪 ${recipe.difficulty}</span>
+                        </div>
+                    </div>
+                    <div class="match-badge" style="background:${barColor}">
+                        ${pct}%<br><small>match</small>
+                    </div>
+                </div>
+                <div class="match-bar-wrapper">
+                    <div class="match-bar-label">
+                        <span>You have <strong>${matched} of ${total}</strong> ingredients</span>
+                    </div>
+                    <div class="match-bar-bg">
+                        <div class="match-bar-fill" style="width:${pct}%; background:${barColor};"></div>
+                    </div>
+                </div>
+                ${missingHTML}
+                <div class="card-footer">
+                    <div class="ingredients-preview">
+                        <strong>Ingredients:</strong> ${recipe.ingredients}
+                    </div>
+                    <a href="/recipe/${recipe.recipe_id}" class="view-btn">View Full Recipe →</a>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+        resultsDiv.style.display = 'block';
+        resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // AI Substitution logic
+    async function getSubstitute(ingredient, btn) {
+        const resultSpan = btn.nextElementSibling;
+        if (resultSpan.innerHTML !== '') {
+            resultSpan.innerHTML = '';
+            btn.textContent = 'swap?';
+            return;
+        }
+        btn.textContent = '...';
+
+        try {
+            const cleanIngredient = ingredient.toLowerCase()
+                .replace(/^\d+\s*(cup|tsp|tbsp|g|kg|ml|l|oz|lb|piece|clove|stalk|slice|can|jar|bottle|pack|bunch)\s+/i, '')
+                .trim();
+
+            const res = await fetch('/get-substitute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ingredient: cleanIngredient })
+            });
+            const data = await res.json();
+            btn.textContent = 'swap?';
+
+            if (data.substitutes.length === 0) {
+                resultSpan.innerHTML = `<span class="sub-none">No substitute found</span>`;
+            } else {
+                resultSpan.innerHTML = `<span class="sub-list" style="color:#00b894; font-size:12px; margin-left:5px;">→ ${data.substitutes.map(s => `<span style="background:rgba(0,184,148,0.1); padding:2px 6px; border-radius:10px; cursor:help;" title="${s[1]}">${s[0]}</span>`).join(' or ')}</span>`;
+            }
+        } catch (err) {
+            btn.textContent = 'swap?';
+            resultSpan.innerHTML = `<span class="sub-none">Error</span>`;
+        }
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('error-message');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    function hideError() {
+        document.getElementById('error-message').style.display = 'none';
+    }
+</script>
+{% endblock %}

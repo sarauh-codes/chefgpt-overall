@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Recipes - ChefGPT{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/search.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="search-container">
+
+  <!-- ChefGPT Premium Search Box -->
+  <div class="chefgpt-search-wrap">
+    <div class="chefgpt-input-container">
+      <span class="chefgpt-search-icon">🔍</span>
+      <input type="text" id="chefgpt-search-bar" placeholder="Search recipes, cuisines, ingredients..."
+        value="{{ query }}" class="chefgpt-search-input">
+    </div>
+    <button onclick="triggerSearch()" class="chefgpt-search-btn">Search</button>
+  </div>
+
+  <!-- Navigation Tabs Bar -->
+  <div class="chefgpt-tabs">
+    <div class="chefgpt-tab active" id="tab-recipes">
+      Recipes <span class="chefgpt-tab-count" id="recipes-count">0</span>
+    </div>
+  </div>
+
+  <!-- Premium Filter Bar -->
+  <div class="chefgpt-filters-row">
+    <!-- Category Filter Button -->
+    <div class="chefgpt-filter-btn">
+      <span>🍽️</span>
+      <div class="chefgpt-select-wrap">
+        <select id="filter-cuisine" onchange="triggerSearch()" class="chefgpt-filter-select">
+          <option value="">Any Category</option>
+          {% for c in categories %}
+          <option value="{{ c }}" {% if cuisine|lower==c|lower %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Time Filter Button -->
+    <div class="chefgpt-filter-btn">
+      <span>⏱</span>
+      <div class="chefgpt-select-wrap">
+        <select id="filter-time" onchange="triggerSearch()" class="chefgpt-filter-select">
+          <option value="">Any Time</option>
+          <option value="15" {% if time_limit=='15' %}selected{% endif %}>Under 15 min</option>
+          <option value="30" {% if time_limit=='30' %}selected{% endif %}>Under 30 min</option>
+          <option value="45" {% if time_limit=='45' %}selected{% endif %}>Under 45 min</option>
+          <option value="60" {% if time_limit=='60' %}selected{% endif %}>Under 60 min</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Portions Filter Button -->
+    <div class="chefgpt-filter-btn">
+      <span>👥</span>
+      <div class="chefgpt-select-wrap">
+        <select id="filter-portions" onchange="triggerSearch()" class="chefgpt-filter-select">
+          <option value="">Any Portions</option>
+          <option value="2" {% if portions=='2' %}selected{% endif %}>2 Portions</option>
+          <option value="3" {% if portions=='3' %}selected{% endif %}>3 Portions</option>
+          <option value="4" {% if portions=='4' %}selected{% endif %}>4 Portions</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Reset Filter Button -->
+    <button onclick="resetFilters()" class="chefgpt-reset-btn" id="btn-reset">Reset Filters</button>
+  </div>
+
+  <!-- Dynamic Minimalist Editorial Recipe Grid -->
+  <div class="editorial-grid" id="search-results-grid">
+    <!-- Will be dynamically populated via Javascript AJAX -->
+  </div>
+
+  <!-- Dynamic No Results Message -->
+  <div id="search-no-results" style="display:none; text-align:center; padding:80px 20px; color:#888;">
+    <div style="font-size:50px; margin-bottom:15px;">🍽️</div>
+    <h3 style="margin-bottom:8px; color:var(--text); font-weight:700;">No matching recipes found</h3>
+    <p>Try refining your search terms or expanding your filter options</p>
+  </div>
+
+</div>
+
+<script>
+  let searchAbortController = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Perform initial load based on URL parameters
+    triggerSearch();
+
+    // Support search via pressing Enter key
+    document.getElementById('chefgpt-search-bar').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        triggerSearch();
+      }
+    });
+  });
+
+  async function triggerSearch() {
+    const grid = document.getElementById('search-results-grid');
+    const noResults = document.getElementById('search-no-results');
+    const countSpan = document.getElementById('recipes-count');
+
+    // Abort previous running search request to avoid race condition
+    if (searchAbortController) {
+      searchAbortController.abort();
+    }
+    searchAbortController = new AbortController();
+    const signal = searchAbortController.signal;
+
+    // Show dynamic loader spinner
+    grid.innerHTML = `
+      <div class="chefgpt-loader">
+        <div class="pan-loader-container">
+          <div class="pan-loader" style="transform: scale(0.65);">
+            <div class="loader-food"></div>
+            <div class="loader-pan-container">
+              <div class="loader-pan"></div>
+              <div class="loader-handle"></div>
+            </div>
+          </div>
+          <div class="loader-text" style="font-size:12px; margin-top:10px;">Finding perfect recipes...</div>
+        </div>
+      </div>
+    `;
+    grid.style.display = 'grid';
+    noResults.style.display = 'none';
+
+    // Retrieve input values
+    const query = document.getElementById('chefgpt-search-bar').value.trim();
+    const cuisine = document.getElementById('filter-cuisine').value;
+    const time = document.getElementById('filter-time').value;
+    const portions = document.getElementById('filter-portions').value;
+
+    // Construct URL with query parameters
+    let url = `/search-recipes?q=${encodeURIComponent(query)}`;
+    if (cuisine) url += `&cuisine=${encodeURIComponent(cuisine)}`;
+    if (time) url += `&time=${encodeURIComponent(time)}`;
+    if (portions) url += `&portions=${encodeURIComponent(portions)}`;
+
+    try {
+      const response = await fetch(url, { signal });
+      const data = await response.json();
+
+      grid.innerHTML = '';
+      const hasRecipes = data.recipes && data.recipes.length > 0;
+
+      if (hasRecipes) {
+        countSpan.textContent = data.recipes.length;
+
+        data.recipes.forEach(recipe => {
+          const cardHtml = `
+            <a href="/recipe/${recipe.recipe_id}" class="editorial-card">
+              <div class="editorial-card-img-wrap">
+                <img src="${recipe.image_url}" 
+                     alt="${recipe.recipe_name}" 
+                     class="editorial-card-img" 
+                     onerror="this.src='/static/images/recipe-placeholder.jpg'">
+                <div class="editorial-card-cuisine" style="position: absolute; top: 12px; left: 12px; background: var(--brand); color: white; font-size: 9.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 2;">${recipe.cuisine}</div>
+                <div class="editorial-card-time">⏱ ${recipe.cook_time} min</div>
+              </div>
+              <div class="editorial-card-title">${recipe.recipe_name}</div>
+              <div class="editorial-card-meta">
+                <span class="editorial-card-rating">⭐ ${recipe.rating.toFixed(1)}</span>
+                <span>👥 ${recipe.servings} portions</span>
+              </div>
+            </a>
+          `;
+          grid.insertAdjacentHTML('beforeend', cardHtml);
+        });
+      }
+
+      if (data.trigger_ai) {
+        const loaderContainer = document.createElement('div');
+        loaderContainer.id = 'ai-loader-wrap';
+        loaderContainer.style.cssText = 'grid-column: 1 / -1; margin-top: 40px;';
+        loaderContainer.innerHTML = `
+          <div class="pan-loader-container" style="padding: 20px 0;">
+            <div class="pan-loader" style="transform: scale(0.65);">
+              <div class="loader-food"></div>
+              <div class="loader-pan-container">
+                <div class="loader-pan"></div>
+                <div class="loader-handle"></div>
+              </div>
+            </div>
+            <div class="loader-text" style="font-size: 11px; opacity: 0.8; margin-top: 10px;">ChefGPT is thinking of more ideas...</div>
+          </div>
+        `;
+        grid.appendChild(loaderContainer);
+        grid.style.display = 'grid';
+        noResults.style.display = 'none';
+
+        try {
+          const aiRes = await fetch('/api/ai-search-suggestions?q=' + encodeURIComponent(query), { signal });
+          if (signal.aborted) return;
+          const aiData = await aiRes.json();
+          loaderContainer.remove();
+
+          if (aiData.suggestions && aiData.suggestions.length > 0) {
+            if (typeof currentAiSuggestions !== 'undefined') {
+              currentAiSuggestions.push(...aiData.suggestions);
+            } else {
+              window.currentAiSuggestions = aiData.suggestions;
+            }
+
+            const divider = document.createElement('div');
+            divider.style.cssText = 'grid-column: 1 / -1; margin: 40px 0 20px; border-top: 1px solid var(--border); padding-top: 20px;';
+            divider.innerHTML = '<h3 style="color: #8b5cf6; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; font-weight:700;">✨ ChefGPT\'s Creative Ideas</h3>';
+            grid.appendChild(divider);
+
+            aiData.suggestions.forEach(recipe => {
+              const cardHtml = `
+                <a href="javascript:void(0)" onclick="viewAiRecipe('${recipe.recipe_id}')" class="editorial-card">
+                  <div class="editorial-card-img-wrap" style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--panel-2) 0%, var(--border) 100%); font-size: 40px; filter: drop-shadow(0 4px 8px rgba(139, 92, 246, 0.25));">🤖</div>
+                    <div class="editorial-card-cuisine" style="position: absolute; top: 12px; left: 12px; background: var(--brand); color: white; font-size: 9.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 2;">${recipe.cuisine}</div>
+                    <div class="ai-badge" style="position: absolute; top: 12px; right: 12px; background: #8b5cf6; color: white; font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 2;">AI Suggested</div>
+                    <div class="editorial-card-time" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">⏱ ${recipe.cook_time} min</div>
+                  </div>
+                  <div class="editorial-card-title">${recipe.recipe_name}</div>
+                  <div class="editorial-card-meta">
+                    <span class="editorial-card-rating">⭐ ${recipe.rating.toFixed(1)}</span>
+                    <span>👥 ${recipe.servings} portions</span>
+                  </div>
+                </a>
+              `;
+              grid.insertAdjacentHTML('beforeend', cardHtml);
+            });
+          } else if (!hasRecipes) {
+            grid.style.display = 'none';
+            noResults.style.display = 'block';
+          }
+        } catch (aiErr) {
+          if (aiErr.name === 'AbortError') return;
+          loaderContainer.remove();
+          if (!hasRecipes) {
+            grid.style.display = 'none';
+            noResults.style.display = 'block';
+          }
+        }
+      } else if (!hasRecipes) {
+        grid.style.display = 'none';
+        noResults.style.display = 'block';
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return; // Ignore aborted requests
+      console.error('Error fetching recipes:', err);
+      grid.innerHTML = '';
+      countSpan.textContent = '0';
+      grid.style.display = 'none';
+      noResults.style.display = 'block';
+    }
+  }
+
+  function resetFilters() {
+    document.getElementById('filter-cuisine').value = '';
+    document.getElementById('filter-time').value = '';
+    document.getElementById('filter-portions').value = '';
+    document.getElementById('chefgpt-search-bar').value = '';
+    triggerSearch();
+  }
+</script>
+{% endblock %}

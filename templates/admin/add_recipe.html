@@ -1,0 +1,560 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}Add New Recipe - ChefGPT Admin{% endblock %}
+
+{% block admin_content %}
+<header class="admin-header">
+    <div>
+        <h1>Add New Recipe</h1>
+        <p class="header-sub">Add a brand new recipe to the global database.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('manage_recipes') }}" class="btn-secondary">← Back to Recipes</a>
+    </div>
+</header>
+
+<div class="admin-form-container">
+    <div class="premium-card">
+        <!-- Recipe Hero Banner at the very top -->
+        <div class="recipe-hero-banner">
+            <img id="hero-preview-img" class="hero-img"
+                src="https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=1200&q=80"
+                alt="Recipe Cover"
+                onerror="this.src='https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=1200&q=80'">
+            <div class="hero-overlay">
+                <div class="hero-badge-container">
+                    <span id="hero-badge-cuisine" class="hero-badge">NEW RECIPE</span>
+                    <span id="hero-badge-difficulty" class="hero-badge"
+                        style="background: rgba(99, 102, 241, 0.25);">EASY</span>
+                </div>
+                <h2 id="hero-recipe-name-display" class="hero-title">Untitled Recipe</h2>
+                <div class="hero-subtitle">Recipe ID: #Pending &bull; 0 kcal</div>
+            </div>
+        </div>
+
+        <form action="{{ url_for('add_recipe') }}" method="POST" class="admin-form" enctype="multipart/form-data">
+            <div class="form-content-area">
+                <div class="two-col-grid">
+
+                    <!-- LEFT COLUMN: Image Management & Metadata -->
+                    <div>
+                        <!-- Image Management Box -->
+                        <div class="image-management-box">
+                            <h3
+                                style="font-size: 14px; font-weight: 700; color: #334155; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                                🖼️ Cover Image Settings
+                            </h3>
+
+                            <div class="upload-row">
+                                <div style="flex: 1;">
+                                    <label
+                                        style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; display: block;">Upload
+                                        Image</label>
+                                    <input type="file" name="image_file" accept="image/*"
+                                        style="padding: 8px 12px; font-size: 12px; background: white; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px;">
+                                </div>
+                                <span class="or-divider">OR</span>
+                                <div style="flex: 1.5;">
+                                    <label
+                                        style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; display: block;">Paste
+                                        Image URL</label>
+                                    <input type="url" name="image_url" id="image_url_input"
+                                        placeholder="https://example.com/image.jpg" class="modern-input"
+                                        style="padding: 8px 12px; font-size: 13px; width: 100%; background: white;"
+                                        oninput="updatePreview(this.value)">
+                                </div>
+                            </div>
+
+                            <!-- Photo Search Button -->
+                            <button type="button" onclick="searchPhotos()" class="btn-unsplash">
+                                🔍 Search Photos (Wikipedia)
+                            </button>
+
+                            <!-- Photo Picker Grid inside dynamic container -->
+                            <div id="photo-picker" class="photo-picker-container" style="display:none;">
+                                <div id="photo-search-status"
+                                    style="font-size:12px; font-weight: 600; color:#6366f1; margin-bottom:8px;"></div>
+                                <div id="photo-grid" class="photo-grid"></div>
+                            </div>
+                        </div>
+
+                        <!-- Basic Metadata -->
+                        <div class="modern-group">
+                            <label for="recipe_name_input">Recipe Name</label>
+                            <input type="text" name="recipe_name" id="recipe_name_input" class="modern-input" required
+                                placeholder="e.g. Classic Margherita Pizza">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="modern-group">
+                                <label>Cuisine</label>
+                                <input type="text" name="cuisine" id="cuisine_input" class="modern-input" required
+                                    placeholder="e.g. Italian">
+                            </div>
+                            <div class="modern-group">
+                                <label>Calories (kcal)</label>
+                                <input type="number" name="calories" id="calories_input" class="modern-input" required
+                                    placeholder="e.g. 450">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="modern-group">
+                                <label>Rating (0-5)</label>
+                                <input type="number" step="0.1" name="rating" class="modern-input" required
+                                    placeholder="e.g. 4.8">
+                            </div>
+                            <div class="modern-group">
+                                <label>Difficulty</label>
+                                <select name="difficulty" id="difficulty_select" class="modern-select" required>
+                                    <option value="easy">Easy</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="hard">Hard</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: Ingredients & Instructions -->
+                    <div style="display: flex; flex-direction: column;">
+                        <div class="modern-group" style="flex: 1; display: flex; flex-direction: column;">
+                            <label>Ingredients (comma separated)</label>
+                            <textarea name="ingredients" required class="modern-textarea"
+                                style="flex: 1; min-height: 120px;"
+                                placeholder="Flour, Tomatoes, Mozzarella, Basil, Olive Oil"></textarea>
+                        </div>
+
+                        <div class="modern-group"
+                            style="flex: 2; display: flex; flex-direction: column; margin-bottom: 0;">
+                            <label>Instructions (separate steps with | )</label>
+                            <textarea name="instructions" required class="modern-textarea"
+                                style="flex: 1; min-height: 250px;"
+                                placeholder="Make dough | Add sauce | Bake for 10 minutes"></textarea>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Form Submit/Cancel Banner -->
+                <div class="actions-banner">
+                    <a href="{{ url_for('manage_recipes') }}" class="btn-premium-cancel">Cancel</a>
+                    <button type="submit" class="btn-premium-save">Add Recipe</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Clean & Premium Styles for Add Recipe Page */
+    .admin-form-container {
+        max-width: 950px;
+        margin: 0 auto;
+    }
+
+    .premium-card {
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.03);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        overflow: hidden;
+        margin-bottom: 30px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Hero Header Banner */
+    .recipe-hero-banner {
+        position: relative;
+        height: 280px;
+        width: 100%;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+
+    .hero-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .recipe-hero-banner:hover .hero-img {
+        transform: scale(1.03);
+    }
+
+    .hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.4) 60%, rgba(15, 23, 42, 0.1) 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 30px 40px;
+        color: white;
+    }
+
+    .hero-badge-container {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .hero-badge {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 6px 14px;
+        border-radius: 99px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .hero-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 32px;
+        font-weight: 800;
+        margin: 0;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        letter-spacing: -0.5px;
+    }
+
+    .hero-subtitle {
+        font-size: 14px;
+        color: #cbd5e1;
+        margin-top: 4px;
+    }
+
+    /* Content Layout */
+    .form-content-area {
+        padding: 40px;
+    }
+
+    .two-col-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 40px;
+    }
+
+    @media (max-width: 768px) {
+        .two-col-grid {
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+
+        .form-content-area {
+            padding: 24px;
+        }
+
+        .recipe-hero-banner {
+            height: 200px;
+        }
+    }
+
+    /* Beautiful Inputs */
+    .modern-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 24px;
+    }
+
+    .modern-group label {
+        font-weight: 700;
+        font-size: 12px;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .modern-input,
+    .modern-textarea,
+    .modern-select {
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        font-size: 14px;
+        font-family: 'Inter', sans-serif;
+        outline: none;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: #f8fafc;
+        color: #0f172a;
+    }
+
+    .modern-input:focus,
+    .modern-textarea:focus,
+    .modern-select:focus {
+        border-color: #FF6B35;
+        background: #ffffff;
+        box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.1);
+    }
+
+    .modern-textarea {
+        resize: vertical;
+        line-height: 1.6;
+    }
+
+    /* Custom Image Upload Section */
+    .image-management-box {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+
+    .upload-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    @media (max-width: 600px) {
+        .upload-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+
+    .or-divider {
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    /* Search Photos Button */
+    .btn-unsplash {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 18px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 14px;
+        width: 100%;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+    }
+
+    .btn-unsplash:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+        background: linear-gradient(135deg, #334155, #1e293b);
+    }
+
+    /* Unsplash Gallery */
+    .photo-picker-container {
+        margin-top: 16px;
+        background: white;
+        border-radius: 14px;
+        padding: 16px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .photo-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .photo-option {
+        position: relative;
+        cursor: pointer;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 3px solid transparent;
+        transition: all 0.2s ease;
+        aspect-ratio: 4/3;
+    }
+
+    .photo-option:hover {
+        border-color: #FF6B35;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
+    }
+
+    .photo-option.selected {
+        border-color: #10b981;
+    }
+
+    .photo-option img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .photo-option .pick-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(16, 185, 129, 0.85);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+        font-weight: 700;
+    }
+
+    .photo-option.selected .pick-overlay {
+        display: flex;
+    }
+
+    /* Form Actions Area */
+    .actions-banner {
+        display: flex;
+        justify-content: flex-end;
+        gap: 16px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 24px;
+        margin-top: 24px;
+    }
+
+    .btn-premium-save {
+        background: linear-gradient(135deg, #FF6B35, #F7931E);
+        color: white;
+        border: none;
+        padding: 14px 32px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 15px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.2);
+    }
+
+    .btn-premium-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+    }
+
+    .btn-premium-cancel {
+        background: #f1f5f9;
+        color: #475569;
+        text-decoration: none;
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .btn-premium-cancel:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+</style>
+
+<script>
+    // Live preview update
+    function updatePreview(url) {
+        const heroImg = document.getElementById('hero-preview-img');
+        if (heroImg && url) {
+            heroImg.src = url;
+        }
+    }
+
+    // Interactive updates in the hero banner as you edit the fields
+    document.addEventListener('DOMContentLoaded', () => {
+        const nameInput = document.getElementById('recipe_name_input');
+        const heroNameDisplay = document.getElementById('hero-recipe-name-display');
+        const cuisineInput = document.getElementById('cuisine_input');
+        const heroCuisineDisplay = document.getElementById('hero-badge-cuisine');
+        const difficultySelect = document.getElementById('difficulty_select');
+        const heroDifficultyDisplay = document.getElementById('hero-badge-difficulty');
+
+        if (nameInput && heroNameDisplay) {
+            nameInput.addEventListener('input', (e) => {
+                heroNameDisplay.textContent = e.target.value.trim() || 'Untitled Recipe';
+            });
+        }
+
+        if (cuisineInput && heroCuisineDisplay) {
+            cuisineInput.addEventListener('input', (e) => {
+                heroCuisineDisplay.textContent = e.target.value.trim().toUpperCase() || 'NEW RECIPE';
+            });
+        }
+
+        if (difficultySelect && heroDifficultyDisplay) {
+            difficultySelect.addEventListener('change', (e) => {
+                heroDifficultyDisplay.textContent = e.target.value.toUpperCase();
+            });
+        }
+    });
+
+    async function searchPhotos() {
+        const name = document.getElementById('recipe_name_input').value.trim();
+        if (!name) {
+            alert('Please enter a recipe name first.');
+            return;
+        }
+
+        const picker = document.getElementById('photo-picker');
+        const grid = document.getElementById('photo-grid');
+        const status = document.getElementById('photo-search-status');
+
+        picker.style.display = 'block';
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #64748b;">🔍 Searching for photos of "' + name + '"...</div>';
+        status.textContent = '';
+
+        try {
+            const res = await fetch('/admin/search-photos?q=' + encodeURIComponent(name));
+            const data = await res.json();
+
+            if (!data.photos || data.photos.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #64748b;">No photos found. Try a shorter name.</div>';
+                return;
+            }
+
+            status.textContent = 'Select a photo below to immediately apply it:';
+            grid.innerHTML = '';
+
+            data.photos.forEach((photo, i) => {
+                const card = document.createElement('div');
+                card.className = 'photo-option';
+                card.id = 'photo-opt-' + i;
+                card.innerHTML = `
+                    <img src="${photo.thumb || photo.url}" 
+                         alt="Option ${i + 1}"
+                         onerror="this.parentElement.style.display='none'">
+                    <div class="pick-overlay">✓</div>
+                `;
+                card.onclick = () => selectPhoto(photo.url, i);
+                grid.appendChild(card);
+            });
+
+        } catch (err) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #ef4444;">Error searching photos. Please paste a URL manually.</div>';
+        }
+    }
+
+    function selectPhoto(url, idx) {
+        // Deselect all
+        document.querySelectorAll('.photo-option').forEach(el => el.classList.remove('selected'));
+
+        // Select this one
+        const card = document.getElementById('photo-opt-' + idx);
+        if (card) card.classList.add('selected');
+
+        // Put URL into the input and update preview
+        const urlInput = document.getElementById('image_url_input');
+        if (urlInput) {
+            urlInput.value = url;
+        }
+        updatePreview(url);
+    }
+</script>
+{% endblock %}
