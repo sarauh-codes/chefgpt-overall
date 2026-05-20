@@ -19,10 +19,20 @@ import re
 import os
 import time
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=False)
 from groq import Groq
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+_groq_client = None
+
+def get_groq_client():
+    """Create the Groq client lazily so deployed env vars are respected."""
+    global _groq_client
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY is not configured")
+    if _groq_client is None:
+        _groq_client = Groq(api_key=api_key)
+    return _groq_client
 
 # Curated lookup for common Malay dishes that Wikipedia doesn't index well
 MALAY_IMAGE_MAP = {
@@ -584,19 +594,23 @@ def chat():
     if taste_pref_str:
         system_content += f"\nPERSONALIZED TASTE PROFILE:{taste_pref_str} Gently tailor suggestions to fit this flavor profile when appropriate!"
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": system_content
-            },
-            {"role": "user", "content": user_message}
-        ],
-        max_tokens=500,
-    )
+    try:
+        response = get_groq_client().chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_content
+                },
+                {"role": "user", "content": user_message}
+            ],
+            max_tokens=500,
+        )
 
-    return jsonify({'reply': response.choices[0].message.content})
+        return jsonify({'reply': response.choices[0].message.content})
+    except Exception as e:
+        app.logger.exception("Groq chat request failed")
+        return jsonify({'error': 'Groq request failed', 'detail': str(e)}), 502
     
 # ==================== DASHBOARD ROUTES ====================
 @app.route("/dashboard")
@@ -1027,7 +1041,7 @@ def ai_search_suggestions():
             "Return ONLY valid JSON."
         ).format(query=query, diet_prompt=diet_restriction_prompt)
         
-        suggestions = client.chat.completions.create(
+        suggestions = get_groq_client().chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": suggest_prompt}],
             response_format={"type": "json_object"},
@@ -1340,7 +1354,7 @@ def translate_recipe():
             f"INSTRUCTIONS (steps separated by |):\n{instructions_en}"
         )
 
-        response = client.chat.completions.create(
+        response = get_groq_client().chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000,
@@ -1434,7 +1448,7 @@ def recipe_description_api(recipe_id):
             f"Do not include steps, warnings, or markdown. Only return the raw text."
         )
 
-        chat_completion = client.chat.completions.create(
+        chat_completion = get_groq_client().chat.completions.create(
             messages=[
                 {"role": "system", "content": "You are a professional culinary storyteller and local food expert."},
                 {"role": "user", "content": prompt}
@@ -1842,7 +1856,7 @@ def analyze_image():
         mime_type = image_file.content_type or 'image/jpeg'
 
         # Call Groq vision model
-        response = client.chat.completions.create(
+        response = get_groq_client().chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {
@@ -3155,7 +3169,7 @@ def _get_substitute_logic(ingredient):
         "Return ONLY a JSON list of lists, like: [['sub1', 'tip1'], ['sub2', 'tip2']]"
     )
     
-    response = client.chat.completions.create(
+    response = get_groq_client().chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},

@@ -686,6 +686,10 @@ async function sendMessage(source = 'floating') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: text })
         });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Chat request failed');
+        }
         const data = await res.json();
 
         if (document.getElementById(typingId)) document.getElementById(typingId).remove();
@@ -701,6 +705,7 @@ async function sendMessage(source = 'floating') {
 
         messages.scrollTop = messages.scrollHeight;
     } catch (e) {
+        console.error('Chat request failed:', e);
         const typingEl = document.getElementById(typingId);
         if (typingEl) typingEl.textContent = 'Oops! Something went wrong 😅';
     }
