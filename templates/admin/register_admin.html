@@ -1,39 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Register Admin - ChefGPT</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Admin - ChefGPT</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
+
 <body>
-    <!-- FLASH MESSAGES -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-messages" style="text-align: center; margin-bottom: 15px;">
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="ambient ambient-three"></div>
+  <div class="grain"></div>
+  <div class="grid-bg"></div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages" role="status" aria-live="polite">
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }}" style="padding: 10px; border-radius: 5px; color: #fff; background-color: {% if category == 'success' %}#28a745{% else %}#dc3545{% endif %}; margin-bottom: 10px;">{{ message }}</div>
+          <div class="flash {{ category }}">{{ message }}</div>
         {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="login-shell register-shell">
+    <section class="showcase" aria-label="ChefGPT admin access">
+      <div class="brand-pill">
+        <span class="brand-mark">CG</span>
+        <span>Admin workspace access</span>
+      </div>
+
+      <div class="hero-copy">
+        <p class="eyebrow">Manage ChefGPT with confidence</p>
+        <h1>Create an admin account.</h1>
+        <p>
+          Admin access is for managing recipes, users, feedback, and the data
+          that keeps the ChefGPT experience organized.
+        </p>
+      </div>
+
+      <div class="feature-strip" aria-label="Admin features">
+        <article class="feature-card">
+          <span class="feature-icon">01</span>
+          <div>
+            <h2>Recipe management</h2>
+            <p>Add, edit, and maintain the recipe collection users explore.</p>
+          </div>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon">02</span>
+          <div>
+            <h2>User oversight</h2>
+            <p>Review account activity and keep the platform tidy.</p>
+          </div>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon">03</span>
+          <div>
+            <h2>Feedback control</h2>
+            <p>Track user feedback and improve the app from real usage.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="visual-stage" aria-hidden="true">
+      <div class="orbit orbit-one"></div>
+      <div class="orbit orbit-two"></div>
+      <div class="recipe-board signup-board admin-board">
+        <div class="board-top">
+          <span class="status-dot"></span>
+          <span>Admin verification</span>
+          <strong>Secure</strong>
         </div>
-      {% endif %}
-    {% endwith %}
+        <div class="profile-preview">
+          <div class="profile-ring">AD</div>
+          <div>
+            <span>Control center</span>
+            <strong>Recipes, users, feedback</strong>
+          </div>
+        </div>
+        <div class="access-stack">
+          <span>Access code</span>
+          <div class="access-dots">
+            <i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+        <div class="prompt-card">
+          <span>Admin tools</span>
+          <p>Curate content and keep ChefGPT running smoothly</p>
+          <div class="progress-line"><span></span></div>
+        </div>
+        <div class="mini-stats">
+          <span>Manage users</span>
+          <span>Edit recipes</span>
+        </div>
+      </div>
+      <div class="floating-chip chip-one">Secure role</div>
+      <div class="floating-chip chip-two">Dashboard access</div>
+      <div class="floating-chip chip-three">Content control</div>
+    </section>
 
-    <div class="container">
-        <h2>Register Admin</h2>
+    <section class="auth-panel" aria-label="Admin register form">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="logo-lock">AD</div>
+          <p class="eyebrow">Admin registration</p>
+          <h2>Register Admin</h2>
+          <p>Create an admin account with the approved access code.</p>
+        </div>
 
-
-        <!-- Admin Registration Form -->
-        <form method="POST" action="{{ url_for('register_admin') }}">
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="email" name="email" placeholder="Email" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <input type="text" name="access_code" placeholder="Admin Access Code" required>
-            <button type="submit">Register Admin</button>
+        <form method="POST" action="{{ url_for('register_admin') }}" class="login-form">
+          <label class="field">
+            <span>Username</span>
+            <input type="text" name="username" placeholder="Choose a username" autocomplete="username" required>
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="email" placeholder="Enter your email" autocomplete="email" required>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" name="password" placeholder="Create a password" autocomplete="new-password" required>
+          </label>
+          <label class="field">
+            <span>Access Code</span>
+            <input type="text" name="access_code" placeholder="Enter admin access code" autocomplete="off" required>
+          </label>
+          <button type="submit">
+            <span>Register Admin</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h12m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </form>
 
-        <p>
-            Already have an account? 
-            <a href="{{ url_for('login') }}">Back to Login</a>
-        </p>
-    </div>
+        <div class="auth-links">
+          <span>Already have access?</span>
+          <a href="{{ url_for('login') }}">Back to Login</a>
+        </div>
+      </div>
+    </section>
+  </main>
 </body>
 </html>

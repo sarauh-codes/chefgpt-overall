@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,10 +8,15 @@
 </head>
 
 <body>
-  <!-- FLASH MESSAGES -->
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="ambient ambient-three"></div>
+  <div class="grain"></div>
+  <div class="grid-bg"></div>
+
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="flash-messages">
+      <div class="flash-messages" role="status" aria-live="polite">
         {% for category, message in messages %}
           <div class="flash {{ category }}">{{ message }}</div>
         {% endfor %}
@@ -20,21 +24,119 @@
     {% endif %}
   {% endwith %}
 
-  <div class="container">
-    <h2>Create Account</h2>
+  <main class="login-shell register-shell">
+    <section class="showcase" aria-label="ChefGPT account benefits">
+      <div class="brand-pill">
+        <span class="brand-mark">CG</span>
+        <span>Start your kitchen workspace</span>
+      </div>
 
-    <form method="POST" action="{{ url_for('register') }}">
-      <input type="text" name="username" placeholder="Username" required>
-      <input type="email" name="email" placeholder="Email" required>
-      <input type="password" name="password" placeholder="Password" required>
-      <button type="submit">Register</button>
-    </form>
+      <div class="hero-copy">
+        <p class="eyebrow">Your recipes, planned around you</p>
+        <h1>Create a ChefGPT account.</h1>
+        <p>
+          Save recipes, build weekly meal plans, track your cooking history,
+          and get smarter suggestions every time you use the app.
+        </p>
+      </div>
 
-    <p>
-      Already have an account?
-      <a href="{{ url_for('login') }}">Login here</a>
-    </p>
-  </div>
+      <div class="feature-strip" aria-label="Account features">
+        <article class="feature-card">
+          <span class="feature-icon">01</span>
+          <div>
+            <h2>Personal recipe library</h2>
+            <p>Keep your favorite meals ready for quick planning and cooking.</p>
+          </div>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon">02</span>
+          <div>
+            <h2>Smarter recommendations</h2>
+            <p>Let ChefGPT shape recipe ideas around your saved preferences.</p>
+          </div>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon">03</span>
+          <div>
+            <h2>One cooking dashboard</h2>
+            <p>Move from search to planning to guided cooking without losing context.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="visual-stage" aria-hidden="true">
+      <div class="orbit orbit-one"></div>
+      <div class="orbit orbit-two"></div>
+      <div class="recipe-board signup-board">
+        <div class="board-top">
+          <span class="status-dot"></span>
+          <span>Account setup</span>
+          <strong>Ready</strong>
+        </div>
+        <div class="signup-steps">
+          <span class="active"></span>
+          <span class="active"></span>
+          <span></span>
+        </div>
+        <div class="profile-preview">
+          <div class="profile-ring">CG</div>
+          <div>
+            <span>New chef profile</span>
+            <strong>Personalized in minutes</strong>
+          </div>
+        </div>
+        <div class="prompt-card">
+          <span>First recommendation</span>
+          <p>Recipes based on your taste, pantry, and week ahead</p>
+          <div class="progress-line"><span></span></div>
+        </div>
+        <div class="mini-stats">
+          <span>Save favorites</span>
+          <span>Plan meals</span>
+        </div>
+      </div>
+      <div class="floating-chip chip-one">Private profile</div>
+      <div class="floating-chip chip-two">Saved recipes</div>
+      <div class="floating-chip chip-three">Meal plan sync</div>
+    </section>
+
+    <section class="auth-panel" aria-label="Register form">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="logo-lock">CG</div>
+          <p class="eyebrow">Join ChefGPT</p>
+          <h2>Create Account</h2>
+          <p>Set up your account to unlock saved recipes, meal planning, and cooking mode.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('register') }}" class="login-form">
+          <label class="field">
+            <span>Username</span>
+            <input type="text" name="username" placeholder="Choose a username" autocomplete="username" required>
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="email" placeholder="Enter your email" autocomplete="email" required>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" name="password" placeholder="Create a password" autocomplete="new-password" required>
+          </label>
+          <button type="submit">
+            <span>Register</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h12m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </form>
+
+        <div class="auth-links">
+          <span>Already have an account?</span>
+          <a href="{{ url_for('login') }}">Login here</a>
+        </div>
+      </div>
+    </section>
+  </main>
 </body>
-
 </html>
