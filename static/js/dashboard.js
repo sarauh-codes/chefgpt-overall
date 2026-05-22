@@ -18,20 +18,20 @@ function setLanguage(lang) {
 }
 
 function _updateLangUI(lang) {
-    const flagEl   = document.getElementById('langFlag');
-    const labelEl  = document.getElementById('langLabel');
-    const checkEn  = document.getElementById('checkEn');
-    const checkMs  = document.getElementById('checkMs');
+    const flagEl = document.getElementById('langFlag');
+    const labelEl = document.getElementById('langLabel');
+    const checkEn = document.getElementById('checkEn');
+    const checkMs = document.getElementById('checkMs');
 
     if (!flagEl) return; // topbar not rendered on this page
 
     if (lang === 'ms') {
-        flagEl.textContent  = '🇲🇾';
+        flagEl.textContent = '🇲🇾';
         labelEl.textContent = 'BM';
         if (checkEn) checkEn.style.display = 'none';
         if (checkMs) checkMs.style.display = 'inline';
     } else {
-        flagEl.textContent  = '🌐';
+        flagEl.textContent = '🌐';
         labelEl.textContent = 'EN';
         if (checkEn) checkEn.style.display = 'inline';
         if (checkMs) checkMs.style.display = 'none';
@@ -40,7 +40,7 @@ function _updateLangUI(lang) {
 
 function toggleLangDropdown() {
     const dropdown = document.getElementById('langDropdown');
-    const btn      = document.getElementById('langToggleBtn');
+    const btn = document.getElementById('langToggleBtn');
     if (!dropdown || !btn) return;
 
     if (dropdown.classList.contains('open')) {
@@ -50,7 +50,7 @@ function toggleLangDropdown() {
 
     // Position the fixed dropdown just below the button
     const rect = btn.getBoundingClientRect();
-    dropdown.style.top   = (rect.bottom + 8) + 'px';
+    dropdown.style.top = (rect.bottom + 8) + 'px';
     dropdown.style.right = (window.innerWidth - rect.right) + 'px';
     dropdown.classList.add('open');
 }
@@ -61,7 +61,7 @@ function closeLangDropdown() {
 }
 
 // Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const switcher = document.getElementById('langSwitcher');
     if (switcher && !switcher.contains(e.target)) {
         closeLangDropdown();
@@ -69,7 +69,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Init UI label on every page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     _updateLangUI(getLanguage());
 });
 
@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const recipeCatalog = document.getElementById('recipe-catalog');
     const searchBox = document.getElementById('recipe-search');
-    
+
     if (recipeCatalog) {
         originalRecipes = recipeCatalog.innerHTML;
 
@@ -387,7 +387,7 @@ function searchRecipes(restoreScroll = false) {
                     const aiRes = await fetch('/api/ai-search-suggestions?q=' + encodeURIComponent(searchInput), { signal });
                     if (signal.aborted) return;
                     const aiData = await aiRes.json();
-                    
+
                     loaderContainer.remove();
 
                     if (aiData.suggestions && aiData.suggestions.length > 0) {
@@ -908,12 +908,12 @@ function closeAnalyticsDrawer() {
 function renderAnalyticsDrawer() {
     const container = document.getElementById('analytics-drawer-content-container');
     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--muted);">Loading Analytics...</div>';
-    
+
     fetch("/api/kitchen-intelligence")
         .then(r => r.text())
         .then(html => {
             container.innerHTML = html;
-            
+
             // Initialize chart if present
             const canvas = document.getElementById('weeklyActivityChartDrawer');
             if (canvas) {
@@ -937,7 +937,7 @@ function renderAnalyticsDrawer() {
 function initAnalyticsChart(activityData, canvas) {
     const ctx = canvas.getContext('2d');
     const isDark = document.body.classList.contains('dark-theme');
-    
+
     const brandColor = "#FF6B35";
     const brandColorTranslucent = isDark ? "rgba(255,107,53,0.15)" : "rgba(255,107,53,0.1)";
     const textColor = isDark ? "#A0A0A0" : "#6b7280";
@@ -983,7 +983,7 @@ function initAnalyticsChart(activityData, canvas) {
                     padding: 10,
                     displayColors: false,
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             return context.raw + ' recipes';
                         }
                     }
