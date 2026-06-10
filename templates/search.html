@@ -160,7 +160,7 @@
                 <img src="${recipe.image_url}" 
                      alt="${recipe.recipe_name}" 
                      class="editorial-card-img" 
-                     onerror="this.src='/static/images/recipe-placeholder.jpg'">
+                     onerror="this.onerror=null;this.src='/static/images/recipe-placeholder.jpg'">
                 <div class="editorial-card-cuisine" style="position: absolute; top: 12px; left: 12px; background: var(--brand); color: white; font-size: 9.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 2;">${recipe.cuisine}</div>
                 <div class="editorial-card-time">⏱ ${recipe.cook_time} min</div>
               </div>
@@ -214,10 +214,13 @@
             grid.appendChild(divider);
 
             aiData.suggestions.forEach(recipe => {
+              const aiImgHtml = recipe.image_url
+                ? `<img src="${recipe.image_url}" alt="${recipe.recipe_name}" class="editorial-card-img" onerror="this.onerror=null;this.src='/static/images/recipe-placeholder.jpg';">`
+                : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--panel-2) 0%,var(--border) 100%);font-size:40px;filter:drop-shadow(0 4px 8px rgba(139,92,246,0.25));">🤖</div>`;
               const cardHtml = `
                 <a href="javascript:void(0)" onclick="viewAiRecipe('${recipe.recipe_id}')" class="editorial-card">
-                  <div class="editorial-card-img-wrap" style="position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--panel-2); box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--panel-2) 0%, var(--border) 100%); font-size: 40px; filter: drop-shadow(0 4px 8px rgba(139, 92, 246, 0.25));">🤖</div>
+                  <div class="editorial-card-img-wrap">
+                    ${aiImgHtml}
                     <div class="editorial-card-cuisine" style="position: absolute; top: 12px; left: 12px; background: var(--brand); color: white; font-size: 9.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 2;">${recipe.cuisine}</div>
                     <div class="ai-badge" style="position: absolute; top: 12px; right: 12px; background: #8b5cf6; color: white; font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 2;">AI Suggested</div>
                     <div class="editorial-card-time" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px;">⏱ ${recipe.cook_time} min</div>

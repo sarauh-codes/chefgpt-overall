@@ -197,7 +197,7 @@
         <div class="editorial-card-img-wrap">
           <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}"
             alt="{{ recipe.recipe_name }}" class="editorial-card-img"
-            onerror="this.src='/static/images/recipe-placeholder.jpg'">
+            onerror="this.onerror=null;this.src='/static/images/recipe-placeholder.jpg'">
           <div class="editorial-card-cuisine">{{ recipe.cuisine }}</div>
           <div class="editorial-card-time">⏱ {{ recipe.cook_time }} min</div>
         </div>
@@ -224,7 +224,7 @@
         <div class="editorial-card-img-wrap">
           <img src="{{ recipe.image_url if recipe.image_url else '/static/images/recipe-placeholder.jpg' }}"
             alt="{{ recipe.recipe_name }}" class="editorial-card-img"
-            onerror="this.src='/static/images/recipe-placeholder.jpg'">
+            onerror="this.onerror=null;this.src='/static/images/recipe-placeholder.jpg'">
           <div class="editorial-card-cuisine">{{ recipe.cuisine }}</div>
           <div class="editorial-card-time">⏱ {{ recipe.cook_time }} min</div>
         </div>
@@ -246,7 +246,8 @@
     <div class="ideas-banner-icon">👨‍🍳</div>
     <div class="ideas-banner-text">
       <div class="ideas-banner-title">Need more ideas?</div>
-      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!</div>
+      <div class="ideas-banner-sub">Tell me your ingredients, dietary preference or mood, and I'll handle the rest!
+      </div>
     </div>
     <button class="ideas-banner-btn" onclick="openChat()">✦ Ask ChefGPT</button>
   </div>

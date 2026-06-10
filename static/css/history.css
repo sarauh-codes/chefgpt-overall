@@ -157,3 +157,85 @@
   }
   .view-btn { width: 100%; text-align: center; margin-top: 10px; }
 }
+
+/* Override grid layout to enforce exactly 3 columns on desktop */
+.container {
+  max-width: 1200px !important;
+}
+
+.recipe-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 24px !important;
+  margin-top: 24px !important;
+  margin-bottom: 40px !important;
+}
+
+/* Make card styling fit premium layout */
+.recipe-card {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02) !important;
+}
+
+.recipe-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08) !important;
+  border-color: var(--brand) !important;
+}
+
+.recipe-card-img {
+  position: relative !important;
+  width: 100% !important;
+  height: 200px !important;
+  overflow: hidden !important;
+  background: var(--panel-2) !important;
+}
+
+.recipe-card-img img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  transition: transform 0.5s ease !important;
+}
+
+.recipe-card:hover .recipe-card-img img {
+  transform: scale(1.05) !important;
+}
+
+.recipe-img-placeholder {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 48px !important;
+  background: var(--panel-2) !important;
+}
+
+/* Adjust columns responsively */
+@media (max-width: 992px) {
+  .recipe-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .recipe-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .recipe-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

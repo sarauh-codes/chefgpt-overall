@@ -36,17 +36,31 @@
             {% for cooked in recipes %}
                 <div class="recipe-card" onclick="window.location.href='{{ url_for('recipe_detail', recipe_id=cooked.recipe_id) }}'">
                     <div class="recipe-card-img">
-                        <div class="recipe-img-placeholder">👨‍🍳</div>
+                        {% if cooked.image_url and cooked.image_url != 'AI_PLACEHOLDER' and cooked.image_url != '' %}
+                            <img src="{{ cooked.image_url }}" alt="{{ cooked.recipe_name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="recipe-img-placeholder" style="display: none;">👨‍🍳</div>
+                        {% else %}
+                            <img src="/static/images/recipe-placeholder.jpg" alt="{{ cooked.recipe_name }}">
+                            <div class="recipe-img-placeholder" style="display: none;">👨‍🍳</div>
+                        {% endif %}
                         <div class="recipe-time-badge" style="background: #38A169;">✅ Mastered</div>
                     </div>
                     <div class="recipe-card-body">
-                        <div class="recipe-card-name" style="font-size: 15px;">{{ cooked.recipe_name }}</div>
-                        <div class="recipe-card-meta" style="color: var(--muted); font-weight: 500; margin-top: 4px;">
-                            <span style="font-size: 14px;">📅</span> {{ cooked.cooked_at.strftime('%b %d, %Y') }}
+                        <div class="recipe-card-name" style="font-size: 16px; font-weight: 700; height: 44px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3;">{{ cooked.recipe_name }}</div>
+                        
+                        <div style="display: flex; gap: 10px; font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 500;">
+                            <span>⏱️ {{ cooked.cook_time }} min</span>
+                            <span>•</span>
+                            <span>🍽️ {{ cooked.cuisine }}</span>
                         </div>
-                        <div class="recipe-card-footer" style="margin-top: 12px;">
-                            <div class="recipe-rating" style="font-size: 11px;">At {{ cooked.cooked_at.strftime('%I:%M %p') }}</div>
-                            <div class="recipe-view-btn" style="background: var(--brand);">Cook Again 🍳</div>
+                        
+                        <div class="recipe-card-meta" style="color: var(--muted); font-weight: 500; margin-top: 8px; font-size: 13px;">
+                            <span>📅 Cooked:</span> {{ cooked.cooked_at.strftime('%b %d, %Y') }}
+                        </div>
+                        
+                        <div class="recipe-card-footer" style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <div class="recipe-rating" style="font-size: 13px; font-weight: 700; color: #f59e0b;">⭐ {{ cooked.rating }}</div>
+                            <div class="recipe-view-btn" style="background: var(--brand); font-size: 11px; padding: 6px 12px; border-radius: 99px;">Cook Again 🍳</div>
                         </div>
                     </div>
                 </div>

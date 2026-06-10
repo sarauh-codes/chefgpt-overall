@@ -9,6 +9,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
 from recipe_recommender import get_recommender, reload_recommender_data
 from config import Config
 from functools import wraps
@@ -21,6 +23,15 @@ import time
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=False)
 from groq import Groq
+from deep_translator import GoogleTranslator
+from pinterest_dl import PinterestDL
+
+_pinterest_scraper = None
+def get_pinterest_scraper():
+    global _pinterest_scraper
+    if _pinterest_scraper is None:
+        _pinterest_scraper = PinterestDL.with_api()
+    return _pinterest_scraper
 
 _groq_client = None
 
@@ -801,50 +812,44 @@ def dashboard():
     elif cooked_count > 0: cooking_level = "Rising Star"
 
 
+    CATEGORY_IMAGES = {
+        'Rice Dishes':                  'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg',
+        'Noodles & Pasta':              'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg',
+        'Chicken Dishes':               'https://images.pexels.com/photos/2338407/pexels-photo-2338407.jpeg',
+        'Meat Dishes':                  'https://images.pexels.com/photos/361184/asparagus-steak-veal-steak-361184.jpeg',
+        'Beef & Lamb Dishes':           'https://images.pexels.com/photos/3535383/pexels-photo-3535383.jpeg',
+        'Fish & Seafood':               'https://images.pexels.com/photos/725991/pexels-photo-725991.jpeg',
+        'Seafood':                      'https://images.pexels.com/photos/725991/pexels-photo-725991.jpeg',
+        'Soups & Stews':                'https://images.pexels.com/photos/539451/pexels-photo-539451.jpeg',
+        'Soups & Broths':               'https://images.pexels.com/photos/539451/pexels-photo-539451.jpeg',
+        'Curries, Gulai & Coconut Stews': 'https://images.pexels.com/photos/2474661/pexels-photo-2474661.jpeg',
+        'Kuih & Desserts':              'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg',
+        'Kuih, Cakes & Desserts':       'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg',
+        'Grilled Dishes':               'https://images.pexels.com/photos/1058277/pexels-photo-1058277.jpeg',
+        'Breakfast & Tea-Time':         'https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg',
+        'Bread & Roti':                 'https://images.pexels.com/photos/1775043/pexels-photo-1775043.jpeg',
+        'Snacks':                       'https://images.pexels.com/photos/1893556/pexels-photo-1893556.jpeg',
+        'Salads':                       'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg',
+        'Vegetables':                   'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg',
+        'Condiments':                   'https://images.pexels.com/photos/4518844/pexels-photo-4518844.jpeg',
+        'Sambal & Spicy Dishes':        'https://images.pexels.com/photos/2474661/pexels-photo-2474661.jpeg',
+        'Drinks':                       'https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg',
+        'Western & Global':             'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg',
+        'Asian':                        'https://images.pexels.com/photos/3475617/pexels-photo-3475617.jpeg',
+    }
+
     categories_data = []
-    used_images = set()
     if 'display_category' in filtered_df.columns:
-        # Get unique categories but exclude 'Vegetables & Vegetarian'
         unique_categories = [c for c in filtered_df['display_category'].dropna().unique() if str(c).strip().lower() != 'vegetables & vegetarian']
-        
-        # Add 'Asian' category
         if 'Asian' not in unique_categories:
             unique_categories.append('Asian')
-            
         for cat in unique_categories:
             cat_str = str(cat).strip()
             if not cat_str or cat_str.lower() == 'nan':
                 continue
-            
-            # Find recipes to get a preview image
-            if cat_str == 'Asian':
-                cat_df = filtered_df[filtered_df['cuisine'].str.lower() == 'asian']
-            else:
-                cat_df = filtered_df[filtered_df['display_category'] == cat]
-                
-            img_url = ""
-            for _, row in cat_df.iterrows():
-                row_img = str(row.get('image_url', ''))
-                if row_img and row_img.lower() not in ['nan', 'none', '']:
-                    if row_img not in used_images:
-                        img_url = row_img
-                        used_images.add(row_img)
-                        break
-                        
-            # Fallback if all images in this category were already used by other cards
-            if not img_url:
-                for _, row in cat_df.iterrows():
-                    row_img = str(row.get('image_url', ''))
-                    if row_img and row_img.lower() not in ['nan', 'none', '']:
-                        img_url = row_img
-                        break
-                        
-            if not img_url:
-                img_url = "https://via.placeholder.com/300x200?text=" + cat_str.replace(" ", "+")
-                
             categories_data.append({
                 'name': cat_str,
-                'image': img_url
+                'image': CATEGORY_IMAGES.get(cat_str, 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg')
             })
 
     analytics = {
@@ -1013,6 +1018,9 @@ def search_page():
                            categories=categories_list)
 
 
+# In-memory cache for AI search suggestions (resets on server restart)
+_suggestion_cache = {}
+
 @app.route('/api/ai-search-suggestions', methods=['GET'])
 @web_or_jwt_required
 def ai_search_suggestions():
@@ -1029,13 +1037,15 @@ def ai_search_suggestions():
             user_id = get_jwt_identity()
         except:
             pass
-            
+
     profile = None
     if user_id:
         profile = DietaryProfile.query.filter_by(user_id=user_id).first()
 
+    diet_key = ""
     diet_restriction_prompt = ""
     if profile:
+        diet_key = profile.diet_type or ""
         diet_restriction_prompt = f" The user follows a strict {profile.diet_type} diet."
         if profile.allergies:
             diet_restriction_prompt += f" The user is ALLERGIC to: {profile.allergies} (do not include these ingredients)."
@@ -1043,28 +1053,37 @@ def ai_search_suggestions():
             diet_restriction_prompt += f" DO NOT include these forbidden ingredients: {profile.forbidden_ingredients}."
         diet_restriction_prompt += " Adjust the generated recipes to strictly comply with these rules."
 
+    # Return cached result instantly if same query was made before
+    cache_key = f"{query.lower()}|{diet_key}"
+    if cache_key in _suggestion_cache:
+        return jsonify({'suggestions': _suggestion_cache[cache_key]})
+
     ai_suggestions = []
     try:
+        # Lean prompt: 3 recipes, no full instructions (ask for steps count + key steps only)
+        # This cuts tokens by ~50% = much faster response
         suggest_prompt = (
-            "You are a master chef. Return a JSON object with a 'recipes' key containing 5 creative recipe objects for: {query}."
+            "You are a master chef. Return a JSON object with a 'recipes' key containing 3 creative recipe objects for: {query}."
             "{diet_prompt} "
-            "Each object must have: recipe_name, description, ingredients (comma separated with measurements), instructions (numbered list), cuisine, calories (number). "
-            "Ensure measurements like '200g', '1 cup' are included. "
-            "Return ONLY valid JSON."
+            "Each object must have: recipe_name, description, ingredients (comma separated with measurements), "
+            "instructions (short numbered list, max 6 steps), cuisine, calories (number), cook_time_mins (number). "
+            "Keep each recipe concise. Return ONLY valid JSON."
         ).format(query=query, diet_prompt=diet_restriction_prompt)
-        
+
         suggestions = get_groq_client().chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": suggest_prompt}],
             response_format={"type": "json_object"},
-            max_tokens=1500,
+            max_tokens=900,
             temperature=0.7
         )
-            
+
         data = json.loads(suggestions.choices[0].message.content)
         suggested_list = data.get('recipes', []) if isinstance(data, dict) else data
-        
-        for s in suggested_list:
+
+        # Build base suggestion objects (no images yet)
+        raw_suggestions = []
+        for s_idx, s in enumerate(suggested_list):
             raw_instr = s.get('instructions', '')
             if isinstance(raw_instr, list):
                 clean_instr = " | ".join([str(x).strip() for x in raw_instr])
@@ -1072,10 +1091,8 @@ def ai_search_suggestions():
                 steps = re.split(r'(?:\d+[\.\)]\s*|[\•\-\*]\s*|\n+)', str(raw_instr))
                 clean_instr = " | ".join([x.strip() for x in steps if x.strip() and len(x.strip()) > 3])
 
-            instr_len = len(clean_instr.split('|'))
-            ai_cook_time = 15 if instr_len <= 3 else (40 if instr_len <= 6 else 70)
-
-            ai_suggestions.append({
+            ai_cook_time = s.get('cook_time_mins') or (15 if len(clean_instr.split('|')) <= 3 else 40)
+            raw_suggestions.append({
                 'recipe_id': 'ai_' + str(abs(hash(s['recipe_name'])) % 10000),
                 'recipe_name': s['recipe_name'],
                 'ingredients': s.get('ingredients', ''),
@@ -1086,8 +1103,38 @@ def ai_search_suggestions():
                 'rating': 5.0,
                 'calories': s.get('calories', '450'),
                 'cook_time': ai_cook_time,
-                'image_url': "AI_PLACEHOLDER"
+                'image_url': '',
+                '_idx': s_idx,
             })
+
+        # Fetch images in parallel so all run at the same time instead of one-by-one
+        def _fetch_img(item):
+            return item['_idx'], fetch_dish_image(
+                item['recipe_name'], item['cuisine'], item['ingredients'], offset=item['_idx']
+            )
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {executor.submit(_fetch_img, s): s for s in raw_suggestions}
+            img_map = {}
+            for future in as_completed(futures):
+                try:
+                    idx, url = future.result(timeout=4)
+                    img_map[idx] = url
+                except Exception:
+                    pass
+
+        for s in raw_suggestions:
+            s['image_url'] = img_map.get(s['_idx'], '')
+            del s['_idx']
+            ai_suggestions.append(s)
+
+        # Cache result so same query returns instantly next time
+        _suggestion_cache[cache_key] = ai_suggestions
+        # Limit cache size to avoid memory bloat
+        if len(_suggestion_cache) > 200:
+            oldest_key = next(iter(_suggestion_cache))
+            del _suggestion_cache[oldest_key]
+
     except Exception as e:
         print(f"AI Suggestion Error: {e}")
 
@@ -1130,6 +1177,11 @@ def confirm_ai_recipe():
             steps = re.split(r'(?:\d+[\.\)]\s*|[\•\-\*]\s*|\n+)', str(raw_instr))
             clean_instr = " | ".join([x.strip() for x in steps if x.strip() and len(x.strip()) > 3])
 
+        # Default to placeholder if no image URL is provided
+        img_url = data.get('image_url', '').strip()
+        if not img_url:
+            img_url = '/static/images/recipe-placeholder.jpg'
+
         new_row = {
             'recipe_id': new_id,
             'recipe_name': recipe_name,
@@ -1140,7 +1192,7 @@ def confirm_ai_recipe():
             'difficulty': data.get('difficulty', 'medium'),
             'cook_time': data.get('cook_time', 45),
             'instructions': clean_instr,
-            'image_url': data.get('image_url', ''),
+            'image_url': img_url,
         }
         
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
@@ -1334,10 +1386,38 @@ def meal_plan_week_api():
 
 # ==================== RECIPE ROUTES ====================
 
+# ── TRANSLATION CACHE (disk-based, like description cache) ───────────────────
+TRANSLATION_CACHE_PATH = os.path.join("static", "cache", "translations.json")
+
+def _get_cached_translation(recipe_id):
+    if os.path.exists(TRANSLATION_CACHE_PATH):
+        try:
+            with open(TRANSLATION_CACHE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f).get(str(recipe_id))
+        except Exception:
+            pass
+    return None
+
+def _set_cached_translation(recipe_id, data):
+    os.makedirs(os.path.dirname(TRANSLATION_CACHE_PATH), exist_ok=True)
+    cache = {}
+    if os.path.exists(TRANSLATION_CACHE_PATH):
+        try:
+            with open(TRANSLATION_CACHE_PATH, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except Exception:
+            pass
+    cache[str(recipe_id)] = data
+    try:
+        with open(TRANSLATION_CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[translation cache write error] {e}")
+
 @app.route("/api/translate-recipe", methods=["POST"])
 @login_required
 def translate_recipe():
-    """Translate recipe ingredients and instructions to Bahasa Melayu using Groq."""
+    """Translate recipe to Bahasa Melayu using Google Translate (free, no tokens, cached)."""
     data = request.get_json()
     recipe_id = data.get("recipe_id")
     ingredients_en = data.get("ingredients", "")
@@ -1346,43 +1426,57 @@ def translate_recipe():
     if not ingredients_en and not instructions_en:
         return jsonify({"error": "Nothing to translate"}), 400
 
+    # Return cached translation instantly (no network call)
+    if recipe_id:
+        cached = _get_cached_translation(recipe_id)
+        if cached:
+            return jsonify(cached)
+
     try:
-        prompt = (
-            "You are a professional culinary translator. Translate the following recipe content "
-            "from English to Bahasa Melayu (Malaysian Malay). Keep ingredient measurements, numbers, "
-            "and unit abbreviations (e.g. g, kg, ml, tbsp, tsp, cup) exactly as they are — only translate "
-            "the ingredient names and instruction text. Do NOT add any extra commentary.\n\n"
-            "Respond with ONLY a valid JSON object in this exact format:\n"
-            '{"ingredients_ms": "<translated ingredients, comma-separated exactly matching the original list>", '
-            '"instructions_ms": "<translated instructions, steps separated by | exactly as the original>"}\n\n'
-            f"INGREDIENTS (comma-separated):\n{ingredients_en}\n\n"
-            f"INSTRUCTIONS (steps separated by |):\n{instructions_en}"
-        )
+        translator = GoogleTranslator(source='en', target='ms')
 
-        response = get_groq_client().chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=2000,
-            temperature=0.2,
-        )
+        # Build a single payload so we only make 1 HTTP request total
+        # Use a rare separator that won't appear in recipe text
+        STEP_SEP = " §§ "
+        BLOCK_SEP = " ¶¶¶ "
 
-        raw = response.choices[0].message.content.strip()
+        steps = [s.strip() for s in instructions_en.split('|') if s.strip()] if instructions_en else []
+        combined = ingredients_en + BLOCK_SEP + STEP_SEP.join(steps)
 
-        # Strip markdown code fences if the model wrapped the JSON
-        if raw.startswith("```"):
-            raw = re.sub(r"^```[a-z]*\n?", "", raw)
-            raw = re.sub(r"\n?```$", "", raw)
+        translated = translator.translate(combined)
 
-        result = json.loads(raw)
-        return jsonify({
+        # Split result back into ingredients + steps
+        if BLOCK_SEP in translated:
+            ing_part, inst_part = translated.split(BLOCK_SEP, 1)
+        else:
+            ing_part = translated
+            inst_part = ""
+
+        ingredients_ms = ing_part.strip()
+        translated_steps = [s.strip() for s in inst_part.split(STEP_SEP.strip()) if s.strip()] if inst_part else []
+
+        # Fallback: if separator got mangled, keep originals
+        if len(translated_steps) == 0 and steps:
+            translated_steps = steps
+
+        instructions_ms = ' | '.join(translated_steps) if translated_steps else instructions_en
+
+        result = {
             "recipe_id": recipe_id,
-            "ingredients_ms": result.get("ingredients_ms", ingredients_en),
-            "instructions_ms": result.get("instructions_ms", instructions_en),
-        })
+            "ingredients_ms": ingredients_ms,
+            "instructions_ms": instructions_ms,
+        }
+
+        # Cache result so next visit is instant
+        if recipe_id:
+            _set_cached_translation(recipe_id, result)
+
+        return jsonify(result)
 
     except Exception as e:
         print(f"[translate_recipe] Error: {e}")
         return jsonify({"error": "Translation failed", "detail": str(e)}), 500
+
 
 
 @app.route("/recipe/<int:recipe_id>")
@@ -1729,7 +1823,37 @@ def mobile_user_stats():
 def cooked_history():
     cooked_recipes = CookedRecipe.query.filter_by(user_id=current_user.id)\
         .order_by(CookedRecipe.cooked_at.desc()).all()
-    return render_template("cooked_history.html", recipes=cooked_recipes)
+    
+    recommender = get_recommender()
+    enriched_recipes = []
+    for cooked in cooked_recipes:
+        recipe_row = recommender.df[recommender.df['recipe_id'] == cooked.recipe_id]
+        if not recipe_row.empty:
+            row = recipe_row.iloc[0]
+            r_dict = row.to_dict()
+            r_dict['cook_time'] = get_cook_time(row)
+            r_dict['servings'] = get_servings(row)
+            r_dict['cooked_id'] = cooked.id
+            r_dict['cooked_at'] = cooked.cooked_at
+            try:
+                r_dict['rating'] = float(row['rating'])
+            except:
+                r_dict['rating'] = 4.5
+            enriched_recipes.append(r_dict)
+        else:
+            enriched_recipes.append({
+                'recipe_id': cooked.recipe_id,
+                'recipe_name': cooked.recipe_name,
+                'cuisine': 'Unknown',
+                'cook_time': '30',
+                'servings': '4',
+                'rating': 4.5,
+                'image_url': '',
+                'cooked_id': cooked.id,
+                'cooked_at': cooked.cooked_at
+            })
+            
+    return render_template("cooked_history.html", recipes=enriched_recipes)
 
 
 @app.route("/save-recipe/<int:recipe_id>", methods=["POST"])
@@ -1774,9 +1898,39 @@ def unsave_recipe(recipe_id):
 @app.route("/saved-recipes")
 @login_required
 def saved_recipes():
-    saved = SavedRecipe.query.filter_by(user_id=current_user.id)\
+    saved_records = SavedRecipe.query.filter_by(user_id=current_user.id)\
         .order_by(SavedRecipe.saved_at.desc()).all()
-    return render_template("saved_recipes.html", recipes=saved)
+    
+    recommender = get_recommender()
+    enriched_recipes = []
+    for saved in saved_records:
+        recipe_row = recommender.df[recommender.df['recipe_id'] == saved.recipe_id]
+        if not recipe_row.empty:
+            row = recipe_row.iloc[0]
+            r_dict = row.to_dict()
+            r_dict['cook_time'] = get_cook_time(row)
+            r_dict['servings'] = get_servings(row)
+            r_dict['saved_id'] = saved.id
+            r_dict['saved_at'] = saved.saved_at
+            try:
+                r_dict['rating'] = float(row['rating'])
+            except:
+                r_dict['rating'] = 4.5
+            enriched_recipes.append(r_dict)
+        else:
+            enriched_recipes.append({
+                'recipe_id': saved.recipe_id,
+                'recipe_name': saved.recipe_name,
+                'cuisine': 'Unknown',
+                'cook_time': '30',
+                'servings': '4',
+                'rating': 4.5,
+                'image_url': '',
+                'saved_id': saved.id,
+                'saved_at': saved.saved_at
+            })
+            
+    return render_template("saved_recipes.html", recipes=enriched_recipes)
 
 
 @app.route("/is-saved/<int:recipe_id>")
@@ -1788,6 +1942,266 @@ def is_saved(recipe_id):
 
 
 # ==================== RECOMMEND ROUTES ====================
+
+def get_user_taste_profile(user_id) -> dict:
+    """
+    Build a taste profile from the user's saved recipe history.
+    This is what makes the system a genuine personalized recommendation engine —
+    it learns WHO the user is, not just what ingredients they have today.
+    """
+    try:
+        from collections import Counter
+        saved = SavedRecipe.query.filter_by(user_id=user_id)\
+                                  .order_by(SavedRecipe.saved_at.desc())\
+                                  .limit(20).all()
+        if not saved:
+            return {'profile_text': '', 'top_cuisines': [], 'has_history': False}
+
+        rec_engine = get_recommender()
+        cuisines, difficulties, calories_list = [], [], []
+
+        for s in saved:
+            recipe = rec_engine.get_recipe_by_id(s.recipe_id)
+            if not recipe:
+                continue
+            if recipe.get('cuisine'):
+                cuisines.append(recipe['cuisine'])
+            if recipe.get('difficulty'):
+                difficulties.append(recipe['difficulty'])
+            if recipe.get('calories'):
+                try:
+                    calories_list.append(int(recipe['calories']))
+                except (ValueError, TypeError):
+                    pass
+
+        top_cuisines = [c for c, _ in Counter(cuisines).most_common(3) if c]
+        pref_difficulty = Counter(difficulties).most_common(1)[0][0] if difficulties else None
+        avg_calories = int(sum(calories_list) / len(calories_list)) if calories_list else None
+
+        parts = []
+        if top_cuisines:
+            parts.append(f"favours {', '.join(top_cuisines)} cuisine")
+        if pref_difficulty:
+            parts.append(f"tends to cook {pref_difficulty} recipes")
+        if avg_calories:
+            level = 'light' if avg_calories < 400 else 'hearty' if avg_calories > 600 else 'balanced'
+            parts.append(f"prefers {level} meals (~{avg_calories} cal)")
+
+        profile_text = ('User taste profile based on their saved history: ' + '; '.join(parts) + '.') if parts else ''
+
+        return {
+            'profile_text': profile_text,
+            'top_cuisines': top_cuisines,
+            'pref_difficulty': pref_difficulty,
+            'avg_calories': avg_calories,
+            'has_history': bool(parts),
+            'saved_count': len(saved),
+        }
+    except Exception:
+        return {'profile_text': '', 'top_cuisines': [], 'has_history': False}
+
+
+def groq_ingredient_intelligence(user_ingredients: str) -> dict:
+    """Layer 1: Normalize ingredients, fix typos, expand synonyms, infer cuisine context."""
+    prompt = f"""You are a culinary AI. Analyze these ingredients and return ONLY valid JSON.
+
+Ingredients: {user_ingredients}
+
+{{
+  "normalized": ["corrected/cleaned ingredient names"],
+  "expanded_search": ["ingredient synonyms and common variants to improve recipe search, e.g. capsicum->bell pepper, coriander->cilantro"],
+  "cuisine_context": "detected cuisine style or general",
+  "cooking_insight": "one friendly sentence about what these ingredients suggest you could make"
+}}
+
+Rules: fix typos, keep lists concise (max 6 items each), cooking_insight must be under 15 words."""
+
+    try:
+        response = get_groq_client().chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.2,
+        )
+        text = response.choices[0].message.content.strip()
+        start = text.find('{')
+        end = text.rfind('}') + 1
+        return json.loads(text[start:end]) if start != -1 else {}
+    except Exception:
+        return {}
+
+
+def groq_rerank_with_insights(user_ingredients: str, candidates: list, taste_profile: dict = None) -> list:
+    """
+    Core AI ranking: Groq acts as a professional chef who KNOWS this specific user.
+    Uses both ingredient matching AND the user's personal taste history to rank.
+    """
+    if not candidates:
+        return candidates
+
+    lines = []
+    for i, r in enumerate(candidates[:25]):
+        missing = r.get('missing_ingredients', [])
+        lines.append(
+            f"{i+1}. {r['recipe_name']} ({r.get('cuisine','?')}) | "
+            f"have {r['matched_count']}/{r['total_ingredients']} | "
+            f"missing: {', '.join(missing[:5]) or 'nothing'}"
+        )
+    candidates_text = "\n".join(lines)
+
+    profile_section = ""
+    if taste_profile and taste_profile.get('profile_text'):
+        profile_section = f"\nAbout this user: {taste_profile['profile_text']}\nPrioritise recipes that match their taste history.\n"
+
+    prompt = f"""You are a personal chef AI who knows this user's cooking style.
+
+Their ingredients today: {user_ingredients}
+{profile_section}
+Assume they also have pantry staples (salt, pepper, oil, water, basic spices).
+
+Recipe candidates:
+{candidates_text}
+
+Pick the BEST 8 using culinary judgment AND the user's personal taste:
+- Do their ingredients form the CORE FLAVOR of the dish?
+- Are missing items minor or essential?
+- Does this match what this user typically enjoys cooking?
+- Would they realistically make this today?
+
+Return ONLY valid JSON:
+{{
+  "picks": [
+    {{"n": 3, "tip": "Matches your love of Asian flavours — soy and ginger are perfect here"}},
+    {{"n": 7, "tip": "All key ingredients ready, classic dish you'll enjoy"}},
+    {{"n": 1, "tip": "Quick and easy, fits your usual cooking style"}}
+  ]
+}}
+
+Tip must reference their specific ingredients or taste, max 14 words."""
+
+    try:
+        response = get_groq_client().chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.15,
+        )
+        text = response.choices[0].message.content.strip()
+        start = text.find('{')
+        end = text.rfind('}') + 1
+        result = json.loads(text[start:end]) if start != -1 else {}
+
+        picks = result.get('picks', [])
+        reranked = []
+        seen = set()
+
+        for pick in picks:
+            n = pick.get('n', 0)
+            if n < 1 or n > len(candidates) or n in seen:
+                continue
+            seen.add(n)
+            recipe = candidates[n - 1].copy()
+            recipe['chef_tip'] = pick.get('tip', '')
+            reranked.append(recipe)
+
+        # Safety: append any DB results Groq skipped (for completeness)
+        for i, r in enumerate(candidates):
+            if (i + 1) not in seen and len(reranked) < 10:
+                reranked.append(r)
+
+        return reranked
+
+    except Exception:
+        return candidates
+
+
+def fetch_dish_image(recipe_name: str, cuisine: str = '', ingredients: str = '', offset: int = 0) -> str:
+    """
+    Search Pinterest for an accurate food photo using pinterest-dl.
+    Uses the full recipe name (including modifiers like 'Spicy', 'with Egg', etc.)
+    so each variant produces a genuinely different Pinterest result set.
+    offset picks a different image within that set for extra variety.
+    Returns the i.pinimg.com image URL, or '' if nothing found.
+    """
+    try:
+        # Use the full name so "Spicy Ayam Masak Kuning" and "Ayam Masak Kuning with Egg"
+        # each return a visually different set of Pinterest photos
+        query = f"{recipe_name} food"
+
+        # Append first key ingredient for even more specificity
+        if ingredients:
+            first_ing = ingredients.split(',')[0].strip()
+            first_ing = re.sub(
+                r'[\d½¼¾]+\s*(g|kg|ml|l|cup|tbsp|tsp|oz|lb|cloves?|medium|large|small)?\s*',
+                '', first_ing, flags=re.IGNORECASE).strip()
+            first_ing = re.sub(r'\(.*?\)', '', first_ing).strip()
+            if first_ing and len(first_ing) > 2:
+                query += f" {first_ing.split()[0]}"
+
+        results = get_pinterest_scraper().search(query, num=10, min_resolution=(200, 200))
+        if results:
+            return results[offset % len(results)].src
+    except Exception as e:
+        print(f"[fetch_dish_image] {recipe_name}: {e}")
+    return ''
+
+
+def groq_generate_recipes(user_ingredients: str, dietary_profile=None, taste_profile: dict = None) -> list:
+    """
+    Generate 3 distinct AI recipes personalised to this specific user.
+    Considers their dietary restrictions AND their taste history.
+    """
+    dietary_note = ""
+    if dietary_profile and dietary_profile.diet_type:
+        dietary_note = f"Dietary requirement: {dietary_profile.diet_type} only. "
+
+    taste_note = ""
+    if taste_profile and taste_profile.get('profile_text'):
+        taste_note = f"Personalisation: {taste_profile['profile_text']} Make at least one recipe that suits their preferred style."
+        if taste_profile.get('top_cuisines'):
+            taste_note += f" Lean towards {', '.join(taste_profile['top_cuisines'][:2])} cuisine where possible."
+
+    prompt = f"""You are a personal AI chef creating customised recipes for a specific user.
+
+Their available ingredients: {user_ingredients}
+{dietary_note}{taste_note}
+You may add pantry staples (oil, salt, pepper, water, basic spices).
+
+Generate 3 DIFFERENT creative recipes. Make each one distinct in style or cooking method.
+At least one should be quick (under 30 min). At least one should feel special/exciting.
+
+Return ONLY valid JSON:
+{{
+  "recipes": [
+    {{
+      "recipe_name": "Creative name",
+      "cuisine": "cuisine type",
+      "difficulty": "easy|medium|hard",
+      "estimated_time_mins": 25,
+      "calories": 420,
+      "ingredients": "full ingredient list with quantities",
+      "instructions": "Step 1: ... Step 2: ... Step 3: ... Step 4: ...",
+      "chef_tip": "One pro tip to elevate this dish",
+      "why_it_works": "Why this combination works + why it suits this user (1–2 sentences)"
+    }},
+    {{}},
+    {{}}
+  ]
+}}"""
+
+    response = get_groq_client().chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=2000,
+        temperature=0.85,
+    )
+    text = response.choices[0].message.content.strip()
+    start = text.find('{')
+    end = text.rfind('}') + 1
+    result = json.loads(text[start:end]) if start != -1 else {}
+    return result.get('recipes', [])
+
+
 @app.route("/recommend")
 @login_required
 def recommend_page():
@@ -1801,22 +2215,175 @@ def get_recommendations():
     try:
         data = request.get_json()
         user_ingredients = data.get('ingredients', '')
+        user_context = data.get('context', '').strip()   # e.g. "something quick for 2 people"
         if not user_ingredients:
             return jsonify({'error': 'Please enter at least one ingredient'}), 400
 
-        recommender = get_recommender()
-        recommendations = recommender.fridge_search(user_ingredients, top_k=30)
+        # Append free-text context to ingredients so all Groq calls see it
+        full_query = user_ingredients
+        if user_context:
+            full_query = f"{user_ingredients}. User wants: {user_context}"
 
+        # === Build user taste profile (personalisation) ===
+        taste_profile = get_user_taste_profile(current_user.id)
+
+        # === Layer 1: AI Ingredient Intelligence + DB search run in parallel ===
+        ai_context = {}
+        rec_engine = get_recommender()
+
+        def _run_ingredient_intelligence():
+            try:
+                return groq_ingredient_intelligence(full_query)
+            except Exception:
+                return {}
+
+        def _run_db_search():
+            return rec_engine.fridge_search(user_ingredients, top_k=30)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_ai   = executor.submit(_run_ingredient_intelligence)
+            future_db   = executor.submit(_run_db_search)
+            ai_context      = future_ai.result(timeout=8)
+            original_results = future_db.result(timeout=15)
+
+        # Build enriched search query from normalized + expanded terms
+        expanded_ingredients = user_ingredients
+        try:
+            all_terms = list(set(
+                ai_context.get('normalized', []) +
+                ai_context.get('expanded_search', [])
+            ))
+            if all_terms:
+                expanded_ingredients = ', '.join(all_terms)
+        except Exception:
+            pass
+
+        # Expanded DB search (only if terms differ)
+        expanded_results = (
+            rec_engine.fridge_search(expanded_ingredients, top_k=30)
+            if expanded_ingredients != user_ingredients else []
+        )
+
+        # Merge both searches — keep best match_pct per recipe_id
+        seen_ids = {}
+        for r in original_results + expanded_results:
+            rid = r['recipe_id']
+            if rid not in seen_ids or r['match_pct'] > seen_ids[rid]['match_pct']:
+                seen_ids[rid] = r
+        candidates = sorted(seen_ids.values(), key=lambda x: (x['match_pct'], x['semantic_score']), reverse=True)
+
+        # Apply dietary filter
         profile = DietaryProfile.query.filter_by(user_id=current_user.id).first()
         if profile:
-            allowed_ids = set(apply_dietary_filter(recommender.df.copy(), profile)['recipe_id'].tolist())
-            recommendations = [r for r in recommendations if r['recipe_id'] in allowed_ids]
+            allowed_ids = set(apply_dietary_filter(rec_engine.df.copy(), profile)['recipe_id'].tolist())
+            candidates = [r for r in candidates if r['recipe_id'] in allowed_ids]
+
+        # Raw best match before AI re-ranking (for fallback decision)
+        best_raw_match = candidates[0]['match_pct'] if candidates else 0
+
+        # === Layer 3: Groq Re-ranking — AI judges which recipes truly fit ===
+        # Pass top 25 candidates so Groq has enough to work with.
+        # It returns them re-ordered by culinary fit, not just token count.
+        try:
+            recommendations = groq_rerank_with_insights(full_query, candidates[:25], taste_profile)
+        except Exception:
+            recommendations = candidates[:10]
 
         recommendations = recommendations[:10]
+        best_match = best_raw_match
 
-        return jsonify({'recommendations': recommendations})
+        # === Layer 4: AI-Generated Recipes — always shown, always 3 ===
+        ai_recipes = []
+        try:
+            generated_list = groq_generate_recipes(full_query, profile, taste_profile)
+            ingredient_count = len([i for i in user_ingredients.split(',') if i.strip()])
+            for idx, g in enumerate(generated_list):
+                if not g.get('recipe_name'):
+                    continue
+                cook_time = g.get('estimated_time_mins', 30)
+                raw_inst = g.get('instructions', '')
+                fmt_inst = re.sub(r'\s*(Step \d+:)', r' | \1', raw_inst).strip(' |')
+                recipe_obj = {
+                    'recipe_id': f'ai_{idx}',
+                    'recipe_name': g.get('recipe_name', 'AI Recipe'),
+                    'cuisine': g.get('cuisine', 'Fusion'),
+                    'difficulty': g.get('difficulty', 'easy'),
+                    'calories': g.get('calories', 0),
+                    'rating': 5.0,
+                    'ingredients': g.get('ingredients', user_ingredients),
+                    'instructions': fmt_inst,
+                    'chef_tip': g.get('chef_tip', ''),
+                    'why_it_works': g.get('why_it_works', ''),
+                    'estimated_time_mins': cook_time,
+                    'cook_time': cook_time,
+                    'match_pct': 100,
+                    'matched_count': ingredient_count,
+                    'total_ingredients': ingredient_count,
+                    'missing_ingredients': [],
+                    'semantic_score': 0,
+                    'image_url': '',
+                    'is_ai_generated': True,
+                    '_temp_idx': idx,
+                }
+                ai_recipes.append(recipe_obj)
+
+            # Fetch images in parallel so all run at the same time instead of sequentially
+            def _fetch_img(item):
+                url = fetch_dish_image(
+                    item['recipe_name'], item['cuisine'], item['ingredients'], offset=item['_temp_idx']
+                )
+                return item['recipe_id'], url
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {executor.submit(_fetch_img, r): r for r in ai_recipes}
+                img_map = {}
+                for future in as_completed(futures):
+                    try:
+                        rid, url = future.result(timeout=4)
+                        img_map[rid] = url
+                    except Exception:
+                        pass
+
+            for r in ai_recipes:
+                r['image_url'] = img_map.get(r['recipe_id'], '')
+                r.pop('_temp_idx', None)
+
+            # Store all in session; /recipe/ai?n=0 serves by index
+            session['ai_generated_recipes'] = ai_recipes
+        except Exception:
+            pass
+
+        return jsonify({
+            'recommendations': recommendations,
+            'ai_recipes': ai_recipes,
+            'ai_context': {
+                'cuisine_context': ai_context.get('cuisine_context', ''),
+                'cooking_insight': ai_context.get('cooking_insight', ''),
+            },
+            'personalisation': {
+                'has_history': taste_profile.get('has_history', False),
+                'top_cuisines': taste_profile.get('top_cuisines', []),
+                'saved_count': taste_profile.get('saved_count', 0),
+            }
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route("/recipe/ai")
+@login_required
+def ai_recipe_detail():
+    idx = request.args.get('n', 0, type=int)
+    recipes = session.get('ai_generated_recipes', [])
+    if not recipes:
+        # backwards compat: single recipe
+        single = session.get('ai_generated_recipe')
+        if single:
+            recipes = [single]
+    if not recipes or idx >= len(recipes):
+        flash("No AI recipe found. Please generate one from the recommend page.", "warning")
+        return redirect(url_for('recommend_page'))
+    return render_template("recipe_detail.html", recipe=recipes[idx], is_ai_recipe=True)
+
 
 @app.route("/transcribe-audio", methods=["POST"])
 @web_or_jwt_required
@@ -2579,48 +3146,46 @@ def api_get_categories():
     profile = DietaryProfile.query.filter_by(user_id=user_id).first()
     df = apply_dietary_filter(df, profile)
 
+    CATEGORY_IMAGES = {
+        'Rice Dishes':                  'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg',
+        'Noodles & Pasta':              'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg',
+        'Chicken Dishes':               'https://images.pexels.com/photos/2338407/pexels-photo-2338407.jpeg',
+        'Meat Dishes':                  'https://images.pexels.com/photos/361184/asparagus-steak-veal-steak-361184.jpeg',
+        'Beef & Lamb Dishes':           'https://images.pexels.com/photos/3535383/pexels-photo-3535383.jpeg',
+        'Fish & Seafood':               'https://images.pexels.com/photos/725991/pexels-photo-725991.jpeg',
+        'Seafood':                      'https://images.pexels.com/photos/725991/pexels-photo-725991.jpeg',
+        'Soups & Stews':                'https://images.pexels.com/photos/539451/pexels-photo-539451.jpeg',
+        'Soups & Broths':               'https://images.pexels.com/photos/539451/pexels-photo-539451.jpeg',
+        'Curries, Gulai & Coconut Stews': 'https://images.pexels.com/photos/2474661/pexels-photo-2474661.jpeg',
+        'Kuih & Desserts':              'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg',
+        'Kuih, Cakes & Desserts':       'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg',
+        'Grilled Dishes':               'https://images.pexels.com/photos/1058277/pexels-photo-1058277.jpeg',
+        'Breakfast & Tea-Time':         'https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg',
+        'Bread & Roti':                 'https://images.pexels.com/photos/1775043/pexels-photo-1775043.jpeg',
+        'Snacks':                       'https://images.pexels.com/photos/1893556/pexels-photo-1893556.jpeg',
+        'Salads':                       'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg',
+        'Vegetables':                   'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg',
+        'Condiments':                   'https://images.pexels.com/photos/4518844/pexels-photo-4518844.jpeg',
+        'Sambal & Spicy Dishes':        'https://images.pexels.com/photos/2474661/pexels-photo-2474661.jpeg',
+        'Drinks':                       'https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg',
+        'Western & Global':             'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg',
+        'Asian':                        'https://images.pexels.com/photos/3475617/pexels-photo-3475617.jpeg',
+    }
+
     categories_data = []
-    used_images = set()
-    
     if 'display_category' in df.columns:
         unique_categories = [c for c in df['display_category'].dropna().unique() if str(c).strip().lower() != 'vegetables & vegetarian']
         if 'Asian' not in unique_categories:
             unique_categories.append('Asian')
-            
         for cat in unique_categories:
             cat_str = str(cat).strip()
             if not cat_str or cat_str.lower() == 'nan':
                 continue
-                
-            if cat_str == 'Asian':
-                cat_df = df[df['cuisine'].str.lower() == 'asian']
-            else:
-                cat_df = df[df['display_category'] == cat]
-                
-            img_url = ""
-            for _, row in cat_df.iterrows():
-                row_img = str(row.get('image_url', ''))
-                if row_img and row_img.lower() not in ['nan', 'none', '']:
-                    if row_img not in used_images:
-                        img_url = row_img
-                        used_images.add(row_img)
-                        break
-                        
-            if not img_url:
-                for _, row in cat_df.iterrows():
-                    row_img = str(row.get('image_url', ''))
-                    if row_img and row_img.lower() not in ['nan', 'none', '']:
-                        img_url = row_img
-                        break
-                        
-            if not img_url:
-                img_url = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
-                
             categories_data.append({
                 'name': cat_str,
-                'image': img_url
+                'image': CATEGORY_IMAGES.get(cat_str, 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg')
             })
-            
+
     return jsonify({'categories': categories_data})
 
 
@@ -3167,25 +3732,8 @@ def _get_substitute_logic(ingredient):
     if static_subs:
         return static_subs
 
-    # 2. If not in static, use AI magic
-    prompt = (
-        f"As a master chef, suggest 2-3 best culinary substitutes for '{ingredient}'. "
-        "For each substitute, provide a short reason or tip (max 10 words). "
-        "Return ONLY a JSON list of lists, like: [['sub1', 'tip1'], ['sub2', 'tip2']]"
-    )
-    
-    response = get_groq_client().chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-        max_tokens=200
-    )
-    
-    content = response.choices[0].message.content
-    ai_data = json.loads(content)
-    # Handle different possible JSON structures from AI
-    subs = ai_data.get('substitutes', ai_data.get('results', list(ai_data.values())[0]))
-    return subs
+    # 2. No match in static list — return a generic fallback (no AI token cost)
+    return [("Check your pantry", "look for similar flavour or texture"), ("Ask ChefGPT chat", "for personalised suggestions")]
 
 @app.route("/get-substitute", methods=["POST"])
 @login_required

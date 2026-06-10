@@ -6,6 +6,19 @@ import numpy as np
 import re
 
 #for excluding keywords
+# Ingredients everyone has — don't count as "missing" in match_pct
+PANTRY_STAPLES = {
+    'salt', 'pepper', 'water', 'oil', 'olive oil', 'vegetable oil', 'cooking oil',
+    'sugar', 'flour', 'butter', 'baking soda', 'baking powder', 'vanilla', 'vinegar',
+    'cornstarch', 'cornflour', 'stock', 'broth', 'bouillon', 'seasoning',
+}
+
+def is_pantry_staple(ingredient_text: str) -> bool:
+    """Return True if the cleaned ingredient is a common pantry staple."""
+    text = ingredient_text.lower()
+    return any(staple in text for staple in PANTRY_STAPLES)
+
+
 def clean_ingredients_for_ml(raw):
     raw = str(raw).lower()
     raw = re.sub(r'\d+\.?\d*\/?\d*', '', raw)
@@ -272,7 +285,7 @@ class RecipeRecommender:
         semantic_scores = cosine_similarity(user_embedding, self.recipe_embeddings)[0]
 
         results = []
-        for idx, row in self.df.iterrows():
+        for i, (idx, row) in enumerate(self.df.iterrows()):
             # Parse recipe ingredients — split by comma FIRST, then clean each one
             recipe_items = set()
             for item in row['ingredients'].split(','):
@@ -280,17 +293,22 @@ class RecipeRecommender:
                 if cleaned and len(cleaned) > 2:
                     recipe_items.add(cleaned)
 
-            total = len(recipe_items)
+            # Separate pantry staples from meaningful ingredients
+            pantry_items = {item for item in recipe_items if is_pantry_staple(item)}
+            meaningful_items = recipe_items - pantry_items
+
+            total = len(meaningful_items) if meaningful_items else len(recipe_items)
             matched_recipe_items = set()
-            for recipe_item in recipe_items:
+            for recipe_item in (meaningful_items or recipe_items):
                 if any(ingredients_match(user_item, recipe_item) for user_item in user_items):
                     matched_recipe_items.add(recipe_item)
 
             matched = len(matched_recipe_items)
-            missing = list(recipe_items - matched_recipe_items)
+            missing = list((meaningful_items or recipe_items) - matched_recipe_items)
             match_pct = round((matched / total) * 100) if total > 0 else 0
 
             if matched > 0:
+                sem_score = round(float(semantic_scores[i]) * 100, 2) if i < len(semantic_scores) else 0.0
                 results.append({
                     'recipe_id': int(row['recipe_id']),
                     'recipe_name': row['recipe_name'],
@@ -303,7 +321,7 @@ class RecipeRecommender:
                     'total_ingredients': total,
                     'missing_ingredients': missing,
                     'match_pct': match_pct,
-                    'semantic_score': round(float(semantic_scores[idx]) * 100, 2),
+                    'semantic_score': sem_score,
                     'image_url': row.get('image_url', '') or '',
                 })
 
@@ -368,6 +386,14 @@ def reload_recommender_data():
             fresh_df.columns = fresh_df.columns.str.strip()
             if 'recipe_id' not in fresh_df.columns:
                 fresh_df.insert(0, 'recipe_id', range(1, len(fresh_df) + 1))
+            
+            # If models are loaded, check if the list of recipe IDs or counts has changed.
+            # If it has changed (addition or deletion), we must rebuild everything, so invalidate recommender.
+            if recommender.recipe_embeddings is not None:
+                if len(fresh_df) != len(recommender.recipe_embeddings) or not fresh_df['recipe_id'].equals(recommender.df['recipe_id']):
+                    recommender = None
+                    return
+            
             recommender.df = fresh_df
         except Exception:
             # If reload fails, fall back to full reset on next request

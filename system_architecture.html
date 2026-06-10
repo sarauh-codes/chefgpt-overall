@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>ChefGPT – System Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #eef2ff;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 60px;
+      min-height: 100vh;
+    }
+    h1 { font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 5px; text-align: center; }
+    .subtitle { font-size: 13px; color: #64748b; margin-bottom: 24px; text-align: center; }
+    .wrap {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 6px 40px rgba(99,102,241,.14);
+      padding: 36px 28px 40px;
+      width: 100%; max-width: 960px;
+    }
+    svg { width: 100%; height: auto; display: block; overflow: visible; }
+    .footer { margin-top: 16px; font-size: 11px; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+
+<h1>ChefGPT — System Architecture</h1>
+<p class="subtitle">Web &amp; Mobile · Flask · Groq LLaMA 3 · BM25 + Semantic Search · SQLite</p>
+
+<div class="wrap">
+<svg viewBox="0 0 920 770" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+
+<defs>
+  <marker id="a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#334155"/>
+  </marker>
+  <marker id="al" markerWidth="8" markerHeight="6" refX="1" refY="3" orient="auto">
+    <polygon points="8 0,0 3,8 6" fill="#334155"/>
+  </marker>
+</defs>
+
+<!-- Light background -->
+<rect width="920" height="770" fill="#f1f5f9" rx="14"/>
+
+<!-- ══════════════════════════════════════════
+     USER STICK FIGURE
+══════════════════════════════════════════ -->
+<circle cx="65" cy="108" r="17" fill="white" stroke="#334155" stroke-width="2"/>
+<line x1="65" y1="125" x2="65" y2="164" stroke="#334155" stroke-width="2.5"/>
+<line x1="44" y1="141" x2="86" y2="141" stroke="#334155" stroke-width="2.5"/>
+<line x1="65" y1="164" x2="46" y2="188" stroke="#334155" stroke-width="2.5"/>
+<line x1="65" y1="164" x2="84" y2="188" stroke="#334155" stroke-width="2.5"/>
+<text x="65" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">User</text>
+
+<!-- Interacts arrow (User → Front-End) -->
+<line x1="86" y1="135" x2="122" y2="153" stroke="#334155" stroke-width="1.8" marker-end="url(#a)"/>
+<text x="108" y="125" text-anchor="middle" font-size="9.5" font-weight="600" fill="#334155">Interacts</text>
+
+<!-- Receives arrow (Front-End → User) -->
+<line x1="122" y1="175" x2="88" y2="157" stroke="#334155" stroke-width="1.8" marker-end="url(#al)"/>
+<text x="105" y="188" text-anchor="middle" font-size="9.5" font-weight="600" fill="#334155">Receives</text>
+
+
+<!-- ══════════════════════════════════════════
+     ADMIN STICK FIGURE
+══════════════════════════════════════════ -->
+<circle cx="65" cy="370" r="17" fill="white" stroke="#334155" stroke-width="2"/>
+<line x1="65" y1="387" x2="65" y2="426" stroke="#334155" stroke-width="2.5"/>
+<line x1="44" y1="403" x2="86" y2="403" stroke="#334155" stroke-width="2.5"/>
+<line x1="65" y1="426" x2="46" y2="450" stroke="#334155" stroke-width="2.5"/>
+<line x1="65" y1="426" x2="84" y2="450" stroke="#334155" stroke-width="2.5"/>
+<text x="65" y="468" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">Admin</text>
+
+<!-- Accesses Admin Panel arrow (Admin → Front-End) -->
+<line x1="86" y1="365" x2="122" y2="335" stroke="#334155" stroke-width="1.8" marker-end="url(#a)"/>
+<text x="104" y="380" text-anchor="middle" font-size="9.5" font-weight="600" fill="#334155">Accesses</text>
+<text x="104" y="393" text-anchor="middle" font-size="9.5" font-weight="600" fill="#334155">Admin Panel</text>
+
+
+<!-- ══════════════════════════════════════════
+     FRONT-END BOX   x=130 y=40 w=270 h=440
+══════════════════════════════════════════ -->
+<rect x="130" y="40" width="270" height="440" rx="16" fill="white" stroke="#7c3aed" stroke-width="2.5"/>
+<!-- Purple header -->
+<rect x="130" y="40" width="270" height="44" rx="14" fill="#7c3aed"/>
+<rect x="130" y="65" width="270" height="19" fill="#7c3aed"/>
+<text x="265" y="70" text-anchor="middle" font-size="15" font-weight="800" fill="white">Front-End</text>
+
+<!-- Web + Mobile subtitle -->
+<text x="265" y="99" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">🌐 Web Browser  ·  📱 Mobile App (Android)</text>
+
+<!-- Divider -->
+<line x1="148" y1="109" x2="382" y2="109" stroke="#ddd6fe" stroke-width="1.5"/>
+
+<!-- Input pills -->
+<rect x="165" y="117" width="200" height="28" rx="14" fill="#ede9fe" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="265" y="136" text-anchor="middle" font-size="12" font-weight="600" fill="#5b21b6">📝  Text Input</text>
+
+<rect x="165" y="152" width="200" height="28" rx="14" fill="#ede9fe" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="265" y="171" text-anchor="middle" font-size="12" font-weight="600" fill="#5b21b6">🖼️  Image Input</text>
+
+<rect x="165" y="187" width="200" height="28" rx="14" fill="#ede9fe" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="265" y="206" text-anchor="middle" font-size="12" font-weight="600" fill="#5b21b6">🎙️  Voice Input</text>
+
+<!-- Dashed divider -->
+<line x1="148" y1="225" x2="382" y2="225" stroke="#ddd6fe" stroke-width="1" stroke-dasharray="5,3"/>
+
+<!-- 🔐 User Authentication section -->
+<text x="148" y="243" font-size="9.5" font-weight="800" fill="#7c3aed">🔐  USER AUTHENTICATION</text>
+<text x="148" y="260" font-size="9.5" fill="#475569">Session Login  —  Web Browser</text>
+<text x="148" y="276" font-size="9.5" fill="#475569">JWT Token Login  —  Mobile App (Android)</text>
+
+<!-- Dashed divider -->
+<line x1="148" y1="289" x2="382" y2="289" stroke="#ddd6fe" stroke-width="1" stroke-dasharray="5,3"/>
+
+<!-- ⚙️ Admin Panel section -->
+<text x="148" y="307" font-size="9.5" font-weight="800" fill="#7c3aed">⚙️  ADMIN PANEL</text>
+<text x="148" y="324" font-size="9.5" fill="#475569">Recipe &amp; User Management</text>
+<text x="148" y="340" font-size="9.5" fill="#475569">Audit Logs  ·  Analytics Dashboard</text>
+
+<!-- Dashed divider -->
+<line x1="148" y1="353" x2="382" y2="353" stroke="#ddd6fe" stroke-width="1" stroke-dasharray="5,3"/>
+
+<!-- Tech stack -->
+<text x="265" y="371" text-anchor="middle" font-size="9" fill="#a78bfa" font-style="italic">Python · Flask · Jinja2 · Flutter</text>
+<text x="265" y="386" text-anchor="middle" font-size="9" fill="#a78bfa" font-style="italic">Flask-Login · Flask-JWT · CORS</text>
+<text x="265" y="401" text-anchor="middle" font-size="9" fill="#a78bfa" font-style="italic">Flask-Bcrypt · SQLAlchemy</text>
+
+
+<!-- ══════════════════════════════════════════
+     TRIGGERS ARROW  (Front-End → Features)
+══════════════════════════════════════════ -->
+<line x1="406" y1="260" x2="474" y2="260" stroke="#334155" stroke-width="2.2" marker-end="url(#a)"/>
+<text x="440" y="250" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">Triggers</text>
+
+
+<!-- ══════════════════════════════════════════
+     FEATURES BOX   x=480 y=40 w=410 h=440
+══════════════════════════════════════════ -->
+<rect x="480" y="40" width="410" height="440" rx="16" fill="white" stroke="#0369a1" stroke-width="2.5"/>
+<!-- Blue header -->
+<rect x="480" y="40" width="410" height="44" rx="14" fill="#0369a1"/>
+<rect x="480" y="65" width="410" height="19" fill="#0369a1"/>
+<text x="685" y="70" text-anchor="middle" font-size="15" font-weight="800" fill="white">Features</text>
+
+<!-- 8 feature pills -->
+<rect x="500" y="95" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="115" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">🍽️  Recipe Recommendations</text>
+
+<rect x="500" y="133" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="153" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">🔍  Search &amp; Filter</text>
+
+<rect x="500" y="171" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="191" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">📅  Weekly Meal Planner</text>
+
+<rect x="500" y="209" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="229" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">🤖  AI Chef Chat</text>
+
+<rect x="500" y="247" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="267" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">👨‍🍳  Cooking Mode</text>
+
+<rect x="500" y="285" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="305" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">⭐  Feedback &amp; Rating</text>
+
+<rect x="500" y="323" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="343" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">⚙️  Admin Dashboard</text>
+
+<rect x="500" y="361" width="370" height="30" rx="15" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="685" y="381" text-anchor="middle" font-size="11.5" font-weight="600" fill="#075985">🇲🇾  Bahasa Melayu Translation</text>
+
+
+<!-- ══════════════════════════════════════════
+     USING ARROW  (Features → Back-End, curved)
+══════════════════════════════════════════ -->
+<path d="M 500 480 Q 440 500 380 535"
+      fill="none" stroke="#334155" stroke-width="2.2" marker-end="url(#a)"/>
+<text x="445" y="495" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">Using</text>
+
+<!-- UPDATES ARROW  (Back-End → Front-End, straight up) -->
+<line x1="240" y1="520" x2="240" y2="489" stroke="#334155" stroke-width="2.2" marker-end="url(#a)"/>
+<text x="225" y="510" text-anchor="end" font-size="11" font-weight="700" fill="#334155">Updates</text>
+
+
+<!-- ══════════════════════════════════════════
+     BACK-END BOX   x=130 y=525 w=270 h=205
+══════════════════════════════════════════ -->
+<rect x="130" y="525" width="270" height="205" rx="16" fill="white" stroke="#b45309" stroke-width="2.5"/>
+<!-- Orange header -->
+<rect x="130" y="525" width="270" height="44" rx="14" fill="#b45309"/>
+<rect x="130" y="550" width="270" height="19" fill="#b45309"/>
+<text x="265" y="555" text-anchor="middle" font-size="15" font-weight="800" fill="white">Back-End</text>
+
+<text x="265" y="581" text-anchor="middle" font-size="9.5" fill="#92400e" font-weight="600">Flask API · SQLite · Pandas · RECIPES.csv</text>
+<line x1="148" y1="590" x2="382" y2="590" stroke="#fde68a" stroke-width="1"/>
+
+<!-- Pills row 1 -->
+<rect x="145" y="598" width="115" height="27" rx="13" fill="#fef9c3" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="202.5" y="616" text-anchor="middle" font-size="9.5" font-weight="600" fill="#78350f">🧠 MiniLM (Semantic)</text>
+
+<rect x="270" y="598" width="115" height="27" rx="13" fill="#fef9c3" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="327.5" y="616" text-anchor="middle" font-size="9.5" font-weight="600" fill="#78350f">📝 BM25 (Keyword)</text>
+
+<!-- Pills row 2 -->
+<rect x="145" y="632" width="115" height="27" rx="13" fill="#fef9c3" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="202.5" y="650" text-anchor="middle" font-size="9.5" font-weight="600" fill="#78350f">🎙️ Whisper (Voice)</text>
+
+<rect x="270" y="632" width="115" height="27" rx="13" fill="#fef9c3" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="327.5" y="650" text-anchor="middle" font-size="9.5" font-weight="600" fill="#78350f">⚡ Groq LLaMA 3</text>
+
+<!-- Wide pill -->
+<rect x="160" y="666" width="210" height="27" rx="13" fill="#fef9c3" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="265" y="684" text-anchor="middle" font-size="9.5" font-weight="600" fill="#78350f">🔍 Hybrid Recommender Engine</text>
+
+
+<!-- ══════════════════════════════════════════
+     API CALLS ARROW  (Back-End → External APIs)
+══════════════════════════════════════════ -->
+<line x1="406" y1="627" x2="474" y2="627" stroke="#334155" stroke-width="2.2" marker-end="url(#a)"/>
+<text x="440" y="617" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">API Calls</text>
+
+
+<!-- ══════════════════════════════════════════
+     EXTERNAL APIs BOX   x=480 y=525 w=410 h=205
+══════════════════════════════════════════ -->
+<rect x="480" y="525" width="410" height="205" rx="16" fill="white" stroke="#be185d" stroke-width="2.5"/>
+<!-- Pink header -->
+<rect x="480" y="525" width="410" height="44" rx="14" fill="#be185d"/>
+<rect x="480" y="550" width="410" height="19" fill="#be185d"/>
+<text x="685" y="555" text-anchor="middle" font-size="15" font-weight="800" fill="white">External APIs</text>
+
+<!-- 4 pills -->
+<rect x="500" y="577" width="370" height="27" rx="13" fill="#fce7f3" stroke="#f472b6" stroke-width="1.5"/>
+<text x="685" y="595" text-anchor="middle" font-size="11" font-weight="600" fill="#831843">⚡  Groq Cloud (LLM Inference)</text>
+
+<rect x="500" y="612" width="370" height="27" rx="13" fill="#fce7f3" stroke="#f472b6" stroke-width="1.5"/>
+<text x="685" y="630" text-anchor="middle" font-size="11" font-weight="600" fill="#831843">🌍  Google Translate (EN to BM)</text>
+
+<rect x="500" y="647" width="370" height="27" rx="13" fill="#fce7f3" stroke="#f472b6" stroke-width="1.5"/>
+<text x="685" y="665" text-anchor="middle" font-size="11" font-weight="600" fill="#831843">📌  Pinterest / Wikipedia (Images)</text>
+
+<rect x="500" y="682" width="370" height="27" rx="13" fill="#fce7f3" stroke="#f472b6" stroke-width="1.5"/>
+<text x="685" y="700" text-anchor="middle" font-size="11" font-weight="600" fill="#831843">🤗  HuggingFace (Model Weights)</text>
+
+
+<!-- ══════════════════════════════════════════
+     BOTTOM TITLE
+══════════════════════════════════════════ -->
+<rect x="280" y="745" width="360" height="0" rx="0" fill="none"/>
+<text x="460" y="755" text-anchor="middle" font-size="12" font-weight="700" fill="#6366f1">ChefGPT  —  System Architecture  ·  v2.0  ·  2026</text>
+
+</svg>
+</div>
+
+<p class="footer">ChefGPT · Flask · Python 3 · Groq LLaMA 3 · Flutter (Android) · SQLite · June 2026</p>
+
+</body>
+</html>

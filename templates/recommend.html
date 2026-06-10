@@ -27,24 +27,42 @@
 
             <!-- Tab 1: Text -->
             <div class="tab-content" id="content-text">
-                <p class="search-subtitle">Enter your available ingredients (comma-separated)</p>
-                <div class="input-group">
+                <p class="search-subtitle">Type an ingredient and press <strong>Enter</strong> or <strong>comma</strong> to add it</p>
+                <input type="hidden" id="ingredients-input">
+                <div class="chips-input-wrapper">
+                    <div class="chips-container" id="chips-container" onclick="document.getElementById('ingredient-typing-input').focus()">
+                        <input
+                            type="text"
+                            id="ingredient-typing-input"
+                            placeholder="e.g. chicken, rice, tomato..."
+                            autocomplete="off"
+                        >
+                    </div>
+                    <button class="btn-search" id="text-search-btn" onclick="getRecommendations()">Get Recipes</button>
+                </div>
+                <div class="ingredient-meta">
+                    <span class="ingredient-count" id="ingredient-count" style="display:none;">
+                        <span id="count-text"></span>
+                        <button class="clear-chips-btn" onclick="clearAllChips()">Clear all</button>
+                    </span>
+                </div>
+
+                <div class="context-input-wrap">
                     <input
                         type="text"
-                        id="ingredients-input"
-                        placeholder="e.g., chicken, rice, egg, tomato"
+                        id="cooking-context-input"
+                        placeholder="Optional: tell the AI what you're after — e.g. something quick, healthy, for 2 people..."
                         autocomplete="off"
                     >
-                    <button class="btn-search" onclick="getRecommendations()">Get Recipes</button>
                 </div>
-                
+
                 <div class="quick-suggestions">
                     <span>💡 Popular:</span>
-                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'chicken, '">Chicken</button>
-                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'rice, '">Rice</button>
-                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'pasta, '">Pasta</button>
-                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'eggs, '">Eggs</button>
-                    <button class="suggestion-pill" onclick="document.getElementById('ingredients-input').value += 'tomatoes, '">Tomatoes</button>
+                    <button class="suggestion-pill" onclick="addChip('chicken')">Chicken</button>
+                    <button class="suggestion-pill" onclick="addChip('rice')">Rice</button>
+                    <button class="suggestion-pill" onclick="addChip('pasta')">Pasta</button>
+                    <button class="suggestion-pill" onclick="addChip('eggs')">Eggs</button>
+                    <button class="suggestion-pill" onclick="addChip('tomatoes')">Tomatoes</button>
                 </div>
             </div>
 
@@ -119,11 +137,27 @@
 
         <div class="loading" id="loading">
             <h3>🤖 AI is analyzing your ingredients...</h3>
-            <p>Please wait...</p>
+            <p>Normalizing ingredients, searching database, generating tips...</p>
         </div>
 
+        <div class="ai-insight-banner" id="ai-insight-banner" style="display:none;">
+            <span class="ai-insight-icon">✨</span>
+            <div class="ai-insight-text">
+                <span class="ai-insight-label">AI detected</span>
+                <span id="ai-insight-content"></span>
+            </div>
+            <span class="ai-insight-cuisine" id="ai-insight-cuisine"></span>
+        </div>
+
+        <div class="personalisation-badge" id="personalisation-badge" style="display:none;"></div>
+
+        <div class="result-filters" id="result-filters" style="display:none;"></div>
+
         <div class="results" id="results">
-            <h2>Recommended Recipes for You</h2>
+            <div class="results-header">
+                <h2>Recommended Recipes for You</h2>
+                <div class="result-summary" id="result-summary"></div>
+            </div>
             <div id="recipe-list"></div>
         </div>
     </div>
